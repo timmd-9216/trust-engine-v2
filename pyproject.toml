@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "mediaparty-trust-api"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = ["JuanCruzC97 <juancruzcamacho97@gmail.com>"]
+packages = [{ include = "mediaparty_trust_api", from = "src" }]
+
+[tool.poetry.dependencies]
+python = ">=3.12,<3.13"
+requests = ">=2.31.0"
+dotenv = ">=0.9.9"
+fastapi = ">=0.118.0"
+pydantic-settings = ">=2.11.0"
+uvicorn = ">=0.34.0"
+stanza = ">=1.10.1"
+dspy-ai = ">=2.5.0"
+pyyaml = ">=6.0.3"
+
+[tool.poetry.scripts]
+mediaparty-trust-api = "mediaparty_trust_api:main"
+
+[build-system]
+requires = ["poetry-core>=1.9.0"]
+build-backend = "poetry.core.masonry.api"
