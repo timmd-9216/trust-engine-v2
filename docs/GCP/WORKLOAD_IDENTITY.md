@@ -15,6 +15,7 @@ POOL=github-pool
 PROVIDER=github-provider
 SA_NAME=ci-deployer
 REPO="OWNER/REPO"   # adjust to this repo (no github.com prefix)
+POOL_NAME=$(gcloud iam workload-identity-pools describe $POOL --project=$PROJECT_ID --location=global --format='value(name)' || true)
 
 gcloud iam service-accounts create $SA_NAME --project $PROJECT_ID
 gcloud projects add-iam-policy-binding $PROJECT_ID \
@@ -47,11 +48,6 @@ gcloud iam service-accounts add-iam-policy-binding "${SA_NAME}@${PROJECT_ID}.iam
   --project=$PROJECT_ID \
   --member="principalSet://iam.googleapis.com/projects/${PROJECT_ID}/locations/global/workloadIdentityPools/${POOL}/attribute.repository/${REPO}" \
   --role="roles/iam.serviceAccountTokenCreator"
-
-gcloud iam service-accounts add-iam-policy-binding "${SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com" \
-  --project=$PROJECT_ID \
-  --member="principalSet://iam.googleapis.com/projects/${PROJECT_ID}/locations/global/workloadIdentityPools/${POOL}/attribute.repository/${REPO}" \
-  --role="roles/iam.workloadIdentityUser"
 
 # Add Artifact Registry + Cloud Run roles to the deployer (project-level)
 gcloud projects add-iam-policy-binding $PROJECT_ID \
@@ -87,8 +83,9 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
 Ensure the deploy service account (used in GitHub Actions) also has Artifact Registry permissions (already covered above via `roles/artifactregistry.admin`).
 
 ## Troubleshooting WIF setup errors
-- `INVALID_ARGUMENT: The attribute condition must reference one of the provider's claims`: avoid adding a condition when creating the provider; use the `--attribute-mapping` shown above and no `--attribute-condition`.
+- `INVALID_ARGUMENT: The attribute condition must reference one of the provider's claims`: ensure the provider has `--attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository"` and `--attribute-condition="attribute.repository=='OWNER/REPO'"` with the exact repo slug.
 - `Identity Pool does not exist ... workloadIdentityPools/github-pool`: wait a few seconds after creating the pool before binding, or verify the pool name with `gcloud iam workload-identity-pools describe github-pool --location=global --project=$PROJECT_ID`.
+- `Permission iam.serviceAccounts.getAccessToken denied`: add `roles/iam.serviceAccountTokenCreator` for the GitHub principal on the service account (see binding above).
 - `Role roles/storage.objectViewer is not supported`: do not bind this role directly to the service account for WIF; instead, grant the needed project roles (e.g., `roles/artifactregistry.writer`, `roles/run.admin`) as shown above.
 
 ## Terraform sketch (adjust names)
