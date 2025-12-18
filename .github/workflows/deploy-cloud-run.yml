@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
 
 env:
-  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  GCP_REGION: ${{ secrets.GCP_REGION }}
-  GCP_SERVICE_NAME: ${{ secrets.GCP_SERVICE_NAME }}
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID || vars.GCP_PROJECT_ID }}
+  GCP_REGION: ${{ secrets.GCP_REGION || vars.GCP_REGION }}
+  GCP_SERVICE_NAME: ${{ secrets.GCP_SERVICE_NAME || vars.GCP_SERVICE_NAME }}
   OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
   GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
   GCP_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
@@ -36,6 +36,13 @@ jobs:
         run: |
           if [ -z "${GCP_WORKLOAD_IDENTITY_PROVIDER}" ] || [ -z "${GCP_SERVICE_ACCOUNT_EMAIL}" ]; then
             echo "Missing GCP_WORKLOAD_IDENTITY_PROVIDER or GCP_SERVICE_ACCOUNT_EMAIL secrets; authentication cannot proceed." >&2
+            exit 1
+          fi
+
+      - name: Validate deployment env vars
+        run: |
+          if [ -z "${GCP_PROJECT_ID}" ] || [ -z "${GCP_REGION}" ] || [ -z "${GCP_SERVICE_NAME}" ]; then
+            echo "Missing GCP_PROJECT_ID, GCP_REGION, or GCP_SERVICE_NAME. Check repository/organization secrets or vars (env: trust-engine)." >&2
             exit 1
           fi
 

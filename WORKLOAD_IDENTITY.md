@@ -14,7 +14,7 @@ REGION=us-east1
 POOL=github-pool
 PROVIDER=github-provider
 SA_NAME=ci-deployer
-REPO="github.com/OWNER/REPO"   # adjust to this repo
+REPO="OWNER/REPO"   # adjust to this repo (no github.com prefix)
 
 gcloud iam service-accounts create $SA_NAME --project $PROJECT_ID
 gcloud projects add-iam-policy-binding $PROJECT_ID \
@@ -36,6 +36,7 @@ gcloud iam workload-identity-pools providers create-oidc $PROVIDER \
   --workload-identity-pool=$POOL \
   --display-name="GitHub Actions Provider" \
   --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository" \
+  --attribute-condition="attribute.repository=='${REPO}'" \
   --issuer-uri="https://token.actions.githubusercontent.com"
 
 gcloud iam service-accounts add-iam-policy-binding "${SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com" \
@@ -118,7 +119,7 @@ resource "google_workload_identity_pool_provider" "github_oidc" {
 resource "google_service_account_iam_member" "ci_wif_user" {
   service_account_id = google_service_account.ci.name
   role               = "roles/iam.workloadIdentityUser"
-  member             = "principalSet://iam.googleapis.com/${google_workload_identity_pool.github.name}/attribute.repository/github.com/OWNER/REPO"
+  member             = "principalSet://iam.googleapis.com/${google_workload_identity_pool.github.name}/attribute.repository/OWNER/REPO"
 }
 
 resource "google_project_iam_member" "ci_run_admin" {
