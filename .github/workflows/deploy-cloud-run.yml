@@ -11,6 +11,9 @@ env:
   GCP_REGION: ${{ secrets.GCP_REGION }}
   GCP_SERVICE_NAME: ${{ secrets.GCP_SERVICE_NAME }}
   OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+  GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+  GCP_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+  AR_REPO: cloud-run-source-deploy
 
 jobs:
   deploy:
@@ -28,24 +31,28 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Autenticarse con gcloud (CLI + ADC)
-        env:
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+      - name: Authenticate to Google Cloud (Workload Identity Federation)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Set gcloud project
+        run: gcloud config set project "${GCP_PROJECT_ID}"
+
+      - name: Ensure Artifact Registry repository
         run: |
-          if [ -z "$GCP_SA_KEY" ]; then
-            echo "❌ Missing GCP_SA_KEY secret for authentication." >&2
-            exit 1
+          if gcloud artifacts repositories describe "${AR_REPO}" \
+            --project "${GCP_PROJECT_ID}" \
+            --location "${GCP_REGION}" >/dev/null 2>&1; then
+            echo "Using existing repo: ${AR_REPO}"
+          else
+            echo "Creating repo: ${AR_REPO} in ${GCP_REGION}"
+            gcloud artifacts repositories create "${AR_REPO}" \
+              --repository-format=docker \
+              --location="${GCP_REGION}" \
+              --description="Docker repo for Cloud Run deployments"
           fi
-          echo "$GCP_SA_KEY" > "$HOME/gcp-key.json"
-          export GOOGLE_APPLICATION_CREDENTIALS="$HOME/gcp-key.json"
-          echo "GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS" >> "$GITHUB_ENV"
-          # Autenticación estilo CLI (equivalente a gcloud auth login)
-          gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
-          gcloud config set project "${GCP_PROJECT_ID}"
-          # Credenciales de Aplicación por defecto (~/.config/gcloud) para contenedores/SDKs
-          gcloud auth application-default activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
-          # Token de identidad para llamadas autenticadas si se necesita
-          echo "TOKEN=$(gcloud auth print-identity-token)" >> "$GITHUB_ENV"
 
       - name: Configure Docker for Artifact Registry
         run: |
@@ -53,7 +60,7 @@ jobs:
 
       - name: Build and Push Docker image
         run: |
-          IMAGE_NAME="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/cloud-run-source-deploy/${{ env.GCP_SERVICE_NAME }}"
+          IMAGE_NAME="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/${{ env.GCP_SERVICE_NAME }}"
           docker build -t ${IMAGE_NAME}:${{ github.sha }} -t ${IMAGE_NAME}:latest .
           docker push ${IMAGE_NAME}:${{ github.sha }}
           docker push ${IMAGE_NAME}:latest
@@ -61,7 +68,7 @@ jobs:
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy ${{ env.GCP_SERVICE_NAME }} \
-            --image ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/cloud-run-source-deploy/${{ env.GCP_SERVICE_NAME }}:${{ github.sha }} \
+            --image ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/${{ env.GCP_SERVICE_NAME }}:${{ github.sha }} \
             --platform managed \
             --region ${{ env.GCP_REGION }} \
             --allow-unauthenticated \

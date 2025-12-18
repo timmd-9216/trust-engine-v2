@@ -27,6 +27,22 @@ AR_REPO="${AR_REPO:-cloud-run-source-deploy}"
 REPO_PATH="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${AR_REPO}"
 IMAGE="${REPO_PATH}/${GCP_SERVICE_NAME}:${TAG}"
 
+ensure_repo() {
+  if gcloud artifacts repositories describe "${AR_REPO}" \
+    --project "${GCP_PROJECT_ID}" \
+    --location "${GCP_REGION}" >/dev/null 2>&1; then
+    echo "Using existing Artifact Registry repo: ${AR_REPO}"
+  else
+    echo "Creating Artifact Registry repo: ${AR_REPO} in ${GCP_REGION}..."
+    gcloud artifacts repositories create "${AR_REPO}" \
+      --repository-format=docker \
+      --location "${GCP_REGION}" \
+      --description="Docker repo for Cloud Run deployments" >/dev/null
+  fi
+}
+
+ensure_repo
+
 echo "Building with Cloud Build (no local Docker needed)..."
 gcloud builds submit --project "${GCP_PROJECT_ID}" --tag "${IMAGE}"
 

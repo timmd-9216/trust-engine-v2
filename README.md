@@ -298,12 +298,11 @@ This project includes automated deployment to Google Cloud Run via GitHub Action
      - Cloud Run Admin
      - Storage Admin
      - Artifact Registry Administrator
-   - Download JSON key file
 
 5. **Autenticación**
    - Uso interactivo (CLI): `gcloud auth login`
    - Credenciales por defecto (ADC) para SDK/contenedores: `gcloud auth application-default login`
-   - Para CI/CD, usa la clave JSON de la service account del proyecto (ver secretos abajo)
+   - Para CI/CD (GitHub Actions), usa Workload Identity Federation (ver secretos abajo)
 
 6. **Setup GitHub Secrets**
 
@@ -313,17 +312,10 @@ This project includes automated deployment to Google Cloud Run via GitHub Action
    - `GCP_PROJECT_ID`: Your GCP project ID
    - `GCP_REGION`: Deployment region (e.g., `us-central1`)
    - `GCP_SERVICE_NAME`: Service name (e.g., `trust-engine-v2`)
-   - `GCP_SA_KEY`: Service account JSON key (plain JSON)
-    - `OPENROUTER_API_KEY`: Your OpenRouter API key
-
-   Example for `GCP_SA_KEY`:
-   ```bash
-   GCP_SA_KEY='{"type":"service_account","project_id":"...","private_key_id":"...","private_key":"-----BEGIN PRIVATE KEY-----\\n..."}'
-   ```
-
-   El workflow de GitHub Actions usa esa clave para:
-   - `gcloud auth activate-service-account` (equivalente a un `gcloud auth login` no interactivo)
-   - `gcloud auth application-default activate-service-account` (pobla `~/.config/gcloud` para ADC dentro de los pasos)
+   - `GCP_WORKLOAD_IDENTITY_PROVIDER`: Workload Identity Provider resource name (e.g., `projects/…/locations/global/workloadIdentityPools/…/providers/…`)
+   - `GCP_SERVICE_ACCOUNT_EMAIL`: Service account email to impersonate via WIF
+   - `OPENROUTER_API_KEY`: Your OpenRouter API key
+   The GitHub Actions workflow authenticates via Workload Identity Federation (no JSON key required).
 
 #### Deploy
 
@@ -355,7 +347,7 @@ export CLOUD_RUN_ENV_VARS="EXAMPLE=1,FOO=bar"      # extra env vars for Cloud Ru
 
 ./scripts/deploy_cloud_run.sh
 ```
-This uses `gcloud builds submit` to build in Cloud Build and deploys the built image to Cloud Run.
+This uses `gcloud builds submit` to build in Cloud Build and deploys the built image to Cloud Run. The script will also create the Artifact Registry repo if it does not exist (`AR_REPO` in `GCP_REGION`).
 
 #### Access Your Deployment
 
@@ -404,7 +396,8 @@ OPENROUTER_API_KEY=your_api_key_here
 GCP_PROJECT_ID=your-gcp-project-id
 GCP_REGION=us-central1
 GCP_SERVICE_NAME=trust-engine-v2
-GCP_SA_KEY=your_base64_encoded_service_account_key
+GCP_WORKLOAD_IDENTITY_PROVIDER=projects/.../locations/global/workloadIdentityPools/.../providers/...
+GCP_SERVICE_ACCOUNT_EMAIL=sa-name@your-gcp-project-id.iam.gserviceaccount.com
 ```
 
 ### Getting an OpenRouter API Key
