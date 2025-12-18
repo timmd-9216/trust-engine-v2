@@ -61,7 +61,7 @@ gcloud run deploy "${GCP_SERVICE_NAME}" \
   --region "${GCP_REGION}" \
   --image "${IMAGE}" \
   --platform managed \
-  --allow-unauthenticated \
+  --no-allow-unauthenticated \
   "${ENV_ARGS[@]}" \
   --memory 2Gi \
   --cpu 2 \
@@ -71,3 +71,11 @@ gcloud run deploy "${GCP_SERVICE_NAME}" \
   --port 8080
 
 echo "Done. Deployed image: ${IMAGE}"
+
+# Ensure the service stays private (remove any existing public binding)
+gcloud run services remove-iam-policy-binding "${GCP_SERVICE_NAME}" \
+  --project "${GCP_PROJECT_ID}" \
+  --region "${GCP_REGION}" \
+  --member="allUsers" \
+  --role="roles/run.invoker" \
+  --quiet || true

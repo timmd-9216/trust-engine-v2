@@ -86,7 +86,7 @@ jobs:
             --image ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/${{ env.GCP_SERVICE_NAME }}:${{ github.sha }} \
             --platform managed \
             --region ${{ env.GCP_REGION }} \
-            --allow-unauthenticated \
+            --no-allow-unauthenticated \
             --set-env-vars OPENROUTER_API_KEY=${{ env.OPENROUTER_API_KEY }} \
             --memory 2Gi \
             --cpu 2 \
@@ -94,6 +94,15 @@ jobs:
             --max-instances 10 \
             --min-instances 0 \
             --port 8080
+
+      - name: Enforce private access (remove public binding if present)
+        run: |
+          gcloud run services remove-iam-policy-binding ${{ env.GCP_SERVICE_NAME }} \
+            --project ${{ env.GCP_PROJECT_ID }} \
+            --region ${{ env.GCP_REGION }} \
+            --member="allUsers" \
+            --role="roles/run.invoker" \
+            --quiet || true
 
       - name: Get Service URL
         id: get-url

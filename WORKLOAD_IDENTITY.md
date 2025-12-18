@@ -43,6 +43,10 @@ gcloud iam service-accounts add-iam-policy-binding "${SA_NAME}@${PROJECT_ID}.iam
   --project=$PROJECT_ID \
   --member="principalSet://iam.googleapis.com/projects/${PROJECT_ID}/locations/global/workloadIdentityPools/${POOL}/attribute.repository/${REPO}" \
   --role="roles/iam.workloadIdentityUser"
+gcloud iam service-accounts add-iam-policy-binding "${SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com" \
+  --project=$PROJECT_ID \
+  --member="principalSet://iam.googleapis.com/projects/${PROJECT_ID}/locations/global/workloadIdentityPools/${POOL}/attribute.repository/${REPO}" \
+  --role="roles/iam.serviceAccountTokenCreator"
 
 gcloud iam service-accounts add-iam-policy-binding "${SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com" \
   --project=$PROJECT_ID \
