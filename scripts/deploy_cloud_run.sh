@@ -26,6 +26,7 @@ TAG="${TAG:-$(git rev-parse --short HEAD 2>/dev/null || date +%Y%m%d%H%M)}"
 AR_REPO="${AR_REPO:-cloud-run-source-deploy}"
 REPO_PATH="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${AR_REPO}"
 IMAGE="${REPO_PATH}/${GCP_SERVICE_NAME}:${TAG}"
+STANZA_LANG="${STANZA_LANG:-es}"
 
 ensure_repo() {
   if gcloud artifacts repositories describe "${AR_REPO}" \
@@ -44,7 +45,7 @@ ensure_repo() {
 ensure_repo
 
 echo "Building with Cloud Build (no local Docker needed)..."
-gcloud builds submit --project "${GCP_PROJECT_ID}" --tag "${IMAGE}"
+gcloud builds submit --project "${GCP_PROJECT_ID}" --tag "${IMAGE}" --substitutions=_STANZA_LANG="${STANZA_LANG}"
 
 echo "Deploying to Cloud Run..."
 # Build env var arguments from provided environment
@@ -62,6 +63,7 @@ gcloud run deploy "${GCP_SERVICE_NAME}" \
   --image "${IMAGE}" \
   --platform managed \
   --no-allow-unauthenticated \
+  --set-env-vars "STANZA_LANG=${STANZA_LANG}" \
   "${ENV_ARGS[@]}" \
   --memory 2Gi \
   --cpu 2 \

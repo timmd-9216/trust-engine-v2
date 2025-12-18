@@ -1,5 +1,7 @@
 """Stanza NLP service for Spanish text analysis."""
 
+import os
+
 import stanza
 from stanza import Document
 
@@ -25,12 +27,18 @@ class StanzaService:
         This method downloads the Spanish model if not present and loads it.
         Should be called during application startup.
         """
+        resources_dir = os.getenv("STANZA_RESOURCES_DIR")
+        lang = os.getenv("STANZA_LANG", "es")
+
         # Download Spanish model if not already downloaded
-        stanza.download("es", verbose=True)
+        stanza.download(lang, verbose=True, resources_dir=resources_dir)
 
         # Initialize the Spanish pipeline with common processors
         self._nlp = stanza.Pipeline(
-            lang="es", processors="tokenize,mwt,pos,lemma,depparse", verbose=False
+            lang=lang,
+            processors="tokenize,mwt,pos,lemma,depparse",
+            verbose=False,
+            dir=resources_dir,
         )
 
     def create_doc(self, text: str) -> Document:
