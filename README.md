@@ -313,7 +313,7 @@ This project includes automated deployment to Google Cloud Run via GitHub Action
    - `GCP_PROJECT_ID`: Your GCP project ID
    - `GCP_REGION`: Deployment region (e.g., `us-central1`)
    - `GCP_SERVICE_NAME`: Service name (e.g., `trust-engine-v2`)
-    - `GCP_SA_KEY`: Service account JSON key (plain JSON)
+   - `GCP_SA_KEY`: Service account JSON key (plain JSON)
     - `OPENROUTER_API_KEY`: Your OpenRouter API key
 
    Example for `GCP_SA_KEY`:
@@ -342,6 +342,21 @@ The deployment process:
 4. Runs health check
 5. Outputs service URL
 
+**Manual Cloud Build + Deploy (no local Docker)**
+```bash
+export GCP_PROJECT_ID=your-project
+export GCP_REGION=us-central1
+export GCP_SERVICE_NAME=trust-engine-v2
+# Optional: overrides
+export TAG=$(git rev-parse --short HEAD)            # image tag; defaults to git SHA or timestamp
+export AR_REPO=cloud-run-source-deploy             # Artifact Registry repo name
+export OPENROUTER_API_KEY=your_api_key             # forwarded to Cloud Run if set
+export CLOUD_RUN_ENV_VARS="EXAMPLE=1,FOO=bar"      # extra env vars for Cloud Run
+
+./scripts/deploy_cloud_run.sh
+```
+This uses `gcloud builds submit` to build in Cloud Build and deploys the built image to Cloud Run.
+
 #### Access Your Deployment
 
 After deployment, your API will be available at:
@@ -350,6 +365,17 @@ https://[SERVICE-NAME]-[HASH]-[REGION].a.run.app
 ```
 
 Check GitHub Actions logs for the exact URL.
+
+#### Run the remote service through a local proxy
+
+Use `gcloud run services proxy` to bind your Cloud Run service to a local port (requires `gcloud auth login` and the correct project/region):
+```bash
+gcloud run services proxy $GCP_SERVICE_NAME \
+  --project $GCP_PROJECT_ID \
+  --region $GCP_REGION \
+  --port 8080
+```
+Then call it via `http://localhost:8080` (e.g., `http://localhost:8080/health` or the API endpoints). Stop with Ctrl+C when finished.
 
 #### Cloud Run Configuration
 

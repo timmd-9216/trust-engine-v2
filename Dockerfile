@@ -16,15 +16,15 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy dependency files
-COPY pyproject.toml ./
+# Copy dependency files and metadata
+COPY pyproject.toml README.md ./
+
+# Copy application code
+COPY src/ ./src/
 
 # Install Python dependencies
 RUN pip install --upgrade pip && \
     pip install -e .
-
-# Copy application code
-COPY src/ ./src/
 
 # Create a non-root user
 RUN useradd -m -u 1000 appuser && \
