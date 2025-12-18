@@ -27,6 +27,7 @@ AR_REPO="${AR_REPO:-cloud-run-source-deploy}"
 REPO_PATH="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${AR_REPO}"
 IMAGE="${REPO_PATH}/${GCP_SERVICE_NAME}:${TAG}"
 STANZA_LANG="${STANZA_LANG:-es}"
+STANZA_RESOURCES_DIR="${STANZA_RESOURCES_DIR:-/app/stanza_resources}"
 
 ensure_repo() {
   if gcloud artifacts repositories describe "${AR_REPO}" \
@@ -63,9 +64,9 @@ gcloud run deploy "${GCP_SERVICE_NAME}" \
   --image "${IMAGE}" \
   --platform managed \
   --no-allow-unauthenticated \
-  --set-env-vars "STANZA_LANG=${STANZA_LANG}" \
+  --set-env-vars "STANZA_LANG=${STANZA_LANG},STANZA_RESOURCES_DIR=${STANZA_RESOURCES_DIR}" \
   "${ENV_ARGS[@]}" \
-  --memory 2Gi \
+  --memory 4Gi \
   --cpu 2 \
   --timeout 300 \
   --max-instances 10 \
