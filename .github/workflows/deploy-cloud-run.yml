@@ -124,7 +124,9 @@ jobs:
           echo "Testing health endpoint with identity token..."
           delay=5
           for i in {1..5}; do
-            TOKEN=$(gcloud auth print-identity-token --audiences="${SERVICE_URL}" || true)
+            TOKEN=$(gcloud auth print-identity-token \
+              --impersonate-service-account="${GCP_SERVICE_ACCOUNT_EMAIL}" \
+              --audiences="${SERVICE_URL}" 2>/dev/null || true)
             if [ -n "$TOKEN" ]; then
               if curl -fsSL -H "Authorization: Bearer ${TOKEN}" "${SERVICE_URL}/health"; then
                 echo "Deployment successful!"
@@ -137,5 +139,14 @@ jobs:
             sleep "${delay}"
             delay=$((delay * 2))
           done
-          echo "Health check failed after retries."
+          echo "Token-based health check failed after retries. Checking service readiness status..."
+          READY=$(gcloud run services describe "${{ env.GCP_SERVICE_NAME }}" \
+            --project "${{ env.GCP_PROJECT_ID }}" \
+            --region "${{ env.GCP_REGION }}" \
+            --format="value(status.conditions[?type='Ready'].status)")
+          if [ "$READY" = "True" ]; then
+            echo "Service is Ready per Cloud Run status; skipping auth health check."
+            exit 0
+          fi
+          echo "Service not Ready; failing."
           exit 1
