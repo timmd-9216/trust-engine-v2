@@ -31,7 +31,7 @@ class StanzaService:
         lang = os.getenv("STANZA_LANG", "es")
 
         # Download Spanish model if not already downloaded
-        stanza.download(lang, verbose=True, resources_dir=resources_dir)
+        stanza.download(lang, verbose=True, model_dir=resources_dir)
 
         # Initialize the Spanish pipeline with common processors
         self._nlp = stanza.Pipeline(
