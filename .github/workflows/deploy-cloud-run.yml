@@ -121,6 +121,17 @@ jobs:
       - name: Test deployment
         run: |
           SERVICE_URL="${{ steps.get-url.outputs.service_url }}"
-          echo "Testing health endpoint..."
-          curl -f ${SERVICE_URL}/health || exit 1
-          echo "Deployment successful!"
+          echo "Testing health endpoint with identity token..."
+          delay=5
+          for i in {1..5}; do
+            TOKEN=$(gcloud auth print-identity-token)
+            if curl -fsSL -H "Authorization: Bearer ${TOKEN}" "${SERVICE_URL}/health"; then
+              echo "Deployment successful!"
+              exit 0
+            fi
+            echo "Health check failed (attempt $i), retrying in ${delay}s..."
+            sleep "${delay}"
+            delay=$((delay * 2))
+          done
+          echo "Health check failed after retries."
+          exit 1

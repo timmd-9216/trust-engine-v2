@@ -372,6 +372,12 @@ gcloud run services proxy $GCP_SERVICE_NAME \
 ```
 Then call it via `http://localhost:8080` (e.g., `http://localhost:8080/health` or the API endpoints). Stop with Ctrl+C when finished.
 
+You can also use the helper script (loads env vars from your shell):
+```bash
+source .env   # ensure GCP_PROJECT_ID, GCP_REGION, GCP_SERVICE_NAME are set
+./scripts/proxy_cloud_run.sh
+```
+
 #### Cloud Run Configuration
 
 Default settings (configurable in `.github/workflows/deploy-cloud-run.yml`):
