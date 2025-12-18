@@ -27,7 +27,9 @@ class StanzaService:
         This method downloads the Spanish model if not present and loads it.
         Should be called during application startup.
         """
-        resources_dir = os.getenv("STANZA_RESOURCES_DIR")
+        resources_dir = os.getenv("STANZA_RESOURCES_DIR") or os.path.join(
+            os.getcwd(), "stanza_resources"
+        )
         lang = os.getenv("STANZA_LANG", "es")
 
         # Download Spanish model if not already downloaded

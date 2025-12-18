@@ -350,6 +350,7 @@ export CLOUD_RUN_ENV_VARS="EXAMPLE=1,FOO=bar"      # extra env vars for Cloud Ru
 This uses `gcloud builds submit` to build in Cloud Build and deploys the built image to Cloud Run. The script will also create the Artifact Registry repo if it does not exist (`AR_REPO` in `GCP_REGION`).
 Notes:
 - The image pre-downloads the Stanza model during build (uses `STANZA_RESOURCES_DIR=/app/stanza_resources` and `STANZA_LANG`, default `es`). Runtime also passes these env vars so the model path is reused (avoids downloading on startup).
+- Local dev defaults `STANZA_RESOURCES_DIR` to `./stanza_resources` (override via env if needed).
 
 #### Access Your Deployment
 
