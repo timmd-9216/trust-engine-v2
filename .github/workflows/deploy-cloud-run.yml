@@ -124,10 +124,14 @@ jobs:
           echo "Testing health endpoint with identity token..."
           delay=5
           for i in {1..5}; do
-            TOKEN=$(gcloud auth print-identity-token)
-            if curl -fsSL -H "Authorization: Bearer ${TOKEN}" "${SERVICE_URL}/health"; then
-              echo "Deployment successful!"
-              exit 0
+            TOKEN=$(gcloud auth print-identity-token --audiences="${SERVICE_URL}" || true)
+            if [ -n "$TOKEN" ]; then
+              if curl -fsSL -H "Authorization: Bearer ${TOKEN}" "${SERVICE_URL}/health"; then
+                echo "Deployment successful!"
+                exit 0
+              fi
+            else
+              echo "No identity token available on attempt $i."
             fi
             echo "Health check failed (attempt $i), retrying in ${delay}s..."
             sleep "${delay}"
