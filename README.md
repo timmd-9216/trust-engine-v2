@@ -67,18 +67,20 @@ Trust Engine v2 is a REST API that analyzes journalistic articles using Natural 
    cd trust-engine-v2
    ```
 
-2. **Install dependencies**
+2. **Set up Python 3.12 with pyenv**
    ```bash
-   # Using pip
-   pip install -e .
-
-   # Using conda
-   conda create -n trust-engine python=3.12
-   conda activate trust-engine
-   pip install -e .
+   pyenv install 3.12.7    # skip if already installed
+   pyenv local 3.12.7      # uses .python-version
    ```
 
-3. **Configure environment variables**
+3. **Install Poetry and project dependencies**
+   ```bash
+   pip install poetry     # or pip install --user poetry
+   poetry env use $(pyenv which python)
+   poetry install
+   ```
+
+4. **Configure environment variables**
    ```bash
    # Copy the example file
    cp .env.example .env
@@ -93,12 +95,12 @@ Trust Engine v2 is a REST API that analyzes journalistic articles using Natural 
    OPENROUTER_API_KEY=your_api_key_here
    ```
 
-4. **Start the API server**
+5. **Start the API server**
    ```bash
-   uvicorn mediaparty_trust_api.main:app --reload
+   poetry run uvicorn mediaparty_trust_api.main:app --reload
    ```
 
-5. **Access the API**
+6. **Access the API**
    - API: http://localhost:8000
    - Interactive Docs: http://localhost:8000/docs
    - Alternative Docs: http://localhost:8000/redoc
@@ -298,7 +300,12 @@ This project includes automated deployment to Google Cloud Run via GitHub Action
      - Artifact Registry Administrator
    - Download JSON key file
 
-5. **Setup GitHub Secrets**
+5. **Autenticación**
+   - Uso interactivo (CLI): `gcloud auth login`
+   - Credenciales por defecto (ADC) para SDK/contenedores: `gcloud auth application-default login`
+   - Para CI/CD, usa la clave JSON de la service account del proyecto (ver secretos abajo)
+
+6. **Setup GitHub Secrets**
 
    Go to your GitHub repository → Settings → Secrets and variables → Actions
 
@@ -306,13 +313,17 @@ This project includes automated deployment to Google Cloud Run via GitHub Action
    - `GCP_PROJECT_ID`: Your GCP project ID
    - `GCP_REGION`: Deployment region (e.g., `us-central1`)
    - `GCP_SERVICE_NAME`: Service name (e.g., `trust-engine-v2`)
-   - `GCP_SA_KEY`: Base64-encoded service account JSON key
-   - `OPENROUTER_API_KEY`: Your OpenRouter API key
+    - `GCP_SA_KEY`: Service account JSON key (plain JSON)
+    - `OPENROUTER_API_KEY`: Your OpenRouter API key
 
-   To encode the service account key:
+   Example for `GCP_SA_KEY`:
    ```bash
-   cat service-account-key.json | base64
+   GCP_SA_KEY='{"type":"service_account","project_id":"...","private_key_id":"...","private_key":"-----BEGIN PRIVATE KEY-----\\n..."}'
    ```
+
+   El workflow de GitHub Actions usa esa clave para:
+   - `gcloud auth activate-service-account` (equivalente a un `gcloud auth login` no interactivo)
+   - `gcloud auth application-default activate-service-account` (pobla `~/.config/gcloud` para ADC dentro de los pasos)
 
 #### Deploy
 

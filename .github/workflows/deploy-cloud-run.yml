@@ -25,13 +25,27 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
-
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
+
+      - name: Autenticarse con gcloud (CLI + ADC)
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+        run: |
+          if [ -z "$GCP_SA_KEY" ]; then
+            echo "❌ Missing GCP_SA_KEY secret for authentication." >&2
+            exit 1
+          fi
+          echo "$GCP_SA_KEY" > "$HOME/gcp-key.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$HOME/gcp-key.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS" >> "$GITHUB_ENV"
+          # Autenticación estilo CLI (equivalente a gcloud auth login)
+          gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
+          gcloud config set project "${GCP_PROJECT_ID}"
+          # Credenciales de Aplicación por defecto (~/.config/gcloud) para contenedores/SDKs
+          gcloud auth application-default activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
+          # Token de identidad para llamadas autenticadas si se necesita
+          echo "TOKEN=$(gcloud auth print-identity-token)" >> "$GITHUB_ENV"
 
       - name: Configure Docker for Artifact Registry
         run: |
