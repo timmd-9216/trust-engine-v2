@@ -4,7 +4,10 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 authors = ["JuanCruzC97 <juancruzcamacho97@gmail.com>"]
-packages = [{ include = "mediaparty_trust_api", from = "src" }]
+packages = [
+    { include = "mediaparty_trust_api", from = "src" },
+    { include = "nlp_process", from = "src" },
+]
 
 [tool.poetry.dependencies]
 python = ">=3.12,<3.13"
@@ -19,6 +22,7 @@ pyyaml = ">=6.0.3"
 
 [tool.poetry.scripts]
 mediaparty-trust-api = "mediaparty_trust_api:main"
+nlp-process = "nlp_process.main:app"
 
 [build-system]
 requires = ["poetry-core>=1.9.0"]

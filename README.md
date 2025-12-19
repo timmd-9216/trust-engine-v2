@@ -246,6 +246,25 @@ for metric in metrics:
 
 ---
 
+## 🧠 NLP Process Service
+
+A lightweight FastAPI service to receive CSV references (GCS URIs) and trigger NLP processing (stubbed; replace with real logic).
+
+- Run locally:
+  ```bash
+  poetry run uvicorn nlp_process.main:app --reload
+  ```
+- Env vars:
+  - `SERVICE_NAME` (default `nlp-process`)
+  - `ENVIRONMENT` (default `local`)
+
+Endpoints:
+- `GET /` metadata
+- `GET /health` health check
+- `POST /process` with body `{"gcs_uri": "...", "metadata": {...}}` (returns a stub response)
+
+---
+
 ## 🚢 Deployment
 
 ### Docker Deployment
