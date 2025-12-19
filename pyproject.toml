@@ -5,8 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 authors = ["JuanCruzC97 <juancruzcamacho97@gmail.com>"]
 packages = [
-    { include = "mediaparty_trust_api", from = "src" },
-    { include = "nlp_process", from = "src" },
+    { include = "trust_api", from = "src" },
 ]
 
 [tool.poetry.dependencies]
@@ -21,8 +20,8 @@ dspy-ai = ">=2.5.0"
 pyyaml = ">=6.0.3"
 
 [tool.poetry.scripts]
-mediaparty-trust-api = "mediaparty_trust_api:main"
-nlp-process = "nlp_process.main:app"
+trust-api = "trust_api.main:app"
+trust-api-nlp = "trust_api.nlp.main:app"
 
 [build-system]
 requires = ["poetry-core>=1.9.0"]

@@ -9,12 +9,6 @@ variable "region" {
   default     = "us-east1"
 }
 
-variable "workflow_name" {
-  description = "Name for the workflow"
-  type        = string
-  default     = "nlp-process-workflow"
-}
-
 variable "source_bucket" {
   description = "Bucket to watch for new objects"
   type        = string
@@ -31,9 +25,15 @@ variable "output_bucket" {
   type        = string
 }
 
-variable "nlp_process_url" {
-  description = "HTTP endpoint for the nlp-process service"
+variable "trust_api_process_url" {
+  description = "HTTP endpoint for the trust-api processing service"
   type        = string
+}
+
+variable "workflow_name" {
+  description = "Name for the workflow"
+  type        = string
+  default     = "trust-api-workflow"
 }
 
 provider "google" {
@@ -70,7 +70,7 @@ resource "google_project_iam_member" "workflow_invoker" {
   member  = "serviceAccount:${google_service_account.workflow.email}"
 }
 
-resource "google_workflows_workflow" "nlp_process" {
+resource "google_workflows_workflow" "trust_api" {
   name            = var.workflow_name
   region          = var.region
   service_account = google_service_account.workflow.email
@@ -78,7 +78,7 @@ resource "google_workflows_workflow" "nlp_process" {
   user_env_vars = {
     SOURCE_PREFIX      = var.source_prefix
     OUTPUT_BUCKET      = var.output_bucket
-    NLP_PROCESS_URL    = var.nlp_process_url
+    TRUST_API_URL      = var.trust_api_process_url
     SOURCE_BUCKET_NAME = var.source_bucket
   }
 
@@ -104,20 +104,20 @@ resource "google_workflows_workflow" "nlp_process" {
             switch:
               - condition: ${not object.lower().endsWith(".csv")}
                 next: skip_non_csv
-        - call_nlp:
+        - call_trust_api:
             call: http.post
             args:
-              url: ${sys.get_env("NLP_PROCESS_URL")}
+              url: ${sys.get_env("TRUST_API_URL")}
               auth:
                 type: OIDC
               headers:
                 Content-Type: application/json
               body:
                 gcs_uri: ${"gs://" + bucket + "/" + object}
-            result: nlp_response
-        - serialize:
+            result: trust_api_response
+        - serialize_response:
             assign:
-              - output_content: ${json.encode_to_string(nlp_response.body)}
+              - output_content: ${json.encode_to_string(trust_api_response.body)}
               - output_name: ${object + ".json"}
         - write_output:
             call: googleapis.storage.v1.objects.insert
@@ -150,7 +150,7 @@ resource "google_workflows_workflow" "nlp_process" {
     YAML
 }
 
-resource "google_eventarc_trigger" "nlp_process" {
+resource "google_eventarc_trigger" "trust_api" {
   name     = "${var.workflow_name}-trigger"
   location = var.region
   project  = var.project_id
@@ -174,7 +174,7 @@ resource "google_eventarc_trigger" "nlp_process" {
   }
 
   destination {
-    workflow = google_workflows_workflow.nlp_process.id
+    workflow = google_workflows_workflow.trust_api.id
   }
 
   service_account = google_service_account.workflow.email

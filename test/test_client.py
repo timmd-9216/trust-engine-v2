@@ -102,7 +102,7 @@ def main():
     except requests.exceptions.RequestException:
         print(f"Error: Cannot connect to API at {args.url}", file=sys.stderr)
         print("Make sure the API is running:", file=sys.stderr)
-        print("  uvicorn mediaparty_trust_api.main:app --reload", file=sys.stderr)
+        print("  uvicorn trust_api.main:app --reload", file=sys.stderr)
         sys.exit(1)
 
     # Load and analyze article

@@ -97,7 +97,7 @@ Trust Engine v2 is a REST API that analyzes journalistic articles using Natural 
 
 5. **Start the API server**
    ```bash
-   poetry run uvicorn mediaparty_trust_api.main:app --reload
+   poetry run uvicorn trust_api.main:app --reload
    ```
 
 6. **Access the API**
@@ -252,7 +252,7 @@ A lightweight FastAPI service to receive CSV references (GCS URIs) and trigger N
 
 - Run locally:
   ```bash
-  poetry run uvicorn nlp_process.main:app --reload
+  poetry run uvicorn trust_api.nlp.main:app --reload
   ```
 - Env vars:
   - `SERVICE_NAME` (default `nlp-process`)
@@ -445,10 +445,15 @@ GCP_SERVICE_ACCOUNT_EMAIL=sa-name@your-gcp-project-id.iam.gserviceaccount.com
 
 ```
 trust-engine-v2/
-├── src/mediaparty_trust_api/
+├── src/trust_api/
 │   ├── main.py                  # FastAPI application entry point
 │   ├── models.py                # Pydantic models
 │   ├── __init__.py
+│   ├── nlp/                     # NLP processing service (trust-api-nlp)
+│   │   ├── __init__.py
+│   │   ├── main.py              # NLP service entry point
+│   │   └── core/
+│   │       └── config.py
 │   ├── api/
 │   │   ├── __init__.py
 │   │   └── v1/
@@ -475,7 +480,7 @@ trust-engine-v2/
 
 ### Adding New Metrics
 
-1. Open `src/mediaparty_trust_api/services/metrics.py`
+1. Open `src/trust_api/services/metrics.py`
 2. Create a new function following this pattern:
 
 ```python
@@ -503,7 +508,7 @@ def get_new_metric(doc: Document, metric_id: int) -> Metric:
     )
 ```
 
-3. Add to the analysis pipeline in `src/mediaparty_trust_api/api/v1/endpoints.py`:
+3. Add to the analysis pipeline in `src/trust_api/api/v1/endpoints.py`:
 
 ```python
 metrics = [
