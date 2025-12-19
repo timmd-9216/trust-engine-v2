@@ -212,7 +212,7 @@ jobs:
               gcloud run services logs read "${{ env.GCP_SERVICE_NAME }}" \
                 --project "${{ env.GCP_PROJECT_ID }}" \
                 --region "${{ env.GCP_REGION }}" \
-                --limit 50 || echo \"(logs unavailable: insufficient permissions)\"
+                --limit 50 || echo "(logs unavailable: insufficient permissions)"
               exit 1
             fi
             
