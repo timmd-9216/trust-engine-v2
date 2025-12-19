@@ -10,6 +10,7 @@ env:
   GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID || vars.GCP_PROJECT_ID }}
   GCP_REGION: ${{ secrets.GCP_REGION || vars.GCP_REGION }}
   GCP_SERVICE_NAME: ${{ secrets.GCP_SERVICE_NAME || vars.GCP_SERVICE_NAME }}
+  GCP_NLP_SERVICE_NAME: ${{ secrets.GCP_NLP_SERVICE_NAME || vars.GCP_NLP_SERVICE_NAME || '' }}
   OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
   GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
   GCP_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
@@ -109,6 +110,28 @@ jobs:
             --role="roles/run.invoker" \
             --quiet || true
 
+      - name: Deploy NLP service (optional)
+        if: env.GCP_NLP_SERVICE_NAME != ''
+        run: |
+          gcloud run deploy ${{ env.GCP_NLP_SERVICE_NAME }} \
+            --image ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/${{ env.GCP_SERVICE_NAME }}:${{ github.sha }} \
+            --platform managed \
+            --region ${{ env.GCP_REGION }} \
+            --no-allow-unauthenticated \
+            --set-env-vars OPENROUTER_API_KEY=${{ env.OPENROUTER_API_KEY }},STANZA_LANG=${{ env.STANZA_LANG }},STANZA_RESOURCES_DIR=${{ env.STANZA_RESOURCES_DIR }},APP_MODULE=trust_api.nlp.main:app \
+            --memory 4Gi \
+            --cpu 2 \
+            --timeout 300 \
+            --max-instances 10 \
+            --min-instances 0 \
+            --port 8080
+          gcloud run services remove-iam-policy-binding ${{ env.GCP_NLP_SERVICE_NAME }} \
+            --project ${{ env.GCP_PROJECT_ID }} \
+            --region ${{ env.GCP_REGION }} \
+            --member="allUsers" \
+            --role="roles/run.invoker" \
+            --quiet || true
+
       - name: Get Service URL
         id: get-url
         run: |
@@ -121,33 +144,63 @@ jobs:
       - name: Test deployment
         run: |
           SERVICE_URL="${{ steps.get-url.outputs.service_url }}"
-          echo "Testing health endpoint with identity token..."
+          echo "Waiting for service to be ready and testing deployment..."
+          
+          # Wait for service to be ready (with exponential backoff)
           delay=5
-          for i in {1..5}; do
-            # Try to get identity token - WIF already authenticates as the service account
-            # First try with audiences (for Cloud Run)
-            TOKEN=$(gcloud auth print-identity-token --audiences="${SERVICE_URL}" 2>/dev/null || \
-                    gcloud auth print-identity-token 2>/dev/null || true)
-            if [ -n "$TOKEN" ]; then
-              if curl -fsSL -H "Authorization: Bearer ${TOKEN}" "${SERVICE_URL}/health"; then
-                echo "Deployment successful!"
+          max_attempts=12
+          READY="False"
+          
+          for i in $(seq 1 ${max_attempts}); do
+            READY=$(gcloud run services describe "${{ env.GCP_SERVICE_NAME }}" \
+              --project "${{ env.GCP_PROJECT_ID }}" \
+              --region "${{ env.GCP_REGION }}" \
+              --format="value(status.conditions[?type=='Ready'].status)" 2>/dev/null || echo "Unknown")
+            
+            if [ "$READY" = "True" ]; then
+              echo "✓ Service is Ready!"
+              
+              # Try to test health endpoint using gcloud run services proxy
+              echo "Testing health endpoint..."
+              if timeout 15 bash -c '
+                gcloud run services proxy "${{ env.GCP_SERVICE_NAME }}" \
+                  --project "${{ env.GCP_PROJECT_ID }}" \
+                  --region "${{ env.GCP_REGION }}" \
+                  --port 8080 > /tmp/proxy.log 2>&1 &
+                PROXY_PID=$!
+                sleep 5
+                if curl -fsSL http://localhost:8080/health > /dev/null 2>&1; then
+                  kill $PROXY_PID 2>/dev/null || true
+                  exit 0
+                else
+                  kill $PROXY_PID 2>/dev/null || true
+                  cat /tmp/proxy.log || true
+                  exit 1
+                fi
+              '; then
+                echo "✓ Health check passed! Deployment successful."
+                exit 0
+              else
+                echo "⚠ Health check failed, but service is Ready. Deployment may still be successful."
+                echo "Service URL: ${SERVICE_URL}"
                 exit 0
               fi
-            else
-              echo "No identity token available on attempt $i."
             fi
-            echo "Health check failed (attempt $i), retrying in ${delay}s..."
+            
+            if [ $i -eq ${max_attempts} ]; then
+              echo "✗ Service not Ready after ${max_attempts} attempts. Current status: ${READY}"
+              echo "Checking service details for troubleshooting..."
+              gcloud run services describe "${{ env.GCP_SERVICE_NAME }}" \
+                --project "${{ env.GCP_PROJECT_ID }}" \
+                --region "${{ env.GCP_REGION }}" \
+                --format="yaml(status.conditions)" || true
+              exit 1
+            fi
+            
+            echo "Service not ready yet (attempt $i/${max_attempts}), waiting ${delay}s..."
             sleep "${delay}"
-            delay=$((delay * 2))
+            # Cap delay at 30 seconds
+            if [ $delay -lt 30 ]; then
+              delay=$((delay * 2))
+            fi
           done
-          echo "Token-based health check failed after retries. Checking service readiness status..."
-          READY=$(gcloud run services describe "${{ env.GCP_SERVICE_NAME }}" \
-            --project "${{ env.GCP_PROJECT_ID }}" \
-            --region "${{ env.GCP_REGION }}" \
-            --format="value(status.conditions[?type='Ready'].status)")
-          if [ "$READY" = "True" ]; then
-            echo "Service is Ready per Cloud Run status; skipping auth health check."
-            exit 0
-          fi
-          echo "Service not Ready; failing."
-          exit 1

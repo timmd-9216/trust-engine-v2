@@ -257,6 +257,7 @@ A lightweight FastAPI service to receive CSV references (GCS URIs) and trigger N
 - Env vars:
   - `SERVICE_NAME` (default `nlp-process`)
   - `ENVIRONMENT` (default `local`)
+- Deploy via CI: set `GCP_NLP_SERVICE_NAME` in GitHub secrets/vars. The workflow reuses the same image and sets `APP_MODULE=trust_api.nlp.main:app` for the Cloud Run service.
 
 Endpoints:
 - `GET /` metadata
@@ -473,6 +474,7 @@ trust-engine-v2/
 ├── Dockerfile                   # Container definition
 ├── .dockerignore               # Docker build exclusions
 ├── pyproject.toml              # Python dependencies
+├── .pre-commit-config.yaml     # Lint/format hooks (ruff)
 ├── .env.example                # Environment template
 ├── .gitignore                  # Git exclusions
 └── README.md                   # This file
