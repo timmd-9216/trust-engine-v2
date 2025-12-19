@@ -124,9 +124,10 @@ jobs:
           echo "Testing health endpoint with identity token..."
           delay=5
           for i in {1..5}; do
-            TOKEN=$(gcloud auth print-identity-token \
-              --impersonate-service-account="${GCP_SERVICE_ACCOUNT_EMAIL}" \
-              --audiences="${SERVICE_URL}" 2>/dev/null || true)
+            # Try to get identity token - WIF already authenticates as the service account
+            # First try with audiences (for Cloud Run)
+            TOKEN=$(gcloud auth print-identity-token --audiences="${SERVICE_URL}" 2>/dev/null || \
+                    gcloud auth print-identity-token 2>/dev/null || true)
             if [ -n "$TOKEN" ]; then
               if curl -fsSL -H "Authorization: Bearer ${TOKEN}" "${SERVICE_URL}/health"; then
                 echo "Deployment successful!"
