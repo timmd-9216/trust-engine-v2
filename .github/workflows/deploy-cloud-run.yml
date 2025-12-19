@@ -10,6 +10,7 @@ env:
   GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID || vars.GCP_PROJECT_ID }}
   GCP_REGION: ${{ secrets.GCP_REGION || vars.GCP_REGION }}
   GCP_SERVICE_NAME: ${{ secrets.GCP_SERVICE_NAME || vars.GCP_SERVICE_NAME }}
+  GCP_NLP_SERVICE_NAME: ${{ secrets.GCP_NLP_SERVICE_NAME || vars.GCP_NLP_SERVICE_NAME || '' }}
   OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
   GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
   GCP_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
@@ -109,6 +110,42 @@ jobs:
             --role="roles/run.invoker" \
             --quiet || true
 
+      - name: Check NLP service configuration
+        run: |
+          if [ -z "${GCP_NLP_SERVICE_NAME}" ] || [ "${GCP_NLP_SERVICE_NAME}" = "" ]; then
+            echo "⚠ GCP_NLP_SERVICE_NAME is not set. NLP service will not be deployed."
+            echo "To deploy NLP service, set GCP_NLP_SERVICE_NAME in GitHub secrets or vars."
+          else
+            echo "✓ GCP_NLP_SERVICE_NAME is set: ${GCP_NLP_SERVICE_NAME}"
+            echo "NLP service will be deployed."
+          fi
+
+      - name: Deploy NLP service (optional)
+        if: env.GCP_NLP_SERVICE_NAME != ''
+        run: |
+          echo "Deploying NLP service: ${GCP_NLP_SERVICE_NAME}"
+          echo "Using image: ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/${{ env.GCP_SERVICE_NAME }}:${{ github.sha }}"
+          gcloud run deploy ${{ env.GCP_NLP_SERVICE_NAME }} \
+            --image ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/${{ env.GCP_SERVICE_NAME }}:${{ github.sha }} \
+            --platform managed \
+            --region ${{ env.GCP_REGION }} \
+            --no-allow-unauthenticated \
+            --set-env-vars OPENROUTER_API_KEY=${{ env.OPENROUTER_API_KEY }},STANZA_LANG=${{ env.STANZA_LANG }},STANZA_RESOURCES_DIR=${{ env.STANZA_RESOURCES_DIR }},APP_MODULE=trust_api.nlp.main:app \
+            --memory 4Gi \
+            --cpu 2 \
+            --timeout 300 \
+            --max-instances 10 \
+            --min-instances 0 \
+            --port 8080
+          echo "Removing public access from NLP service..."
+          gcloud run services remove-iam-policy-binding ${{ env.GCP_NLP_SERVICE_NAME }} \
+            --project ${{ env.GCP_PROJECT_ID }} \
+            --region ${{ env.GCP_REGION }} \
+            --member="allUsers" \
+            --role="roles/run.invoker" \
+            --quiet || true
+          echo "✓ NLP service deployed successfully"
+
       - name: Get Service URL
         id: get-url
         run: |
@@ -121,33 +158,60 @@ jobs:
       - name: Test deployment
         run: |
           SERVICE_URL="${{ steps.get-url.outputs.service_url }}"
-          echo "Testing health endpoint with identity token..."
-          delay=5
-          for i in {1..5}; do
-            # Try to get identity token - WIF already authenticates as the service account
-            # First try with audiences (for Cloud Run)
-            TOKEN=$(gcloud auth print-identity-token --audiences="${SERVICE_URL}" 2>/dev/null || \
-                    gcloud auth print-identity-token 2>/dev/null || true)
-            if [ -n "$TOKEN" ]; then
-              if curl -fsSL -H "Authorization: Bearer ${TOKEN}" "${SERVICE_URL}/health"; then
-                echo "Deployment successful!"
-                exit 0
-              fi
-            else
-              echo "No identity token available on attempt $i."
+          echo "Waiting for service to be ready..."
+          echo "Service URL: ${SERVICE_URL}"
+          
+          # Wait for service to be ready (with exponential backoff)
+          delay=10
+          max_attempts=15
+          READY="False"
+          
+          for i in $(seq 1 ${max_attempts}); do
+            echo "Checking service status (attempt $i/${max_attempts})..."
+            READY=$(gcloud run services describe "${{ env.GCP_SERVICE_NAME }}" \
+              --project "${{ env.GCP_PROJECT_ID }}" \
+              --region "${{ env.GCP_REGION }}" \
+              --format="value(status.conditions[?type=='Ready'].status)" 2>/dev/null || echo "Unknown")
+            
+            echo "Service Ready status: ${READY}"
+            
+            if [ "$READY" = "True" ]; then
+              echo "✓ Service is Ready!"
+              
+              # Get more service details
+              echo "Service details:"
+              gcloud run services describe "${{ env.GCP_SERVICE_NAME }}" \
+                --project "${{ env.GCP_PROJECT_ID }}" \
+                --region "${{ env.GCP_REGION }}" \
+                --format="table(status.url,status.conditions[0].type,status.conditions[0].status,status.conditions[0].message)" || true
+              
+              echo "✓ Deployment successful! Service is ready at ${SERVICE_URL}"
+              exit 0
             fi
-            echo "Health check failed (attempt $i), retrying in ${delay}s..."
+            
+            # If not ready and this is the last attempt, show detailed error info
+            if [ $i -eq ${max_attempts} ]; then
+              echo "✗ Service not Ready after ${max_attempts} attempts."
+              echo "Current status: ${READY}"
+              echo ""
+              echo "Full service status:"
+              gcloud run services describe "${{ env.GCP_SERVICE_NAME }}" \
+                --project "${{ env.GCP_PROJECT_ID }}" \
+                --region "${{ env.GCP_REGION }}" \
+                --format="yaml(status)" || true
+              echo ""
+              echo "Recent service logs (last 50 lines):"
+              gcloud run services logs read "${{ env.GCP_SERVICE_NAME }}" \
+                --project "${{ env.GCP_PROJECT_ID }}" \
+                --region "${{ env.GCP_REGION }}" \
+                --limit 50 || true
+              exit 1
+            fi
+            
+            echo "Waiting ${delay}s before next check..."
             sleep "${delay}"
-            delay=$((delay * 2))
+            # Cap delay at 60 seconds
+            if [ $delay -lt 60 ]; then
+              delay=$((delay + 5))
+            fi
           done
-          echo "Token-based health check failed after retries. Checking service readiness status..."
-          READY=$(gcloud run services describe "${{ env.GCP_SERVICE_NAME }}" \
-            --project "${{ env.GCP_PROJECT_ID }}" \
-            --region "${{ env.GCP_REGION }}" \
-            --format="value(status.conditions[?type='Ready'].status)")
-          if [ "$READY" = "True" ]; then
-            echo "Service is Ready per Cloud Run status; skipping auth health check."
-            exit 0
-          fi
-          echo "Service not Ready; failing."
-          exit 1

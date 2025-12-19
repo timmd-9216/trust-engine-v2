@@ -97,10 +97,15 @@ Trust Engine v2 is a REST API that analyzes journalistic articles using Natural 
 
 5. **Start the API server**
    ```bash
+   poetry run pre-commit install  # optional: install ruff hooks locally
    poetry run uvicorn trust_api.main:app --reload
    ```
 
 6. **Access the API**
+   ```bash
+   open http://localhost:8000  # or curl the endpoints below
+   ```
+
    - API: http://localhost:8000
    - Interactive Docs: http://localhost:8000/docs
    - Alternative Docs: http://localhost:8000/redoc
@@ -257,6 +262,7 @@ A lightweight FastAPI service to receive CSV references (GCS URIs) and trigger N
 - Env vars:
   - `SERVICE_NAME` (default `nlp-process`)
   - `ENVIRONMENT` (default `local`)
+- Deploy via CI: set `GCP_NLP_SERVICE_NAME` in GitHub secrets/vars. The workflow reuses the same image and sets `APP_MODULE=trust_api.nlp.main:app` for the Cloud Run service.
 
 Endpoints:
 - `GET /` metadata
@@ -473,6 +479,7 @@ trust-engine-v2/
 ├── Dockerfile                   # Container definition
 ├── .dockerignore               # Docker build exclusions
 ├── pyproject.toml              # Python dependencies
+├── .pre-commit-config.yaml     # Lint/format hooks (ruff)
 ├── .env.example                # Environment template
 ├── .gitignore                  # Git exclusions
 └── README.md                   # This file

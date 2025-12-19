@@ -19,9 +19,23 @@ stanza = ">=1.10.1"
 dspy-ai = ">=2.5.0"
 pyyaml = ">=6.0.3"
 
+[tool.poetry.group.dev.dependencies]
+pre-commit = "^3.7.0"
+ruff = "^0.6.8"
+
 [tool.poetry.scripts]
 trust-api = "trust_api.main:app"
 trust-api-nlp = "trust_api.nlp.main:app"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-select = [
+    "I",   # isort
+    "F",   # pyflakes
+]
+ignore = []
+src = ["src"]
 
 [build-system]
 requires = ["poetry-core>=1.9.0"]

@@ -10,7 +10,8 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     STANZA_RESOURCES_DIR=/app/stanza_resources \
-    STANZA_LANG=es
+    STANZA_LANG=es \
+    APP_MODULE=trust_api.main:app
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -42,4 +43,4 @@ USER appuser
 EXPOSE 8080
 
 # Run the application
-CMD uvicorn trust_api.main:app --host 0.0.0.0 --port ${PORT:-8080}
+CMD uvicorn ${APP_MODULE} --host 0.0.0.0 --port ${PORT:-8080}
