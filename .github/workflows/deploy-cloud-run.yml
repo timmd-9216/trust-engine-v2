@@ -172,6 +172,14 @@ jobs:
               --project "${{ env.GCP_PROJECT_ID }}" \
               --region "${{ env.GCP_REGION }}" \
               --format="value(status.conditions[?type=='Ready'].status)" 2>/dev/null || echo "Unknown")
+
+            # Fallback if READY is empty/unknown: parse YAML for Ready condition
+            if [ -z "$READY" ] || [ "$READY" = "Unknown" ]; then
+              READY=$(gcloud run services describe "${{ env.GCP_SERVICE_NAME }}" \
+                --project "${{ env.GCP_PROJECT_ID }}" \
+                --region "${{ env.GCP_REGION }}" \
+                --format="yaml(status.conditions)" 2>/dev/null | awk '/type: Ready/{getline; getline; print $2}' || echo "Unknown")
+            fi
             
             echo "Service Ready status: ${READY}"
             
@@ -204,7 +212,7 @@ jobs:
               gcloud run services logs read "${{ env.GCP_SERVICE_NAME }}" \
                 --project "${{ env.GCP_PROJECT_ID }}" \
                 --region "${{ env.GCP_REGION }}" \
-                --limit 50 || true
+                --limit 50 || echo \"(logs unavailable: insufficient permissions)\"
               exit 1
             fi
             
