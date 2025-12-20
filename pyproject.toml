@@ -22,6 +22,11 @@ pyyaml = ">=6.0.3"
 [tool.poetry.group.dev.dependencies]
 pre-commit = "^3.7.0"
 ruff = "^0.6.8"
+pytest = "^8.2.2"
+pytest-asyncio = "^0.23.0"
+pytest-cov = "^4.1.0"
+httpx = "^0.27.0"
+pytest-mock = "^3.12.0"
 
 [tool.poetry.scripts]
 trust-api = "trust_api.main:app"
@@ -36,6 +41,24 @@ extend-select = [
 ]
 ignore = []
 src = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "test"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+addopts = [
+    "--cov=src/trust_api",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-report=xml",
+    "-v",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
 
 [build-system]
 requires = ["poetry-core>=1.9.0"]

@@ -1,6 +1,5 @@
 """Metric calculation functions using Stanza NLP analysis."""
 
-import json
 import logging
 import os
 import re
@@ -49,14 +48,16 @@ class OpenRouterLM(dspy.LM):
                 "temperature": kwargs.get("temperature", 0.1),
                 "top_p": kwargs.get("top_p", 0.9),
                 "max_tokens": kwargs.get("max_tokens", 500),
-            }
+            },
         )
 
         if response.status_code == 200:
             result = response.json()
-            if 'choices' in result and len(result['choices']) > 0:
-                content = result['choices'][0]['message']['content']
-                logger.info(f"OpenRouter API call successful. Response length: {len(content)} chars")
+            if "choices" in result and len(result["choices"]) > 0:
+                content = result["choices"][0]["message"]["content"]
+                logger.info(
+                    f"OpenRouter API call successful. Response length: {len(content)} chars"
+                )
                 logger.debug(f"Response content: {content}")
                 # Return in the format DSPy expects
                 return [content]
@@ -150,12 +151,12 @@ def get_adjective_count(doc: Document, metric_id: int = 1) -> Metric:
 
                 qualitative_adjective_count = int(match.group())
                 filtered_with_llm = True
-                logger.info(
-                    f"LLM filtered to {qualitative_adjective_count} qualitative adjectives"
-                )
+                logger.info(f"LLM filtered to {qualitative_adjective_count} qualitative adjectives")
         except Exception as e:
             # Failover: if OpenRouter fails, skip filtering and use all adjectives
-            logger.error(f"OpenRouter API failed: {e}. Skipping adjective filtering, using all adjectives.")
+            logger.error(
+                f"OpenRouter API failed: {e}. Skipping adjective filtering, using all adjectives."
+            )
             qualitative_adjective_count = len(adjectives)
         finally:
             if filtered_with_llm:
@@ -180,9 +181,7 @@ def get_adjective_count(doc: Document, metric_id: int = 1) -> Metric:
     elif adjective_ratio <= 0.10:
         flag = 0
         score = 0.6
-        explanation = (
-            f"The qualitative adjective ratio ({adjective_ratio:.1%}) is moderate."
-        )
+        explanation = f"The qualitative adjective ratio ({adjective_ratio:.1%}) is moderate."
     else:
         flag = -1
         score = 0.3
@@ -220,9 +219,7 @@ def get_word_count(doc: Document, metric_id: int = 2) -> Metric:
     if total_words >= 500:
         flag = 1
         score = 0.9
-        explanation = (
-            f"The article has {total_words} words, indicating comprehensive coverage."
-        )
+        explanation = f"The article has {total_words} words, indicating comprehensive coverage."
     elif total_words >= 300:
         flag = 0
         score = 0.6
@@ -230,9 +227,7 @@ def get_word_count(doc: Document, metric_id: int = 2) -> Metric:
     else:
         flag = -1
         score = 0.3
-        explanation = (
-            f"The article has only {total_words} words, which may be too brief."
-        )
+        explanation = f"The article has only {total_words} words, which may be too brief."
 
     return Metric(
         id=metric_id,
@@ -275,13 +270,13 @@ def get_sentence_complexity(doc: Document, metric_id: int = 3) -> Metric:
     if 15 <= avg_sentence_length <= 25:
         flag = 1
         score = 0.9
-        explanation = f"Average sentence length ({avg_sentence_length:.1f} words) is optimal for readability."
+        explanation = (
+            f"Average sentence length ({avg_sentence_length:.1f} words) is optimal for readability."
+        )
     elif 10 <= avg_sentence_length < 15 or 25 < avg_sentence_length <= 35:
         flag = 0
         score = 0.6
-        explanation = (
-            f"Average sentence length ({avg_sentence_length:.1f} words) is acceptable."
-        )
+        explanation = f"Average sentence length ({avg_sentence_length:.1f} words) is acceptable."
     else:
         flag = -1
         score = 0.3
@@ -340,17 +335,19 @@ def get_verb_tense_analysis(doc: Document, metric_id: int = 4) -> Metric:
     if 0.4 <= past_tense_ratio <= 0.7:
         flag = 1
         score = 0.85
-        explanation = f"Past tense usage ({past_tense_ratio:.1%}) suggests appropriate news reporting style."
+        explanation = (
+            f"Past tense usage ({past_tense_ratio:.1%}) suggests appropriate news reporting style."
+        )
     elif 0.2 <= past_tense_ratio < 0.4 or 0.7 < past_tense_ratio <= 0.85:
         flag = 0
         score = 0.6
-        explanation = f"Past tense usage ({past_tense_ratio:.1%}) is acceptable but could be more balanced."
+        explanation = (
+            f"Past tense usage ({past_tense_ratio:.1%}) is acceptable but could be more balanced."
+        )
     else:
         flag = -1
         score = 0.3
-        explanation = (
-            f"Past tense usage ({past_tense_ratio:.1%}) is unusual for news reporting."
-        )
+        explanation = f"Past tense usage ({past_tense_ratio:.1%}) is unusual for news reporting."
 
     return Metric(
         id=metric_id,

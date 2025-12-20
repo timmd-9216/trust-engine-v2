@@ -5,8 +5,6 @@ import os
 import stanza
 from stanza import Document
 
-from trust_api.models import Metric
-
 
 class StanzaService:
     """

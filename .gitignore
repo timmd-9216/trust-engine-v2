@@ -2,6 +2,7 @@
 .gcloud/
 CODEX.md
 CLAUDE.md
+stanza_resources/
 
 # Python-generated files
 __pycache__/
@@ -26,3 +27,13 @@ result.json
 # GCP credentials
 service-account-key.json
 *-service-account.json
+
+# Testing and coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+coverage.xml
+*.cover
+.hypothesis/

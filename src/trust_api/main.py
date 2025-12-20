@@ -1,11 +1,11 @@
 """Main FastAPI application entry point."""
 
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
 from trust_api.api.v1 import router as api_v1_router
-from trust_api.core.config import config  # Load .env variables
 from trust_api.services.stanza_service import stanza_service
 
 # from fastapi.middleware.cors import CORSMiddleware
@@ -19,6 +19,11 @@ async def lifespan(app: FastAPI):
     Handles startup and shutdown events for the FastAPI application.
     Downloads and initializes the Stanza Spanish model on startup.
     """
+    if os.getenv("STANZA_SKIP_INIT") == "1":
+        print("Skipping Stanza initialization (STANZA_SKIP_INIT=1).")
+        yield
+        return
+
     # Startup: Initialize Stanza Spanish model
     print("Initializing Stanza Spanish model...")
     stanza_service.initialize()

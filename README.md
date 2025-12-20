@@ -101,6 +101,8 @@ Trust Engine v2 is a REST API that analyzes journalistic articles using Natural 
    poetry run uvicorn trust_api.main:app --reload
    ```
 
+> Tip: `poetry install --with dev` installs both your main dependencies and the dev-only ones under `[tool.poetry.group.dev.dependencies]` (pytest, pre-commit, ruff). It doesn’t affect prod deps; it just brings in the extra tooling for tests/lint/hooks.
+
 6. **Access the API**
    ```bash
    open http://localhost:8000  # or curl the endpoints below
@@ -530,14 +532,15 @@ metrics = [
 ### Running Tests
 
 ```bash
-# Run with default example
-python test_api.py
+# In-process health check (no server needed; skips stanza init)
+poetry run pytest test/test_client.py
 
-# Use specific input file
-python test_api.py --input test/input_example.json
+# Model/metric unit tests (pytest)
+poetry run pytest test/test_metrics.py
 
-# Specify output file
-python test_api.py --output results.json
+# Against a running server (full flow)
+poetry run uvicorn trust_api.main:app --reload &  # in another terminal
+poetry run python test/test_client.py --url http://localhost:8000 --input test/example_article.json
 ```
 
 ---
