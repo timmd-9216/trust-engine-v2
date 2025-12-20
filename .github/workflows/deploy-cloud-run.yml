@@ -39,11 +39,12 @@ jobs:
           sudo rm -rf /usr/local/lib/android || true
           rm -rf ~/.npm/_cacache ~/.cache/pip ~/.cache/pypoetry ~/.cache/pipx || true
 
-      - name: Install Poetry
-        run: pipx install poetry
-
-      - name: Install dependencies
-        run: poetry install --with dev
+      # Temporarily disabled Poetry install/tests due to GH runner disk space limits.
+      # - name: Install Poetry
+      #   run: pipx install poetry
+      #
+      # - name: Install dependencies
+      #   run: poetry install --with dev
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
@@ -168,5 +169,6 @@ jobs:
           echo "Service deployed at: ${SERVICE_URL}"
           echo "service_url=${SERVICE_URL}" >> $GITHUB_OUTPUT
 
-      - name: Test (local mode)
-        run: poetry run pytest test/test_client.py
+      # Tests disabled temporarily due to runner space issues.
+      # - name: Test (local mode)
+      #   run: poetry run pytest test/test_client.py
