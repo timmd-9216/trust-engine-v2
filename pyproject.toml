@@ -35,12 +35,16 @@ trust-api-nlp = "trust_api.nlp.main:app"
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+
+[tool.ruff.lint]
 extend-select = [
     "I",   # isort
     "F",   # pyflakes
 ]
 ignore = []
-src = ["src"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["trust_api"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "test"]
