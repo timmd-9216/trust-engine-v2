@@ -32,20 +32,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Free disk space (dotnet/node/pip caches)
-        run: |
-          sudo rm -rf /usr/share/dotnet || true
-          sudo rm -rf /opt/ghc || true
-          sudo rm -rf /usr/local/lib/android || true
-          rm -rf ~/.npm/_cacache ~/.cache/pip ~/.cache/pypoetry ~/.cache/pipx || true
-
-      # Temporarily disabled Poetry install/tests due to GH runner disk space limits.
-      # - name: Install Poetry
-      #   run: pipx install poetry
-      #
-      # - name: Install dependencies
-      #   run: poetry install --with dev
-
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
@@ -169,6 +155,3 @@ jobs:
           echo "Service deployed at: ${SERVICE_URL}"
           echo "service_url=${SERVICE_URL}" >> $GITHUB_OUTPUT
 
-      # Tests disabled temporarily due to runner space issues.
-      # - name: Test (local mode)
-      #   run: poetry run pytest test/test_client.py
