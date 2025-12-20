@@ -164,35 +164,41 @@ jobs:
           # Wait for service to be ready (with exponential backoff)
           delay=10
           max_attempts=15
-          READY="False"
           
           for i in $(seq 1 ${max_attempts}); do
             echo "Checking service status (attempt $i/${max_attempts})..."
-            READY=$(gcloud run services describe "${{ env.GCP_SERVICE_NAME }}" \
+            
+            # Get full status YAML and check for Ready condition
+            STATUS_YAML=$(gcloud run services describe "${{ env.GCP_SERVICE_NAME }}" \
               --project "${{ env.GCP_PROJECT_ID }}" \
               --region "${{ env.GCP_REGION }}" \
-              --format="value(status.conditions[?type=='Ready'].status)" 2>/dev/null || echo "Unknown")
-
-            # Fallback if READY is empty/unknown: parse YAML for Ready condition
-            if [ -z "$READY" ] || [ "$READY" = "Unknown" ]; then
-              READY=$(gcloud run services describe "${{ env.GCP_SERVICE_NAME }}" \
-                --project "${{ env.GCP_PROJECT_ID }}" \
-                --region "${{ env.GCP_REGION }}" \
-                --format="yaml(status.conditions)" 2>/dev/null | awk '/type: Ready/{getline; getline; print $2}' || echo "Unknown")
+              --format="yaml(status)" 2>/dev/null || echo "")
+            
+            if [ -z "$STATUS_YAML" ]; then
+              echo "Could not retrieve service status"
+              if [ $i -eq ${max_attempts} ]; then
+                exit 1
+              fi
+              sleep "${delay}"
+              continue
             fi
             
-            echo "Service Ready status: ${READY}"
+            # Check if Ready condition exists and is True
+            READY_STATUS=$(echo "$STATUS_YAML" | grep -A 1 "type: Ready" | grep "status:" | awk '{print $2}' | tr -d "'\"" || echo "")
+            LATEST_READY=$(echo "$STATUS_YAML" | grep "latestReadyRevisionName:" | awk '{print $2}' || echo "")
             
-            if [ "$READY" = "True" ]; then
+            echo "Ready status from condition: ${READY_STATUS:-not found}"
+            echo "Latest ready revision: ${LATEST_READY:-none}"
+            
+            # Service is ready if:
+            # 1. Ready condition status is 'True', OR
+            # 2. latestReadyRevisionName exists (most reliable indicator)
+            if [ "$READY_STATUS" = "True" ] || [ -n "$LATEST_READY" ]; then
               echo "✓ Service is Ready!"
-              
-              # Get more service details
+              echo ""
               echo "Service details:"
-              gcloud run services describe "${{ env.GCP_SERVICE_NAME }}" \
-                --project "${{ env.GCP_PROJECT_ID }}" \
-                --region "${{ env.GCP_REGION }}" \
-                --format="table(status.url,status.conditions[0].type,status.conditions[0].status,status.conditions[0].message)" || true
-              
+              echo "$STATUS_YAML" | head -20
+              echo ""
               echo "✓ Deployment successful! Service is ready at ${SERVICE_URL}"
               exit 0
             fi
@@ -200,23 +206,19 @@ jobs:
             # If not ready and this is the last attempt, show detailed error info
             if [ $i -eq ${max_attempts} ]; then
               echo "✗ Service not Ready after ${max_attempts} attempts."
-              echo "Current status: ${READY}"
               echo ""
               echo "Full service status:"
-              gcloud run services describe "${{ env.GCP_SERVICE_NAME }}" \
-                --project "${{ env.GCP_PROJECT_ID }}" \
-                --region "${{ env.GCP_REGION }}" \
-                --format="yaml(status)" || true
+              echo "$STATUS_YAML"
               echo ""
-              echo "Recent service logs (last 50 lines):"
+              echo "Attempting to read service logs (may require additional permissions):"
               gcloud run services logs read "${{ env.GCP_SERVICE_NAME }}" \
                 --project "${{ env.GCP_PROJECT_ID }}" \
                 --region "${{ env.GCP_REGION }}" \
-                --limit 50 || echo "(logs unavailable: insufficient permissions)"
+                --limit 50 2>/dev/null || echo "(logs unavailable: insufficient permissions or service not ready)"
               exit 1
             fi
             
-            echo "Waiting ${delay}s before next check..."
+            echo "Service not ready yet. Waiting ${delay}s before next check..."
             sleep "${delay}"
             # Cap delay at 60 seconds
             if [ $delay -lt 60 ]; then
