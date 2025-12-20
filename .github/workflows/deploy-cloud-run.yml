@@ -32,6 +32,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Install Poetry
+        run: pipx install poetry
+
+      - name: Install dependencies
+        run: poetry install --with dev
+
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
