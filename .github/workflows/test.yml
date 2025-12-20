@@ -14,7 +14,7 @@ jobs:
     name: Run Tests
     runs-on: ubuntu-latest
     # Only run tests if the deploy workflow completed successfully
-    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
+    if: github.event.workflow_run.conclusion == 'success' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     strategy:
       matrix:
         python-version: ["3.12"]
@@ -43,15 +43,19 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install Poetry
-        run: |
-          curl -sSL https://install.python-poetry.org | python3 -
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+        uses: snok/install-poetry@v1
+        with:
+          version: latest
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+          installer-parallel: true
 
-      - name: Verify Poetry installation
+      - name: Check Poetry lock file exists
         run: |
-          poetry --version
-          poetry config virtualenvs.create true
-          poetry config virtualenvs.in-project true
+          if [ ! -f "poetry.lock" ]; then
+            echo "Error: poetry.lock file not found. Run 'poetry lock' to generate it." >&2
+            exit 1
+          fi
 
       - name: Load cached venv
         id: cached-poetry-dependencies
@@ -65,8 +69,7 @@ jobs:
       - name: Install dependencies
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
         run: |
-          poetry install --no-interaction --no-root
-          poetry install --no-interaction
+          poetry install --no-interaction --with dev
 
       - name: Set up environment variables
         run: |
@@ -82,6 +85,7 @@ jobs:
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         if: always()
+        continue-on-error: true
         with:
           file: ./coverage.xml
           flags: unittests

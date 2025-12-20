@@ -32,6 +32,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /opt/ghc || true
+          sudo rm -rf /usr/local/lib/android || true
+          sudo rm -rf /usr/local/share/boost || true
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY" || true
+          rm -rf ~/.npm/_cacache ~/.cache/pip ~/.cache/pypoetry ~/.cache/pipx || true
+          rm -rf ~/.local/share/pipx || true
+          # Clean up Docker to free space
+          docker system prune -af --volumes || true
+          df -h
+
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
@@ -79,14 +92,19 @@ jobs:
       - name: Build and Push Docker image
         run: |
           IMAGE_NAME="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/${{ env.GCP_SERVICE_NAME }}"
+          # Enable BuildKit for better caching and performance
+          export DOCKER_BUILDKIT=1
           docker build \
             --build-arg STANZA_LANG=${{ env.STANZA_LANG }} \
             --build-arg STANZA_RESOURCES_DIR=${{ env.STANZA_RESOURCES_DIR }} \
-            -t ${IMAGE_NAME}:${{ github.sha }} -t ${IMAGE_NAME}:latest .
+            --cache-from ${IMAGE_NAME}:latest \
+            -t ${IMAGE_NAME}:${{ github.sha }} \
+            -t ${IMAGE_NAME}:latest .
           docker push ${IMAGE_NAME}:${{ github.sha }}
           docker push ${IMAGE_NAME}:latest
 
       - name: Deploy to Cloud Run
+        timeout-minutes: 10
         run: |
           gcloud run deploy ${{ env.GCP_SERVICE_NAME }} \
             --image ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/${{ env.GCP_SERVICE_NAME }}:${{ github.sha }} \
