@@ -17,6 +17,8 @@ class StanzaService:
     def __init__(self):
         """Initialize the StanzaService with no model loaded."""
         self._nlp = None
+        # Optional override used in tests to mock initialization state
+        self._initialized_override: bool | None = None
 
     def initialize(self):
         """
@@ -62,7 +64,19 @@ class StanzaService:
     @property
     def is_initialized(self) -> bool:
         """Check if the Stanza model is initialized."""
+        if self._initialized_override is not None:
+            return self._initialized_override
         return self._nlp is not None
+
+    @is_initialized.setter
+    def is_initialized(self, value: bool) -> None:
+        """Allow tests to mock initialization state without a real pipeline."""
+        self._initialized_override = bool(value)
+
+    @is_initialized.deleter
+    def is_initialized(self) -> None:
+        """Reset mocked initialization state to default behavior."""
+        self._initialized_override = None
 
 
 # Global instance to be used across the application
