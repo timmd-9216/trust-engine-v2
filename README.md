@@ -264,7 +264,9 @@ A lightweight FastAPI service to receive CSV references (GCS URIs) and trigger N
 - Env vars:
   - `SERVICE_NAME` (default `nlp-process`)
   - `ENVIRONMENT` (default `local`)
-- Deploy via CI: set `GCP_NLP_SERVICE_NAME` in GitHub secrets/vars. The workflow reuses the same image and sets `APP_MODULE=trust_api.nlp.main:app` for the Cloud Run service.
+- Deploy via CI: set `GCP_NLP_SERVICE_NAME` in GitHub secrets/vars. The workflow builds a single Docker image (named after `GCP_SERVICE_NAME`, e.g., `trust-engine-v2`) and deploys it to both Cloud Run services:
+  - Main service: uses the image with default `APP_MODULE=trust_api.main:app`
+  - NLP service: uses the same image with `APP_MODULE=trust_api.nlp.main:app` set via environment variable
 
 Endpoints:
 - `GET /` metadata
@@ -360,6 +362,16 @@ The deployment process:
 3. Deploys to Cloud Run
 4. Runs health check
 5. Outputs service URL
+
+**Note on Docker Images:**
+A single Docker image is built and pushed to Artifact Registry with the name based on `GCP_SERVICE_NAME` (e.g., `trust-engine-v2`). Both Cloud Run services (the main API service and the optional NLP processing service) use this same image. The difference is in the runtime configuration:
+- **Main service**: Uses the default `APP_MODULE=trust_api.main:app`
+- **NLP service**: Uses `APP_MODULE=trust_api.nlp.main:app` (set via environment variable)
+
+This approach is efficient as it:
+- Reduces storage in Artifact Registry (one image instead of two)
+- Ensures both services use the same codebase version
+- Simplifies maintenance and deployment
 
 **Manual Cloud Build + Deploy (no local Docker)**
 ```bash
