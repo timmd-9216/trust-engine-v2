@@ -1,0 +1,48 @@
+indexes:
+  # Index for querying by platform and status
+  - kind: social_post
+    properties:
+      - name: platform
+      - name: status
+
+  # Index for querying by platform and created_at (for date range queries)
+  - kind: social_post
+    properties:
+      - name: platform
+      - name: created_at
+
+  # Index for querying by status and created_at (for date range queries)
+  - kind: social_post
+    properties:
+      - name: status
+      - name: created_at
+
+  # Index for querying by platform, status, and created_at (most comprehensive)
+  - kind: social_post
+    properties:
+      - name: platform
+      - name: status
+      - name: created_at
+
+  # Index for ordering by created_at with platform filter
+  - kind: social_post
+    properties:
+      - name: platform
+      - name: created_at
+        direction: desc
+
+  # Index for ordering by created_at with status filter
+  - kind: social_post
+    properties:
+      - name: status
+      - name: created_at
+        direction: desc
+
+  # Index for ordering by created_at with platform and status filters
+  - kind: social_post
+    properties:
+      - name: platform
+      - name: status
+      - name: created_at
+        direction: desc
+

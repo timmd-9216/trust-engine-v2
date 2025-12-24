@@ -1,8 +1,15 @@
+# IDE files
 .vscode/
 .gcloud/
 CODEX.md
 CLAUDE.md
+
+# Stanza resources
 stanza_resources/
+
+# Data files
+*.csv
+*.json
 
 # Python-generated files
 __pycache__/
