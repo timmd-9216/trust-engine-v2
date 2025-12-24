@@ -114,15 +114,28 @@ if __name__ == "__main__":
         project_root = Path(__file__).parent.parent
         csv_path = project_root / "data" / "account_search-hnd01_rive.csv"
 
-    # Get project ID from .env file (loaded via load_dotenv()) or command line
-    # Command line argument takes precedence over .env file
+    # Get project ID from .env file (loaded via load_dotenv())
     project_id = os.getenv("GCP_PROJECT_ID")
-    if len(sys.argv) > 2:
-        project_id = sys.argv[2]
 
     # Get limit from command line or use default
     limit = 10
-    if len(sys.argv) > 3:
+
+    # Parse arguments intelligently:
+    # - If 2 args: CSV path and either project_id OR limit (detect by type)
+    # - If 3 args: CSV path, project_id, limit
+    if len(sys.argv) == 3:
+        # Two arguments: CSV and either project_id or limit
+        arg2 = sys.argv[2]
+        # Check if it's a number (limit) or text (project_id)
+        try:
+            limit = int(arg2)
+            # It's a number, so it's the limit, project_id stays from .env
+        except ValueError:
+            # It's not a number, so it's the project_id
+            project_id = arg2
+    elif len(sys.argv) > 3:
+        # Three or more arguments: CSV, project_id, limit
+        project_id = sys.argv[2]
         try:
             limit = int(sys.argv[3])
         except ValueError:
