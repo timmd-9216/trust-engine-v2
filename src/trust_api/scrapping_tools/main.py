@@ -21,6 +21,7 @@ class ProcessPostsResponse(BaseModel):
     failed: int
     errors: list[str]
     saved_files: list[str]
+    log_file: str | None = None  # GCS URI of the execution log file
 
 
 app = FastAPI(
@@ -80,7 +81,7 @@ async def get_post_information(request: PostInformationRequest):
 
 
 @app.post("/process-posts", response_model=ProcessPostsResponse)
-async def process_posts_endpoint():
+async def process_posts_endpoint(max_posts: int | None = None):
     """
     Process posts from Firestore that have status='noreplies'.
 
@@ -89,9 +90,19 @@ async def process_posts_endpoint():
     2. For each post, queries the external Information Tracer service using post_id
     3. Saves the JSON response to GCS bucket with structure:
        country/platform/candidate_id/{post_id}.json
+    4. Updates the post status to 'done' in Firestore after successful save
+
+    Args:
+        max_posts: Maximum number of posts to process in this call. If None, processes all posts with status='noreplies'.
+
+    Returns:
+        ProcessPostsResponse with processing results including success count, errors, etc.
+
+    Raises:
+        HTTPException: If the processing fails or configuration is missing
     """
     try:
-        results = process_posts_service()
+        results = process_posts_service(max_posts=max_posts)
         return ProcessPostsResponse(**results)
     except Exception as e:
         raise HTTPException(
