@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Script to query Datastore for social posts with a specific status.
+Script to query Firestore for social posts with a specific status.
 
-Queries the "socialnetworks" database for records matching the specified status
+Queries the specified Firestore database and collection for records matching the specified status
 and returns their conversation_id_str values.
 
 The script reads GCP_PROJECT_ID from .env file (or command line argument).
@@ -15,26 +15,34 @@ import sys
 
 try:
     from dotenv import load_dotenv
-    from google.cloud import datastore
+    from google.cloud import firestore
 except ImportError as e:
-    missing = "dotenv" if "dotenv" in str(e) else "google-cloud-datastore"
+    missing = "dotenv" if "dotenv" in str(e) else "google-cloud-firestore"
     if missing == "dotenv":
         print("Error: python-dotenv is not installed.")
         print("Install it with: poetry add python-dotenv")
     else:
-        print("Error: google-cloud-datastore is not installed.")
-        print("Install it with: poetry add google-cloud-datastore")
+        print("Error: google-cloud-firestore is not installed.")
+        print("Install it with: poetry add google-cloud-firestore")
     sys.exit(1)
 
 # Load environment variables from .env file
 load_dotenv()
 
 
-def query_by_status(project_id: str = None, status: str = "scrapped", limit: int = None):
+def query_by_status(
+    collection: str,
+    database_name: str = "socialnetworks",
+    project_id: str = None,
+    status: str = "scrapped",
+    limit: int = None,
+):
     """
-    Query Datastore for records with a specific status.
+    Query Firestore for records with a specific status.
 
     Args:
+        collection: Firestore collection name
+        database_name: Firestore database name (default: "socialnetworks")
         project_id: GCP project ID (if None, uses default from gcloud)
         status: Status value to filter by (default: "scrapped")
         limit: Maximum number of results to return (None for all)
@@ -42,37 +50,45 @@ def query_by_status(project_id: str = None, status: str = "scrapped", limit: int
     Returns:
         List of conversation_id_str values
     """
-    # Initialize Datastore client
+    # Initialize Firestore client
     if project_id:
-        client = datastore.Client(project=project_id, database="socialnetworks")
+        client = firestore.Client(project=project_id, database=database_name)
     else:
-        client = datastore.Client(database="socialnetworks")
+        client = firestore.Client(database=database_name)
 
     # Create query
-    query = client.query(kind="social_post")
-    query.add_filter("status", "=", status)
+    query = client.collection(collection).where("status", "==", status)
 
     # Apply limit if specified
     if limit:
-        query_iter = query.fetch(limit=limit)
+        docs = query.limit(limit).stream()
     else:
-        query_iter = query.fetch()
+        docs = query.stream()
 
     # Extract conversation_id_str values
     conversation_ids = []
-    for entity in query_iter:
-        conversation_id = entity.get("conversation_id_str", "")
+    for doc in docs:
+        doc_data = doc.to_dict()
+        conversation_id = doc_data.get("conversation_id_str", "")
         if conversation_id:
             conversation_ids.append(conversation_id)
 
     return conversation_ids
 
 
-def query_with_details(project_id: str = None, status: str = "scrapped", limit: int = None):
+def query_with_details(
+    collection: str,
+    database_name: str = "socialnetworks",
+    project_id: str = None,
+    status: str = "scrapped",
+    limit: int = None,
+):
     """
-    Query Datastore for records with a specific status and return full details.
+    Query Firestore for records with a specific status and return full details.
 
     Args:
+        collection: Firestore collection name
+        database_name: Firestore database name (default: "socialnetworks")
         project_id: GCP project ID (if None, uses default from gcloud)
         status: Status value to filter by (default: "scrapped")
         limit: Maximum number of results to return (None for all)
@@ -80,30 +96,30 @@ def query_with_details(project_id: str = None, status: str = "scrapped", limit: 
     Returns:
         List of dictionaries with record details
     """
-    # Initialize Datastore client
+    # Initialize Firestore client
     if project_id:
-        client = datastore.Client(project=project_id, database="socialnetworks")
+        client = firestore.Client(project=project_id, database=database_name)
     else:
-        client = datastore.Client(database="socialnetworks")
+        client = firestore.Client(database=database_name)
 
     # Create query
-    query = client.query(kind="social_post")
-    query.add_filter("status", "=", status)
+    query = client.collection(collection).where("status", "==", status)
 
     # Apply limit if specified
     if limit:
-        query_iter = query.fetch(limit=limit)
+        docs = query.limit(limit).stream()
     else:
-        query_iter = query.fetch()
+        docs = query.stream()
 
     # Extract full details
     records = []
-    for entity in query_iter:
+    for doc in docs:
+        doc_data = doc.to_dict()
         record = {
-            "conversation_id_str": entity.get("conversation_id_str", ""),
-            "platform": entity.get("platform", ""),
-            "created_at": entity.get("created_at", ""),
-            "status": entity.get("status", ""),
+            "conversation_id_str": doc_data.get("conversation_id_str", ""),
+            "platform": doc_data.get("platform", ""),
+            "created_at": doc_data.get("created_at", ""),
+            "status": doc_data.get("status", ""),
         }
         records.append(record)
 
@@ -113,12 +129,23 @@ def query_with_details(project_id: str = None, status: str = "scrapped", limit: 
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Query Datastore for social posts by status")
+    parser = argparse.ArgumentParser(description="Query Firestore for social posts by status")
+    parser.add_argument(
+        "collection",
+        type=str,
+        help="Firestore collection name",
+    )
     parser.add_argument(
         "--status",
         type=str,
         default="scrapped",
         help='Status to filter by (default: "scrapped")',
+    )
+    parser.add_argument(
+        "--database",
+        type=str,
+        default="socialnetworks",
+        help="Firestore database name (default: socialnetworks)",
     )
     parser.add_argument(
         "--limit",
@@ -143,7 +170,8 @@ if __name__ == "__main__":
     # Get project ID from .env file or command line
     project_id = args.project_id or os.getenv("GCP_PROJECT_ID")
 
-    print("Querying Datastore database 'socialnetworks'...")
+    print(f"Querying Firestore database '{args.database}'...")
+    print(f"Collection: {args.collection}")
     print(f"Status filter: {args.status}")
     print(f"Project ID: {project_id or 'default from gcloud'}")
     if args.limit:
@@ -153,7 +181,9 @@ if __name__ == "__main__":
     try:
         if args.details:
             # Get full details
-            records = query_with_details(project_id, args.status, args.limit)
+            records = query_with_details(
+                args.collection, args.database, project_id, args.status, args.limit
+            )
             print(f"Found {len(records)} records:\n")
             for i, record in enumerate(records, 1):
                 print(f"{i}. conversation_id: {record['conversation_id_str']}")
@@ -163,7 +193,9 @@ if __name__ == "__main__":
                 print()
         else:
             # Get only conversation_ids
-            conversation_ids = query_by_status(project_id, args.status, args.limit)
+            conversation_ids = query_by_status(
+                args.collection, args.database, project_id, args.status, args.limit
+            )
             print(f"Found {len(conversation_ids)} records with status='{args.status}':\n")
             for i, conversation_id in enumerate(conversation_ids, 1):
                 print(f"{i}. {conversation_id}")
@@ -173,5 +205,5 @@ if __name__ == "__main__":
                 print("\nConversation IDs (one per line):")
                 print("\n".join(conversation_ids))
     except Exception as e:
-        print(f"Error querying Datastore: {e}", file=sys.stderr)
+        print(f"Error querying Firestore: {e}", file=sys.stderr)
         sys.exit(1)
