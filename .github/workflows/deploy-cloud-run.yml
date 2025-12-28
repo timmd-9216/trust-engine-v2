@@ -83,23 +83,27 @@ jobs:
           echo ""
           echo "Verifying service account configuration..."
           EXPECTED_SA="ci-deployer@trust-481601.iam.gserviceaccount.com"
+          echo "Expected service account: ${EXPECTED_SA}"
+          echo "Configured service account: ${GCP_SERVICE_ACCOUNT_EMAIL}"
           if [ "${GCP_SERVICE_ACCOUNT_EMAIL}" = "${EXPECTED_SA}" ]; then
             echo "✓ Service account matches expected value"
           else
             echo "⚠ WARNING: Service account does not match expected value!"
-            echo "  Configured: ${GCP_SERVICE_ACCOUNT_EMAIL}"
-            echo "  Expected: ${EXPECTED_SA}"
             echo ""
             echo "Please verify that the secret GCP_SERVICE_ACCOUNT_EMAIL in GitHub"
             echo "(environment: trust-engine) is set to exactly: ${EXPECTED_SA}"
           fi
           echo ""
-          echo "Testing Secret Manager IAM policy access..."
-          # Try to get IAM policy - this requires secretmanager.secretAccessor or secretmanager.admin
-          if gcloud secrets get-iam-policy INFORMATION_TRACER_API_KEY --project="${GCP_PROJECT_ID}" 2>&1; then
-            echo "✓ Can read IAM policy - permissions look good"
+          echo "Checking authenticated identity..."
+          gcloud auth list
+          echo ""
+          echo "Testing Secret Manager access..."
+          # Try to describe the secret - this requires secretmanager.secretAccessor
+          if gcloud secrets describe INFORMATION_TRACER_API_KEY --project="${GCP_PROJECT_ID}" >/dev/null 2>&1; then
+            echo "✓ Can access secret - permissions are correct"
           else
-            echo "⚠ Could not read IAM policy - this might indicate a permissions issue"
+            echo "⚠ Cannot access secret - checking IAM policy..."
+            gcloud secrets get-iam-policy INFORMATION_TRACER_API_KEY --project="${GCP_PROJECT_ID}" 2>&1 || echo "Cannot read IAM policy either"
           fi
 
       - name: Ensure Artifact Registry repository
@@ -256,18 +260,33 @@ jobs:
                 echo "1. Service account configured: ${GCP_SERVICE_ACCOUNT_EMAIL}"
                 echo "2. Expected service account: ci-deployer@trust-481601.iam.gserviceaccount.com"
                 echo ""
-                echo "Please verify:"
-                echo "- The secret GCP_SERVICE_ACCOUNT_EMAIL in GitHub (environment: trust-engine) is exactly:"
-                echo "  ci-deployer@trust-481601.iam.gserviceaccount.com"
-                echo "- Permissions are granted (you already verified this):"
-                echo "  gcloud secrets get-iam-policy ${SECRET_NAME} --project=${GCP_PROJECT_ID}"
+                echo "Troubleshooting steps:"
                 echo ""
-                echo "If the service account matches and permissions are correct, this might be:"
-                echo "- Permissions propagation delay (wait 2-3 more minutes)"
-                echo "- Workload Identity Federation issue (check WIF binding)"
+                echo "1. Verify the secret GCP_SERVICE_ACCOUNT_EMAIL in GitHub (environment: trust-engine):"
+                echo "   - Go to: https://github.com/timmd-9216/trust-engine-v2/settings/environments/trust-engine"
+                echo "   - Ensure it's exactly: ci-deployer@trust-481601.iam.gserviceaccount.com"
                 echo ""
-                echo "As a workaround, you can temporarily use environment variables instead of Secret Manager"
-                echo "by removing the secret handling code, but this is less secure."
+                echo "2. Verify Workload Identity Federation bindings for repository timmd-9216/trust-engine-v2:"
+                echo "   Run locally: ./scripts/verify_wif_setup.sh"
+                echo ""
+                echo "3. Verify IAM bindings on the secret:"
+                echo "   gcloud secrets get-iam-policy ${SECRET_NAME} --project=${GCP_PROJECT_ID}"
+                echo ""
+                echo "4. Check that the WIF provider attribute condition matches the repository:"
+                echo "   gcloud iam workload-identity-pools providers describe github-provider \\"
+                echo "     --project=${GCP_PROJECT_ID} \\"
+                echo "     --location=global \\"
+                echo "     --workload-identity-pool=github-pool \\"
+                echo "     --format='value(attributeCondition)'"
+                echo "   Should be: attribute.repository=='timmd-9216/trust-engine-v2'"
+                echo ""
+                echo "5. Common causes:"
+                echo "   - Service account mismatch (check step 1)"
+                echo "   - WIF bindings not configured for the correct repository"
+                echo "   - Permissions propagation delay (wait 2-3 more minutes after granting permissions)"
+                echo ""
+                echo "If all checks pass, the issue may be with Workload Identity Federation authentication."
+                echo "Verify that the workflow has 'permissions: id-token: write' set."
                 exit 1
               else
                 echo "⚠ ERROR: Could not access secret ${SECRET_NAME}."

@@ -2,6 +2,20 @@
 
 Este documento explica cómo usar Google Cloud Secret Manager para almacenar secretos de forma segura en lugar de variables de entorno.
 
+## Diagnóstico rápido
+
+Si estás teniendo problemas con permisos de Secret Manager en GitHub Actions, primero verifica tu configuración de Workload Identity Federation:
+
+```bash
+# Verificar toda la configuración de WIF
+./scripts/verify_wif_setup.sh
+
+# Corregir problemas comunes de WIF
+./scripts/fix_wif_setup.sh
+```
+
+Ver también: [Troubleshooting WIF](./WORKLOAD_IDENTITY.md#troubleshooting-wif-setup-errors)
+
 ## ¿Por qué usar Secret Manager?
 
 - ✅ **Seguridad**: Los secretos están encriptados y no son visibles en la configuración del servicio
