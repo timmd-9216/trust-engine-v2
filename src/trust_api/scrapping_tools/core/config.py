@@ -17,8 +17,7 @@ class Settings(BaseSettings):
     gcp_project_id: str = os.getenv("GCP_PROJECT_ID", "")
 
     # External Information Tracer service configuration
-    information_tracer_url: str = os.getenv("INFORMATION_TRACER_URL", "")
-    information_tracer_token: str = os.getenv("INFORMATION_TRACER_TOKEN", "")
+    information_tracer_api_key: str = os.getenv("INFORMATION_TRACER_API_KEY", "")
 
     # GCS configuration
     gcs_bucket_name: str = os.getenv("GCS_BUCKET_NAME", "")

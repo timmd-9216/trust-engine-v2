@@ -1,4 +1,3 @@
-import httpx
 from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel
 
@@ -8,6 +7,8 @@ from trust_api.scrapping_tools.services import fetch_post_information, process_p
 
 class PostInformationRequest(BaseModel):
     post_id: str
+    platform: str
+    max_posts: int = 100
 
 
 class PostInformationResponse(BaseModel):
@@ -61,17 +62,21 @@ async def get_post_information(request: PostInformationRequest):
         HTTPException: If the request fails or configuration is missing
     """
     try:
-        data = fetch_post_information(request.post_id)
+        data = fetch_post_information(
+            post_id=request.post_id,
+            platform=request.platform,
+            max_posts=request.max_posts,
+        )
         return PostInformationResponse(post_id=request.post_id, data=data)
     except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Configuration error: {str(e)}",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid request: {str(e)}",
         )
-    except httpx.HTTPStatusError as e:
+    except RuntimeError as e:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"External service error: {str(e)}",
+            detail=f"Information Tracer service error: {str(e)}",
         )
     except Exception as e:
         raise HTTPException(

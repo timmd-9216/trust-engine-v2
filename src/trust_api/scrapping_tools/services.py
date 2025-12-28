@@ -5,7 +5,6 @@ import time
 from datetime import datetime, timezone
 from typing import Any
 
-import httpx
 from google.cloud import firestore, storage
 
 from trust_api.scrapping_tools.core.config import settings
@@ -71,6 +70,7 @@ def add_log_entry(
     status_code: int | None = None,
     error_message: str | None = None,
     response_time_ms: float | None = None,
+    max_replies: int | None = None,
 ) -> None:
     """
     Add a log entry to the execution logs (in-memory).
@@ -82,6 +82,7 @@ def add_log_entry(
         status_code: HTTP status code (if available)
         error_message: Error message (if call failed)
         response_time_ms: Response time in milliseconds (if available)
+        max_replies: Maximum number of replies requested for this post (if available)
     """
     now = datetime.now(timezone.utc)
     log_entry = {
@@ -92,6 +93,7 @@ def add_log_entry(
         "status_code": status_code,
         "error_message": error_message,
         "response_time_ms": response_time_ms,
+        "max_replies": max_replies,
     }
     _execution_logs.append(log_entry)
 
@@ -151,76 +153,108 @@ def save_execution_logs(
         return None
 
 
-def fetch_post_information(post_id: str) -> dict[str, Any]:
+def fetch_post_information(
+    post_id: str,
+    platform: str,
+    max_posts: int = 100,
+) -> dict[str, Any]:
     """
-    Query external information tracer service for a given post_id.
+    Fetch replies for a post using Information Tracer API.
     Logs all calls to GCS bucket in logs/ folder.
 
     Args:
-        post_id: The post ID to query
+        post_id: The post ID to get replies for
+        platform: The platform where the post is located (twitter, facebook, instagram, etc.)
+        max_posts: Maximum number of replies to collect (default: 100)
 
     Returns:
-        JSON response from the external service
+        Dictionary containing the collected replies from Information Tracer
 
     Raises:
-        ValueError: If INFORMATION_TRACER_URL or INFORMATION_TRACER_TOKEN is not configured
-        httpx.HTTPStatusError: If the request fails
+        ValueError: If INFORMATION_TRACER_API_KEY is not configured or invalid platform
+        RuntimeError: If the Information Tracer job fails or times out
     """
-    if not settings.information_tracer_url:
-        raise ValueError("INFORMATION_TRACER_URL is not configured")
-    if not settings.information_tracer_token:
-        raise ValueError("INFORMATION_TRACER_TOKEN is not configured")
+    if not settings.information_tracer_api_key:
+        raise ValueError("INFORMATION_TRACER_API_KEY is not configured")
 
-    # Construct URL: append /posts/{post_id} to the base URL
-    base_url = settings.information_tracer_url.rstrip("/")
-    url = f"{base_url}/posts/{post_id}"
-    headers = {
-        "Authorization": f"Bearer {settings.information_tracer_token}",
-        "Content-Type": "application/json",
-    }
+    # Import here to avoid circular dependencies
+    from trust_api.scrapping_tools.information_tracer import PlatformType, get_post_replies
+
+    # Validate platform type
+    valid_platforms: list[PlatformType] = [
+        "twitter",
+        "facebook",
+        "instagram",
+        "reddit",
+        "youtube",
+        "threads",
+    ]
+    if platform.lower() not in valid_platforms:
+        raise ValueError(
+            f"Invalid platform: {platform}. Valid platforms are: {', '.join(valid_platforms)}"
+        )
 
     # Track response time
     start_time = time.time()
-    status_code = None
     error_message = None
 
+    # Construct a descriptive URL for logging purposes
+    url = f"https://informationtracer.com/submit (reply:{post_id}, platform:{platform})"
+
     try:
-        with httpx.Client(timeout=30.0) as client:
-            response = client.get(url, headers=headers)
-            status_code = response.status_code
-            response.raise_for_status()
-            result = response.json()
+        # Call Information Tracer API to get replies
+        result = get_post_replies(
+            post_id=post_id,
+            platform=platform.lower(),  # type: ignore
+            max_post=max_posts,
+            token=settings.information_tracer_api_key,
+        )
 
-            # Add log entry for successful call
-            response_time_ms = (time.time() - start_time) * 1000
-            add_log_entry(
-                post_id=post_id,
-                url=url,
-                success=True,
-                status_code=status_code,
-                response_time_ms=response_time_ms,
-            )
+        # Add log entry for successful call
+        response_time_ms = (time.time() - start_time) * 1000
+        add_log_entry(
+            post_id=post_id,
+            url=url,
+            success=True,
+            status_code=200,
+            response_time_ms=response_time_ms,
+            max_replies=max_posts,
+        )
 
-            return result
-    except httpx.HTTPStatusError as e:
+        return result
+
+    except ValueError as e:
         error_message = str(e)
-        status_code = e.response.status_code if e.response else None
-
         # Add log entry for failed call
         response_time_ms = (time.time() - start_time) * 1000
         add_log_entry(
             post_id=post_id,
             url=url,
             success=False,
-            status_code=status_code,
+            status_code=None,
             error_message=error_message,
             response_time_ms=response_time_ms,
+            max_replies=max_posts,
         )
-
         raise
+
+    except RuntimeError as e:
+        error_message = str(e)
+        # Add log entry for failed call
+        response_time_ms = (time.time() - start_time) * 1000
+        add_log_entry(
+            post_id=post_id,
+            url=url,
+            success=False,
+            status_code=None,
+            error_message=error_message,
+            response_time_ms=response_time_ms,
+            max_replies=max_posts,
+        )
+        raise
+
     except Exception as e:
         error_message = str(e)
-
         # Add log entry for failed call
         response_time_ms = (time.time() - start_time) * 1000
         add_log_entry(
@@ -229,8 +263,8 @@ def fetch_post_information(post_id: str) -> dict[str, Any]:
             success=False,
             error_message=error_message,
             response_time_ms=response_time_ms,
+            max_replies=max_posts,
         )
-
         raise
 
 
@@ -366,8 +400,14 @@ def process_posts_service(max_posts: int | None = None) -> dict[str, Any]:
             candidate_id = post.get("candidate_id", "unknown")
 
             try:
-                # Fetch information from Information Tracer service
-                info_data = fetch_post_information(post_id)
+                # Fetch replies from Information Tracer service
+                # Use max_replies from post if available, otherwise default to 100
+                max_replies = post.get("max_replies", 100)
+                info_data = fetch_post_information(
+                    post_id=post_id,
+                    platform=platform,
+                    max_posts=max_replies,
+                )
 
                 # Save to GCS
                 gcs_uri = save_to_gcs(info_data, country, platform, candidate_id, post_id)
