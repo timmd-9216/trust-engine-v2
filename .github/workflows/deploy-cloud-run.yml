@@ -70,6 +70,7 @@ jobs:
         with:
           workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ env.GCP_SERVICE_ACCOUNT_EMAIL }}
+          token_format: 'access_token'
 
       - name: Set gcloud project
         run: gcloud config set project "${GCP_PROJECT_ID}"
@@ -207,12 +208,11 @@ jobs:
           SECRET_NAME=""
           if [ -n "${INFORMATION_TRACER_API_KEY}" ]; then
             SECRET_NAME="INFORMATION_TRACER_API_KEY"
-            # Verify secret exists - try listing first, then describe
+            # Verify secret exists
             echo "Checking if secret ${SECRET_NAME} exists in project ${GCP_PROJECT_ID}..."
-            echo "Listing secrets to verify access..."
-            gcloud secrets list --project="${GCP_PROJECT_ID}" --filter="name~${SECRET_NAME}" || echo "Warning: Could not list secrets"
+            echo "Authenticated account (if visible):"
+            gcloud auth list --filter=status:ACTIVE --format="value(account)" || echo "Using service account credentials"
             echo ""
-            echo "Attempting to describe secret..."
             ERROR_OUTPUT=$(gcloud secrets describe "${SECRET_NAME}" --project="${GCP_PROJECT_ID}" 2>&1) || SECRET_ERROR=$?
             
             if [ ${SECRET_ERROR:-0} -eq 0 ]; then
@@ -232,18 +232,23 @@ jobs:
               elif echo "${ERROR_OUTPUT}" | grep -q "PERMISSION_DENIED"; then
                 echo "⚠ ERROR: Permission denied when accessing secret ${SECRET_NAME}."
                 echo ""
-                echo "The authenticated service account needs 'roles/secretmanager.secretAccessor' role."
-                echo "Checking which service account is being used..."
-                gcloud auth list 2>&1 | grep -i "service\|account" || echo "Could not determine active account"
+                echo "Error details: ${ERROR_OUTPUT}"
                 echo ""
-                echo "Grant permissions with:"
+                echo "The service account configured in GCP_SERVICE_ACCOUNT_EMAIL needs 'roles/secretmanager.secretAccessor' role."
+                echo "Expected service account: ci-deployer@trust-481601.iam.gserviceaccount.com"
+                echo ""
+                echo "Verify permissions with:"
+                echo "  gcloud secrets get-iam-policy ${SECRET_NAME} --project=${GCP_PROJECT_ID}"
+                echo ""
+                echo "If permissions are correct, grant them with:"
                 echo "  gcloud secrets add-iam-policy-binding ${SECRET_NAME} \\"
                 echo "    --project=${GCP_PROJECT_ID} \\"
                 echo "    --member=\"serviceAccount:ci-deployer@trust-481601.iam.gserviceaccount.com\" \\"
                 echo "    --role=\"roles/secretmanager.secretAccessor\""
                 echo ""
-                echo "Note: If you just granted permissions, wait 1-2 minutes for them to propagate."
-                echo "Also verify permissions with: gcloud secrets get-iam-policy ${SECRET_NAME} --project=${GCP_PROJECT_ID}"
+                echo "Note: Permissions may take 1-2 minutes to propagate. If permissions are already granted,"
+                echo "the issue may be with Workload Identity Federation authentication. Check that"
+                echo "the service account in GCP_SERVICE_ACCOUNT_EMAIL matches ci-deployer@trust-481601.iam.gserviceaccount.com"
                 exit 1
               else
                 echo "⚠ ERROR: Could not access secret ${SECRET_NAME}."
