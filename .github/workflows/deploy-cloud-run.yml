@@ -18,8 +18,7 @@ env:
   AR_REPO: cloud-run-source-deploy
   STANZA_LANG: ${{ secrets.STANZA_LANG || vars.STANZA_LANG || 'es' }}
   STANZA_RESOURCES_DIR: ${{ secrets.STANZA_RESOURCES_DIR || vars.STANZA_RESOURCES_DIR || '/app/stanza_resources' }}
-  INFORMATION_TRACER_URL: ${{ secrets.INFORMATION_TRACER_URL || vars.INFORMATION_TRACER_URL || '' }}
-  INFORMATION_TRACER_TOKEN: ${{ secrets.INFORMATION_TRACER_TOKEN || vars.INFORMATION_TRACER_TOKEN || '' }}
+  INFORMATION_TRACER_API_KEY: ${{ secrets.INFORMATION_TRACER_API_KEY || vars.INFORMATION_TRACER_API_KEY || '' }}
   GCS_BUCKET_NAME: ${{ secrets.GCS_BUCKET_NAME || vars.GCS_BUCKET_NAME || '' }}
 
 jobs:
@@ -184,33 +183,62 @@ jobs:
           echo "Deploying Scrapping Tools service: ${GCP_SCRAPPING_TOOLS_SERVICE_NAME}"
           echo "Using image: ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/${{ env.GCP_SERVICE_NAME }}:${{ github.sha }}"
           
-          # Build environment variables string
+          # Build environment variables string (non-sensitive vars only)
           ENV_VARS="APP_MODULE=trust_api.scrapping_tools.main:app"
           if [ -n "${GCP_PROJECT_ID}" ]; then
             ENV_VARS="${ENV_VARS},GCP_PROJECT_ID=${GCP_PROJECT_ID}"
-          fi
-          if [ -n "${INFORMATION_TRACER_URL}" ]; then
-            ENV_VARS="${ENV_VARS},INFORMATION_TRACER_URL=${INFORMATION_TRACER_URL}"
-          fi
-          if [ -n "${INFORMATION_TRACER_TOKEN}" ]; then
-            ENV_VARS="${ENV_VARS},INFORMATION_TRACER_TOKEN=${INFORMATION_TRACER_TOKEN}"
           fi
           if [ -n "${GCS_BUCKET_NAME}" ]; then
             ENV_VARS="${ENV_VARS},GCS_BUCKET_NAME=${GCS_BUCKET_NAME}"
           fi
           
+          # Build secrets string (sensitive vars from Secret Manager)
+          SECRETS_ARGS=""
+          SECRET_NAME=""
+          if [ -n "${INFORMATION_TRACER_API_KEY}" ]; then
+            SECRET_NAME="INFORMATION_TRACER_API_KEY"
+            # Create or update secret in Secret Manager
+            if gcloud secrets describe "${SECRET_NAME}" --project="${GCP_PROJECT_ID}" >/dev/null 2>&1; then
+              echo "Secret ${SECRET_NAME} exists, creating new version..."
+              echo -n "${INFORMATION_TRACER_API_KEY}" | gcloud secrets versions add "${SECRET_NAME}" \
+                --project="${GCP_PROJECT_ID}" \
+                --data-file=-
+            else
+              echo "Secret ${SECRET_NAME} does not exist, creating..."
+              echo -n "${INFORMATION_TRACER_API_KEY}" | gcloud secrets create "${SECRET_NAME}" \
+                --project="${GCP_PROJECT_ID}" \
+                --replication-policy="automatic" \
+                --data-file=-
+            fi
+            # Add secret to deployment args
+            SECRETS_ARGS="--update-secrets=INFORMATION_TRACER_API_KEY=${SECRET_NAME}:latest"
+          fi
+          
+          # Deploy with secrets and env vars
           gcloud run deploy ${{ env.GCP_SCRAPPING_TOOLS_SERVICE_NAME }} \
             --image ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/${{ env.GCP_SERVICE_NAME }}:${{ github.sha }} \
             --platform managed \
             --region ${{ env.GCP_REGION }} \
             --no-allow-unauthenticated \
             --set-env-vars "${ENV_VARS}" \
+            ${SECRETS_ARGS} \
             --memory 2Gi \
             --cpu 1 \
             --timeout 300 \
             --max-instances 10 \
             --min-instances 0 \
             --port 8080
+          
+          # Grant service account access to the secret (if secret was used)
+          if [ -n "${SECRET_NAME}" ] && [ -n "${GCP_SERVICE_ACCOUNT_EMAIL}" ]; then
+            echo "Granting service account access to secret..."
+            gcloud secrets add-iam-policy-binding "${SECRET_NAME}" \
+              --project="${GCP_PROJECT_ID}" \
+              --member="serviceAccount:${GCP_SERVICE_ACCOUNT_EMAIL}" \
+              --role="roles/secretmanager.secretAccessor" \
+              --quiet || echo "Note: Could not grant secret access (may already exist or need manual configuration)"
+          fi
+          
           echo "Removing public access from Scrapping Tools service..."
           gcloud run services remove-iam-policy-binding ${{ env.GCP_SCRAPPING_TOOLS_SERVICE_NAME }} \
             --project ${{ env.GCP_PROJECT_ID }} \
