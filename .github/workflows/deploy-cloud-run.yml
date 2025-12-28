@@ -193,25 +193,26 @@ jobs:
           fi
           
           # Build secrets string (sensitive vars from Secret Manager)
+          # Note: The secret must be created manually before first deployment using:
+          # ./scripts/create_secret_manager_secret.sh
           SECRETS_ARGS=""
           SECRET_NAME=""
           if [ -n "${INFORMATION_TRACER_API_KEY}" ]; then
             SECRET_NAME="INFORMATION_TRACER_API_KEY"
-            # Create or update secret in Secret Manager
+            # Verify secret exists
             if gcloud secrets describe "${SECRET_NAME}" --project="${GCP_PROJECT_ID}" >/dev/null 2>&1; then
               echo "Secret ${SECRET_NAME} exists, creating new version..."
               echo -n "${INFORMATION_TRACER_API_KEY}" | gcloud secrets versions add "${SECRET_NAME}" \
                 --project="${GCP_PROJECT_ID}" \
                 --data-file=-
+              # Add secret to deployment args
+              SECRETS_ARGS="--update-secrets=INFORMATION_TRACER_API_KEY=${SECRET_NAME}:latest"
             else
-              echo "Secret ${SECRET_NAME} does not exist, creating..."
-              echo -n "${INFORMATION_TRACER_API_KEY}" | gcloud secrets create "${SECRET_NAME}" \
-                --project="${GCP_PROJECT_ID}" \
-                --replication-policy="automatic" \
-                --data-file=-
+              echo "⚠ ERROR: Secret ${SECRET_NAME} does not exist in Secret Manager."
+              echo "Please create it manually first using: ./scripts/create_secret_manager_secret.sh"
+              echo "See docs/GCP/SECRET_MANAGER_SETUP.md for more information"
+              exit 1
             fi
-            # Add secret to deployment args
-            SECRETS_ARGS="--update-secrets=INFORMATION_TRACER_API_KEY=${SECRET_NAME}:latest"
           fi
           
           # Deploy with secrets and env vars

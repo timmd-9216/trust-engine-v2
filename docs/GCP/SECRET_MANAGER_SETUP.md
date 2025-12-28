@@ -11,7 +11,22 @@ Este documento explica cómo usar Google Cloud Secret Manager para almacenar sec
 
 ## Pasos para Configurar
 
-### 1. Crear el secreto en Secret Manager
+### 1. Crear el secreto manualmente (OBLIGATORIO)
+
+**⚠️ Importante:** El secreto debe crearse manualmente antes del primer deployment. El workflow de GitHub Actions solo actualiza el secreto, no lo crea.
+
+#### Opción A: Usar el script automatizado (Recomendado)
+
+```bash
+# Asegúrate de tener las variables en .env o exportadas
+export GCP_PROJECT_ID=tu-project-id
+export INFORMATION_TRACER_API_KEY=tu-api-key
+
+# Ejecutar el script
+./scripts/create_secret_manager_secret.sh
+```
+
+#### Opción B: Crear el secreto directamente
 
 ```bash
 # Crear el secreto
@@ -26,7 +41,9 @@ echo -n "tu-api-key-aqui" | gcloud secrets versions add INFORMATION_TRACER_API_K
   --data-file=-
 ```
 
-### 2. Dar permisos al Service Account de Cloud Run
+### 2. Dar permisos al Service Account de Cloud Run (OBLIGATORIO)
+
+El service account de Cloud Run necesita permiso para acceder al secreto. Este paso es obligatorio para que el servicio pueda leer el secreto en runtime.
 
 El service account de Cloud Run necesita permiso para acceder al secreto:
 
@@ -49,7 +66,13 @@ Para encontrar el número de proyecto:
 gcloud projects describe ${PROJECT_ID} --format="value(projectNumber)"
 ```
 
-### 3. Desplegar Cloud Run con el secreto
+### 3. El workflow actualizará el secreto automáticamente
+
+Una vez creado el secreto manualmente, el workflow de GitHub Actions actualizará automáticamente el secreto en cada deployment con el valor del secret de GitHub. El workflow verificará que el secreto existe antes de intentar actualizarlo.
+
+### 4. Desplegar Cloud Run con el secreto
+
+El workflow desplegará Cloud Run con el secreto montado automáticamente:
 
 En lugar de usar `--set-env-vars`, usa `--update-secrets`:
 
