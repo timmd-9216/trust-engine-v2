@@ -84,7 +84,7 @@ jobs:
           echo "Verifying service account configuration..."
           EXPECTED_SA="ci-deployer@trust-481601.iam.gserviceaccount.com"
           echo "Expected service account: ${EXPECTED_SA}"
-          echo "Configured service account: ${GCP_SERVICE_ACCOUNT_EMAIL}"
+          echo "Configured service account (from GitHub secret): ${GCP_SERVICE_ACCOUNT_EMAIL}"
           if [ "${GCP_SERVICE_ACCOUNT_EMAIL}" = "${EXPECTED_SA}" ]; then
             echo "✓ Service account matches expected value"
           else
@@ -95,15 +95,43 @@ jobs:
           fi
           echo ""
           echo "Checking authenticated identity..."
-          gcloud auth list
+          AUTH_ACCOUNT=$(gcloud auth list --filter=status:ACTIVE --format="value(account)" || echo "")
+          if [ -n "${AUTH_ACCOUNT}" ]; then
+            echo "Authenticated as: ${AUTH_ACCOUNT}"
+            # Check if it's a service account
+            if echo "${AUTH_ACCOUNT}" | grep -q "@.*\.iam\.gserviceaccount\.com"; then
+              echo "This is a service account - Workload Identity Federation is working"
+            else
+              echo "This is not a service account - WIF may not be configured correctly"
+            fi
+          else
+            echo "⚠ No active authentication found"
+          fi
           echo ""
           echo "Testing Secret Manager access..."
           # Try to describe the secret - this requires secretmanager.secretAccessor
           if gcloud secrets describe INFORMATION_TRACER_API_KEY --project="${GCP_PROJECT_ID}" >/dev/null 2>&1; then
             echo "✓ Can access secret - permissions are correct"
           else
-            echo "⚠ Cannot access secret - checking IAM policy..."
-            gcloud secrets get-iam-policy INFORMATION_TRACER_API_KEY --project="${GCP_PROJECT_ID}" 2>&1 || echo "Cannot read IAM policy either"
+            echo "⚠ Cannot access secret"
+            echo ""
+            echo "Checking IAM policy on the secret..."
+            SECRET_POLICY=$(gcloud secrets get-iam-policy INFORMATION_TRACER_API_KEY --project="${GCP_PROJECT_ID}" 2>&1 || echo "")
+            if [ -n "${SECRET_POLICY}" ]; then
+              echo "${SECRET_POLICY}"
+              # Check if the expected service account has access
+              if echo "${SECRET_POLICY}" | grep -q "ci-deployer@trust-481601.iam.gserviceaccount.com"; then
+                echo ""
+                echo "✓ The expected service account (ci-deployer@trust-481601.iam.gserviceaccount.com) is in the IAM policy"
+                echo "⚠ But authentication is failing - this suggests a WIF configuration issue"
+              else
+                echo ""
+                echo "⚠ The expected service account is NOT in the IAM policy"
+                echo "Grant access with: gcloud secrets add-iam-policy-binding INFORMATION_TRACER_API_KEY --project=trust-481601 --member='serviceAccount:ci-deployer@trust-481601.iam.gserviceaccount.com' --role='roles/secretmanager.secretAccessor'"
+              fi
+            else
+              echo "Cannot read IAM policy either - check permissions"
+            fi
           fi
 
       - name: Ensure Artifact Registry repository

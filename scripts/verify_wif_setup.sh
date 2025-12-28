@@ -176,6 +176,21 @@ echo ""
 
 # 5. Verificar bindings de IAM en el service account
 echo "5️⃣  Verificando bindings de IAM en el service account..."
+# Verificar si hay bindings para otros repositorios
+ALL_BINDINGS=$(gcloud iam service-accounts get-iam-policy "${EXPECTED_SA}" \
+  --project="${PROJECT_ID}" \
+  --format="json" 2>/dev/null || echo "{}")
+
+# Buscar todos los principals en los bindings
+ALL_PRINCIPALS=$(echo "${ALL_BINDINGS}" | grep -o "principalSet://iam.googleapis.com[^\"]*" || echo "")
+if echo "${ALL_PRINCIPALS}" | grep -v "${REPO}" | grep -q "attribute.repository"; then
+  echo "   ${YELLOW}⚠${NC}  Se encontraron bindings para otros repositorios:"
+  echo "${ALL_PRINCIPALS}" | grep -v "${REPO}" | grep "attribute.repository" | while read -r principal; do
+    echo "      - ${principal}"
+  done
+  echo "   Considera limpiarlos con: ./scripts/cleanup_wif_bindings.sh"
+fi
+echo ""
 
 # Obtener el nombre real del pool y extraer project number
 POOL_NAME=$(gcloud iam workload-identity-pools describe "${POOL}" \
