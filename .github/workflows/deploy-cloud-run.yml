@@ -201,7 +201,9 @@ jobs:
             SECRET_NAME="INFORMATION_TRACER_API_KEY"
             # Verify secret exists
             echo "Checking if secret ${SECRET_NAME} exists in project ${GCP_PROJECT_ID}..."
-            if gcloud secrets describe "${SECRET_NAME}" --project="${GCP_PROJECT_ID}" >/dev/null 2>&1; then
+            ERROR_OUTPUT=$(gcloud secrets describe "${SECRET_NAME}" --project="${GCP_PROJECT_ID}" 2>&1) || SECRET_ERROR=$?
+            
+            if [ ${SECRET_ERROR:-0} -eq 0 ]; then
               echo "✓ Secret ${SECRET_NAME} exists, creating new version..."
               echo -n "${INFORMATION_TRACER_API_KEY}" | gcloud secrets versions add "${SECRET_NAME}" \
                 --project="${GCP_PROJECT_ID}" \
@@ -209,17 +211,29 @@ jobs:
               # Add secret to deployment args
               SECRETS_ARGS="--update-secrets=INFORMATION_TRACER_API_KEY=${SECRET_NAME}:latest"
             else
-              # Try to get more information about the error
-              echo "⚠ ERROR: Secret ${SECRET_NAME} could not be accessed."
-              echo "Attempting to describe secret to see error details..."
-              gcloud secrets describe "${SECRET_NAME}" --project="${GCP_PROJECT_ID}" || true
-              echo ""
-              echo "Please verify:"
-              echo "1. The secret exists: gcloud secrets list --project=${GCP_PROJECT_ID}"
-              echo "2. Create it manually if needed: ./scripts/create_secret_manager_secret.sh"
-              echo "3. The service account has permissions (may need secretmanager.secretAccessor role)"
-              echo "See docs/GCP/SECRET_MANAGER_SETUP.md for more information"
-              exit 1
+              # Handle different error types
+              if echo "${ERROR_OUTPUT}" | grep -q "NOT_FOUND\|does not exist"; then
+                echo "⚠ ERROR: Secret ${SECRET_NAME} does not exist in Secret Manager."
+                echo "Please create it manually first using: ./scripts/create_secret_manager_secret.sh"
+                echo "See docs/GCP/SECRET_MANAGER_SETUP.md for more information"
+                exit 1
+              elif echo "${ERROR_OUTPUT}" | grep -q "PERMISSION_DENIED"; then
+                echo "⚠ ERROR: Permission denied when accessing secret ${SECRET_NAME}."
+                echo "The service account ${GCP_SERVICE_ACCOUNT_EMAIL} needs 'roles/secretmanager.secretAccessor' role."
+                echo ""
+                echo "Grant it with:"
+                echo "  gcloud secrets add-iam-policy-binding ${SECRET_NAME} \\"
+                echo "    --project=${GCP_PROJECT_ID} \\"
+                echo "    --member=\"serviceAccount:${GCP_SERVICE_ACCOUNT_EMAIL}\" \\"
+                echo "    --role=\"roles/secretmanager.secretAccessor\""
+                echo ""
+                echo "Note: If you just granted permissions, wait 1-2 minutes for them to propagate."
+                exit 1
+              else
+                echo "⚠ ERROR: Could not access secret ${SECRET_NAME}."
+                echo "Error: ${ERROR_OUTPUT}"
+                exit 1
+              fi
             fi
           fi
           
