@@ -89,9 +89,20 @@ gcloud secrets add-iam-policy-binding ${SECRET_NAME} \
 
 **Nota:** Necesitas `secretmanager.secretAccessor` para leer/actualizar el secreto. Si prefieres más control, puedes usar `secretmanager.secretVersionManager` que solo permite gestionar versiones, pero `secretAccessor` es suficiente para el workflow.
 
-### 3. Verificar permisos de GitHub Actions
+### 3. Verificar configuración de GitHub Secrets
 
-Asegúrate de que el service account de GitHub Actions tenga permisos. Puedes verificar qué service account está configurado en GitHub Actions revisando el secret `GCP_SERVICE_ACCOUNT_EMAIL`.
+**⚠️ Importante:** Asegúrate de que el secret `GCP_SERVICE_ACCOUNT_EMAIL` en GitHub (environment: `trust-engine`) esté configurado exactamente como:
+
+```
+ci-deployer@trust-481601.iam.gserviceaccount.com
+```
+
+**Verificación:**
+1. Ve a GitHub → Settings → Environments → `trust-engine`
+2. Verifica que el secret `GCP_SERVICE_ACCOUNT_EMAIL` tenga exactamente el valor arriba (sin espacios, sin comillas)
+3. El workflow verificará automáticamente que coincida durante el deployment
+
+Si el valor no coincide exactamente, el workflow fallará con un error de permisos aunque los permisos estén correctamente configurados en GCP.
 
 ### 4. El workflow actualizará el secreto automáticamente
 

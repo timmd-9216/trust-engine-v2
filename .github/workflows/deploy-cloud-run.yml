@@ -77,11 +77,30 @@ jobs:
 
       - name: Verify authentication
         run: |
-          echo "Authenticated service account:"
-          gcloud auth list
-          echo ""
+          echo "Verifying authentication..."
           echo "Current project:"
           gcloud config get-value project
+          echo ""
+          echo "Verifying service account configuration..."
+          EXPECTED_SA="ci-deployer@trust-481601.iam.gserviceaccount.com"
+          if [ "${GCP_SERVICE_ACCOUNT_EMAIL}" = "${EXPECTED_SA}" ]; then
+            echo "✓ Service account matches expected value"
+          else
+            echo "⚠ WARNING: Service account does not match expected value!"
+            echo "  Configured: ${GCP_SERVICE_ACCOUNT_EMAIL}"
+            echo "  Expected: ${EXPECTED_SA}"
+            echo ""
+            echo "Please verify that the secret GCP_SERVICE_ACCOUNT_EMAIL in GitHub"
+            echo "(environment: trust-engine) is set to exactly: ${EXPECTED_SA}"
+          fi
+          echo ""
+          echo "Testing Secret Manager IAM policy access..."
+          # Try to get IAM policy - this requires secretmanager.secretAccessor or secretmanager.admin
+          if gcloud secrets get-iam-policy INFORMATION_TRACER_API_KEY --project="${GCP_PROJECT_ID}" 2>&1; then
+            echo "✓ Can read IAM policy - permissions look good"
+          else
+            echo "⚠ Could not read IAM policy - this might indicate a permissions issue"
+          fi
 
       - name: Ensure Artifact Registry repository
         run: |
@@ -210,8 +229,7 @@ jobs:
             SECRET_NAME="INFORMATION_TRACER_API_KEY"
             # Verify secret exists
             echo "Checking if secret ${SECRET_NAME} exists in project ${GCP_PROJECT_ID}..."
-            echo "Authenticated account (if visible):"
-            gcloud auth list --filter=status:ACTIVE --format="value(account)" || echo "Using service account credentials"
+            echo "Service account from config: ${GCP_SERVICE_ACCOUNT_EMAIL}"
             echo ""
             ERROR_OUTPUT=$(gcloud secrets describe "${SECRET_NAME}" --project="${GCP_PROJECT_ID}" 2>&1) || SECRET_ERROR=$?
             
@@ -234,21 +252,22 @@ jobs:
                 echo ""
                 echo "Error details: ${ERROR_OUTPUT}"
                 echo ""
-                echo "The service account configured in GCP_SERVICE_ACCOUNT_EMAIL needs 'roles/secretmanager.secretAccessor' role."
-                echo "Expected service account: ci-deployer@trust-481601.iam.gserviceaccount.com"
+                echo "Diagnosis:"
+                echo "1. Service account configured: ${GCP_SERVICE_ACCOUNT_EMAIL}"
+                echo "2. Expected service account: ci-deployer@trust-481601.iam.gserviceaccount.com"
                 echo ""
-                echo "Verify permissions with:"
+                echo "Please verify:"
+                echo "- The secret GCP_SERVICE_ACCOUNT_EMAIL in GitHub (environment: trust-engine) is exactly:"
+                echo "  ci-deployer@trust-481601.iam.gserviceaccount.com"
+                echo "- Permissions are granted (you already verified this):"
                 echo "  gcloud secrets get-iam-policy ${SECRET_NAME} --project=${GCP_PROJECT_ID}"
                 echo ""
-                echo "If permissions are correct, grant them with:"
-                echo "  gcloud secrets add-iam-policy-binding ${SECRET_NAME} \\"
-                echo "    --project=${GCP_PROJECT_ID} \\"
-                echo "    --member=\"serviceAccount:ci-deployer@trust-481601.iam.gserviceaccount.com\" \\"
-                echo "    --role=\"roles/secretmanager.secretAccessor\""
+                echo "If the service account matches and permissions are correct, this might be:"
+                echo "- Permissions propagation delay (wait 2-3 more minutes)"
+                echo "- Workload Identity Federation issue (check WIF binding)"
                 echo ""
-                echo "Note: Permissions may take 1-2 minutes to propagate. If permissions are already granted,"
-                echo "the issue may be with Workload Identity Federation authentication. Check that"
-                echo "the service account in GCP_SERVICE_ACCOUNT_EMAIL matches ci-deployer@trust-481601.iam.gserviceaccount.com"
+                echo "As a workaround, you can temporarily use environment variables instead of Secret Manager"
+                echo "by removing the secret handling code, but this is less secure."
                 exit 1
               else
                 echo "⚠ ERROR: Could not access secret ${SECRET_NAME}."
