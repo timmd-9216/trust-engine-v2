@@ -41,9 +41,13 @@ echo -n "tu-api-key-aqui" | gcloud secrets versions add INFORMATION_TRACER_API_K
   --data-file=-
 ```
 
-### 2. Dar permisos al Service Account de Cloud Run (OBLIGATORIO)
+### 2. Dar permisos a los Service Accounts (OBLIGATORIO)
 
-El service account de Cloud Run necesita permiso para acceder al secreto. Este paso es obligatorio para que el servicio pueda leer el secreto en runtime.
+Hay dos service accounts que necesitan permisos:
+
+#### 2.1. Service Account de Cloud Run (para runtime)
+
+El service account de Cloud Run necesita permiso para leer el secreto en runtime:
 
 El service account de Cloud Run necesita permiso para acceder al secreto:
 
@@ -66,11 +70,34 @@ Para encontrar el número de proyecto:
 gcloud projects describe ${PROJECT_ID} --format="value(projectNumber)"
 ```
 
-### 3. El workflow actualizará el secreto automáticamente
+#### 2.2. Service Account de GitHub Actions (para deployment)
+
+El service account usado por GitHub Actions también necesita permisos para leer y actualizar el secreto durante el deployment:
+
+```bash
+PROJECT_ID=tu-project-id
+# Este es el service account configurado en GCP_SERVICE_ACCOUNT_EMAIL de GitHub
+GITHUB_ACTIONS_SA=tu-service-account@${PROJECT_ID}.iam.gserviceaccount.com
+SECRET_NAME=INFORMATION_TRACER_API_KEY
+
+# Dar permisos para leer y actualizar el secreto
+gcloud secrets add-iam-policy-binding ${SECRET_NAME} \
+  --project=${PROJECT_ID} \
+  --member="serviceAccount:${GITHUB_ACTIONS_SA}" \
+  --role="roles/secretmanager.secretAccessor"
+```
+
+**Nota:** Necesitas `secretmanager.secretAccessor` para leer/actualizar el secreto. Si prefieres más control, puedes usar `secretmanager.secretVersionManager` que solo permite gestionar versiones, pero `secretAccessor` es suficiente para el workflow.
+
+### 3. Verificar permisos de GitHub Actions
+
+Asegúrate de que el service account de GitHub Actions tenga permisos. Puedes verificar qué service account está configurado en GitHub Actions revisando el secret `GCP_SERVICE_ACCOUNT_EMAIL`.
+
+### 4. El workflow actualizará el secreto automáticamente
 
 Una vez creado el secreto manualmente, el workflow de GitHub Actions actualizará automáticamente el secreto en cada deployment con el valor del secret de GitHub. El workflow verificará que el secreto existe antes de intentar actualizarlo.
 
-### 4. Desplegar Cloud Run con el secreto
+### 5. Desplegar Cloud Run con el secreto
 
 El workflow desplegará Cloud Run con el secreto montado automáticamente:
 
