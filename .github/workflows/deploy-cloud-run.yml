@@ -74,6 +74,14 @@ jobs:
       - name: Set gcloud project
         run: gcloud config set project "${GCP_PROJECT_ID}"
 
+      - name: Verify authentication
+        run: |
+          echo "Authenticated service account:"
+          gcloud auth list
+          echo ""
+          echo "Current project:"
+          gcloud config get-value project
+
       - name: Ensure Artifact Registry repository
         run: |
           if gcloud artifacts repositories describe "${AR_REPO}" \
@@ -199,8 +207,12 @@ jobs:
           SECRET_NAME=""
           if [ -n "${INFORMATION_TRACER_API_KEY}" ]; then
             SECRET_NAME="INFORMATION_TRACER_API_KEY"
-            # Verify secret exists
+            # Verify secret exists - try listing first, then describe
             echo "Checking if secret ${SECRET_NAME} exists in project ${GCP_PROJECT_ID}..."
+            echo "Listing secrets to verify access..."
+            gcloud secrets list --project="${GCP_PROJECT_ID}" --filter="name~${SECRET_NAME}" || echo "Warning: Could not list secrets"
+            echo ""
+            echo "Attempting to describe secret..."
             ERROR_OUTPUT=$(gcloud secrets describe "${SECRET_NAME}" --project="${GCP_PROJECT_ID}" 2>&1) || SECRET_ERROR=$?
             
             if [ ${SECRET_ERROR:-0} -eq 0 ]; then
@@ -219,15 +231,19 @@ jobs:
                 exit 1
               elif echo "${ERROR_OUTPUT}" | grep -q "PERMISSION_DENIED"; then
                 echo "⚠ ERROR: Permission denied when accessing secret ${SECRET_NAME}."
-                echo "The service account ${GCP_SERVICE_ACCOUNT_EMAIL} needs 'roles/secretmanager.secretAccessor' role."
                 echo ""
-                echo "Grant it with:"
+                echo "The authenticated service account needs 'roles/secretmanager.secretAccessor' role."
+                echo "Checking which service account is being used..."
+                gcloud auth list 2>&1 | grep -i "service\|account" || echo "Could not determine active account"
+                echo ""
+                echo "Grant permissions with:"
                 echo "  gcloud secrets add-iam-policy-binding ${SECRET_NAME} \\"
                 echo "    --project=${GCP_PROJECT_ID} \\"
-                echo "    --member=\"serviceAccount:${GCP_SERVICE_ACCOUNT_EMAIL}\" \\"
+                echo "    --member=\"serviceAccount:ci-deployer@trust-481601.iam.gserviceaccount.com\" \\"
                 echo "    --role=\"roles/secretmanager.secretAccessor\""
                 echo ""
                 echo "Note: If you just granted permissions, wait 1-2 minutes for them to propagate."
+                echo "Also verify permissions with: gcloud secrets get-iam-policy ${SECRET_NAME} --project=${GCP_PROJECT_ID}"
                 exit 1
               else
                 echo "⚠ ERROR: Could not access secret ${SECRET_NAME}."
