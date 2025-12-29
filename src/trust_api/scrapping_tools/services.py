@@ -71,6 +71,8 @@ def add_log_entry(
     error_message: str | None = None,
     response_time_ms: float | None = None,
     max_replies: int | None = None,
+    skipped: bool = False,
+    skip_reason: str | None = None,
 ) -> None:
     """
     Add a log entry to the execution logs (in-memory).
@@ -83,6 +85,8 @@ def add_log_entry(
         error_message: Error message (if call failed)
         response_time_ms: Response time in milliseconds (if available)
         max_replies: Maximum number of replies requested for this post (if available)
+        skipped: Whether the post was skipped (not queried)
+        skip_reason: Reason for skipping (if skipped)
     """
     now = datetime.now(timezone.utc)
     log_entry = {
@@ -94,6 +98,8 @@ def add_log_entry(
         "error_message": error_message,
         "response_time_ms": response_time_ms,
         "max_replies": max_replies,
+        "skipped": skipped,
+        "skip_reason": skip_reason,
     }
     _execution_logs.append(log_entry)
 
@@ -131,12 +137,19 @@ def save_execution_logs(
         filename = f"{time_str}.json"
         blob_path = f"logs/{date_str}/{filename}"
 
+        # Calculate summary statistics
+        total_calls = len(_execution_logs)
+        skipped_count = sum(1 for log in _execution_logs if log.get("skipped", False))
+        api_calls = total_calls - skipped_count
+
         # Create log file content with metadata and all entries
         log_file = {
             "execution_timestamp": now.isoformat(),
             "requested_max_posts": requested_max_posts,
             "available_posts": available_posts,
-            "total_calls": len(_execution_logs),
+            "total_entries": total_calls,
+            "api_calls": api_calls,
+            "skipped_posts": skipped_count,
             "calls": _execution_logs,
         }
 
@@ -369,6 +382,7 @@ def process_posts_service(max_posts: int | None = None) -> dict[str, Any]:
         "processed": 0,
         "succeeded": 0,
         "failed": 0,
+        "skipped": 0,
         "errors": [],
         "saved_files": [],
     }
@@ -403,6 +417,24 @@ def process_posts_service(max_posts: int | None = None) -> dict[str, Any]:
                 # Fetch replies from Information Tracer service
                 # Use max_replies from post if available, otherwise default to 100
                 max_replies = post.get("max_replies", 100)
+
+                # Skip posts with no replies expected (max_replies <= 0)
+                if max_replies is None or max_replies <= 0:
+                    skip_reason = f"max_replies={max_replies} (no replies expected)"
+                    add_log_entry(
+                        post_id=post_id,
+                        url="N/A",
+                        success=False,
+                        skipped=True,
+                        skip_reason=skip_reason,
+                        max_replies=max_replies,
+                    )
+                    results["skipped"] += 1
+                    # Update status to "skipped" in Firestore
+                    if doc_id:
+                        update_post_status(doc_id, "skipped")
+                    continue
+
                 info_data = fetch_post_information(
                     post_id=post_id,
                     platform=platform,
