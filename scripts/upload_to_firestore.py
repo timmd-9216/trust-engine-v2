@@ -6,8 +6,11 @@ Uploads records with indexed fields:
 - platform
 - country
 - candidate_id
-- created_at
+- created_at (timestamp of insert into Firestore)
 - status (default: "noreplies")
+
+The CSV field 'created_at' is renamed to 'post_created_at' in Firestore (original post creation date).
+A new 'created_at' field is created with the current timestamp (when the record is inserted).
 
 Non-indexed fields:
 - replies_count
@@ -35,6 +38,7 @@ Examples:
 import csv
 import os
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 try:
@@ -106,8 +110,43 @@ def upload_to_firestore(
             country = row.get("country", "")
             candidate_id = row.get("candidate_id", "")
             max_replies = row.get("max_replies", "")
-            created_at = row.get("created_at", "")
+            post_created_at_str = row.get("created_at", "")
             status = "noreplies"  # Default value
+
+            # Convert post_created_at (from CSV) string to Firestore timestamp
+            post_created_at = None
+            if post_created_at_str:
+                try:
+                    # Try to parse ISO format: "2025-12-16T09:59:35.000000" or "2025-12-16T09:59:35"
+                    # Remove microseconds if present and handle timezone
+                    created_at_str_clean = post_created_at_str.strip()
+                    if "T" in created_at_str_clean:
+                        # ISO format with or without timezone
+                        if created_at_str_clean.endswith("Z"):
+                            created_at_str_clean = created_at_str_clean[:-1] + "+00:00"
+                        elif (
+                            "+" not in created_at_str_clean and "-" not in created_at_str_clean[-6:]
+                        ):
+                            # No timezone, assume UTC
+                            created_at_str_clean = created_at_str_clean + "+00:00"
+                        post_created_at = datetime.fromisoformat(created_at_str_clean)
+                    else:
+                        # Try other formats
+                        for fmt in ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d"]:
+                            try:
+                                post_created_at = datetime.strptime(created_at_str_clean, fmt)
+                                break
+                            except ValueError:
+                                continue
+                except (ValueError, TypeError) as e:
+                    print(
+                        f"Warning: Could not parse post_created_at '{post_created_at_str}' for post_id={post_id}: {e}"
+                    )
+                    # If parsing fails, keep as string
+                    post_created_at = post_created_at_str
+
+            # Create created_at timestamp for Firestore (timestamp of insert)
+            created_at = datetime.now(timezone.utc)
 
             # Prepare document data
             doc_data = {
@@ -116,9 +155,13 @@ def upload_to_firestore(
                 "post_id": post_id,
                 "country": country,
                 "candidate_id": candidate_id,
-                "created_at": created_at,
+                "created_at": created_at,  # Timestamp of insert into Firestore
                 "status": status,
             }
+
+            # Add post_created_at if available (original creation date from CSV)
+            if post_created_at:
+                doc_data["post_created_at"] = post_created_at
 
             # Add non-indexed fields
             # Note: To exclude these from indexes, configure single-field index exemptions
