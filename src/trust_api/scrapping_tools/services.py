@@ -294,6 +294,82 @@ def fetch_post_information(
         raise
 
 
+def _get_gcs_blob_path(
+    country: str,
+    platform: str,
+    candidate_id: str,
+    post_id: str,
+) -> str:
+    """
+    Generate the GCS blob path for a post.
+
+    Args:
+        country: Country name
+        platform: Platform name
+        candidate_id: Candidate ID
+        post_id: Post ID (used for filename)
+
+    Returns:
+        Blob path in GCS
+    """
+    # Normalize path components to avoid issues with special characters
+    safe_country = country.replace("/", "_").replace("\\", "_")
+    safe_platform = platform.replace("/", "_").replace("\\", "_")
+    safe_candidate_id = str(candidate_id).replace("/", "_").replace("\\", "_")
+    safe_post_id = str(post_id).replace("/", "_").replace("\\", "_")
+
+    layer_name = "raw"
+    return f"{layer_name}/{safe_country}/{safe_platform}/{safe_candidate_id}/{safe_post_id}.json"
+
+
+def read_from_gcs_if_exists(
+    country: str,
+    platform: str,
+    candidate_id: str,
+    post_id: str,
+) -> dict[str, Any] | None:
+    """
+    Read JSON data from GCS bucket if the file exists.
+
+    Args:
+        country: Country name
+        platform: Platform name
+        candidate_id: Candidate ID
+        post_id: Post ID (used for filename)
+
+    Returns:
+        Dictionary with the JSON data if file exists, None otherwise.
+        Returns None if file doesn't exist or if there's an error reading it.
+
+    Raises:
+        ValueError: If GCS_BUCKET_NAME is not configured
+    """
+    if not settings.gcs_bucket_name:
+        raise ValueError("GCS_BUCKET_NAME is not configured")
+
+    try:
+        client = get_gcs_client()
+        bucket = client.bucket(settings.gcs_bucket_name)
+
+        blob_path = _get_gcs_blob_path(country, platform, candidate_id, post_id)
+        blob = bucket.blob(blob_path)
+
+        # Check if blob exists
+        if blob.exists():
+            # Read and parse JSON
+            content = blob.download_as_text()
+            return json.loads(content)
+
+        return None
+    except Exception:
+        # If there's any error reading from GCS, return None so we can fall back
+        # to fetching from the API. This ensures the process doesn't fail if GCS
+        # is temporarily unavailable.
+        # Note: We don't log here to avoid breaking the flow, the error will be
+        # handled when we try to fetch from the API
+        return None
+
+
 def save_to_gcs(
     data: dict[str, Any],
     country: str,
@@ -323,17 +399,7 @@ def save_to_gcs(
     client = get_gcs_client()
     bucket = client.bucket(settings.gcs_bucket_name)
 
-    # Create path: country/platform/candidate_id/{post_id}.json
-    # Normalize path components to avoid issues with special characters
-    safe_country = country.replace("/", "_").replace("\\", "_")
-    safe_platform = platform.replace("/", "_").replace("\\", "_")
-    safe_candidate_id = str(candidate_id).replace("/", "_").replace("\\", "_")
-    safe_post_id = str(post_id).replace("/", "_").replace("\\", "_")
-
-    layer_name = "raw"
-    blob_path = (
-        f"{layer_name}/{safe_country}/{safe_platform}/{safe_candidate_id}/{safe_post_id}.json"
-    )
+    blob_path = _get_gcs_blob_path(country, platform, candidate_id, post_id)
 
     blob = bucket.blob(blob_path)
     blob.upload_from_string(
@@ -448,15 +514,43 @@ def process_posts_service(max_posts: int | None = None) -> dict[str, Any]:
                         update_post_status(doc_id, "skipped")
                     continue
 
-                info_data = fetch_post_information(
-                    post_id=post_id,
+                # Check if JSON already exists in GCS to avoid duplicate requests
+                # WARNING: This check requires a GCS read operation (blob.exists() + download),
+                # which is slower than directly calling the API, but prevents duplicate API calls
+                # to Information Tracer and saves API quota/costs
+                info_data = read_from_gcs_if_exists(
+                    country=country,
                     platform=platform,
-                    max_posts=max_replies,
+                    candidate_id=candidate_id,
+                    post_id=post_id,
                 )
 
-                # Save to GCS
-                gcs_uri = save_to_gcs(info_data, country, platform, candidate_id, post_id)
-                results["saved_files"].append(gcs_uri)
+                if info_data is None:
+                    # File doesn't exist, fetch from Information Tracer service
+                    info_data = fetch_post_information(
+                        post_id=post_id,
+                        platform=platform,
+                        max_posts=max_replies,
+                    )
+
+                    # Save to GCS
+                    gcs_uri = save_to_gcs(info_data, country, platform, candidate_id, post_id)
+                    results["saved_files"].append(gcs_uri)
+                else:
+                    # File already exists, use existing data
+                    # Reconstruct GCS URI for logging
+                    blob_path = _get_gcs_blob_path(country, platform, candidate_id, post_id)
+                    gcs_uri = f"gs://{settings.gcs_bucket_name}/{blob_path}"
+                    results["saved_files"].append(gcs_uri)
+                    # Log that we skipped the API call
+                    add_log_entry(
+                        post_id=post_id,
+                        url="N/A (file already exists in GCS)",
+                        success=True,
+                        skipped=True,
+                        skip_reason="File already exists in GCS",
+                        max_replies=max_replies,
+                    )
 
                 # Update status to "done" in Firestore after successful save
                 if doc_id:
