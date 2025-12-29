@@ -29,6 +29,7 @@ def get_gcs_client() -> storage.Client:
 def query_posts_without_replies(max_posts: int | None = None) -> list[dict[str, Any]]:
     """
     Query Firestore for posts with status='noreplies'.
+    Results are ordered by created_at (oldest first).
 
     Args:
         max_posts: Maximum number of posts to return. If None, returns all posts.
@@ -38,7 +39,11 @@ def query_posts_without_replies(max_posts: int | None = None) -> list[dict[str, 
         Each document also includes '_doc_id' field with the Firestore document ID.
     """
     client = get_firestore_client()
-    query = client.collection(settings.firestore_collection).where("status", "==", "noreplies")
+    query = (
+        client.collection(settings.firestore_collection)
+        .where("status", "==", "noreplies")
+        .order_by("created_at")  # Order by created_at ascending (oldest first)
+    )
 
     # Apply limit if specified
     if max_posts is not None and max_posts > 0:
