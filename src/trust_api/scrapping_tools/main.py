@@ -1,3 +1,5 @@
+from typing import Literal
+
 from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel
 
@@ -86,7 +88,10 @@ async def get_post_information(request: PostInformationRequest):
 
 
 @app.post("/process-posts", response_model=ProcessPostsResponse)
-async def process_posts_endpoint(max_posts: int | None = None):
+async def process_posts_endpoint(
+    max_posts: int | None = None,
+    sort_by: Literal["time", "engagement"] = "time",
+):
     """
     Process posts from Firestore that have status='noreplies'.
 
@@ -99,6 +104,8 @@ async def process_posts_endpoint(max_posts: int | None = None):
 
     Args:
         max_posts: Maximum number of posts to process in this call. If None, processes all posts with status='noreplies'.
+        sort_by: Sort order for replies ('time' or 'engagement'). Default is 'time'.
+                 Note: Only applies to keyword search, not account search.
 
     Returns:
         ProcessPostsResponse with processing results including success count, errors, etc.
@@ -107,7 +114,7 @@ async def process_posts_endpoint(max_posts: int | None = None):
         HTTPException: If the processing fails or configuration is missing
     """
     try:
-        results = process_posts_service(max_posts=max_posts)
+        results = process_posts_service(max_posts=max_posts, sort_by=sort_by)
         return ProcessPostsResponse(**results)
     except Exception as e:
         raise HTTPException(

@@ -3,7 +3,7 @@
 import json
 import time
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Literal
 
 from google.cloud import firestore, storage
 
@@ -178,6 +178,7 @@ def fetch_post_information(
     post_id: str,
     platform: str,
     max_posts: int = 100,
+    sort_by: Literal["time", "engagement"] = "time",
 ) -> dict[str, Any]:
     """
     Fetch replies for a post using Information Tracer API.
@@ -187,6 +188,8 @@ def fetch_post_information(
         post_id: The post ID to get replies for
         platform: The platform where the post is located (twitter, facebook, instagram, etc.)
         max_posts: Maximum number of replies to collect (default: 100)
+        sort_by: Sort order for replies ('time' or 'engagement'). Default is 'time'.
+                 Note: Only applies to keyword search, not account search.
 
     Returns:
         Dictionary containing the collected replies from Information Tracer
@@ -229,6 +232,7 @@ def fetch_post_information(
             platform=platform.lower(),  # type: ignore
             max_post=max_posts,
             token=settings.information_tracer_api_key,
+            sort_by=sort_by,
         )
 
         # Extract data and job_id from result
@@ -439,7 +443,10 @@ def update_post_status(doc_id: str, new_status: str = "done") -> None:
     )
 
 
-def process_posts_service(max_posts: int | None = None) -> dict[str, Any]:
+def process_posts_service(
+    max_posts: int | None = None,
+    sort_by: Literal["time", "engagement"] = "time",
+) -> dict[str, Any]:
     """
     Main processing function that:
     1. Queries Firestore for posts with status='noreplies'
@@ -450,6 +457,8 @@ def process_posts_service(max_posts: int | None = None) -> dict[str, Any]:
 
     Args:
         max_posts: Maximum number of posts to process. If None, processes all posts with status='noreplies'.
+        sort_by: Sort order for replies ('time' or 'engagement'). Default is 'time'.
+                 Note: Only applies to keyword search, not account search.
 
     Returns:
         Dictionary with processing results including success count, errors, etc.
@@ -546,6 +555,7 @@ def process_posts_service(max_posts: int | None = None) -> dict[str, Any]:
                         post_id=post_id,
                         platform=platform,
                         max_posts=max_posts_to_fetch,
+                        sort_by=sort_by,
                     )
 
                     # Save to GCS

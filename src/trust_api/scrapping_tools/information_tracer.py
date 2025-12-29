@@ -284,6 +284,7 @@ def get_post_replies(
     platform: PlatformType,
     max_post: int = 100,
     token: str | None = None,
+    sort_by: Literal["time", "engagement"] = "time",
 ) -> dict:
     """Get replies for a specific post using Information Tracer API.
 
@@ -304,6 +305,8 @@ def get_post_replies(
                   - YouTube: 500
                   - Threads: 200
         token: API authentication token. If None, uses API_KEY from environment variables.
+        sort_by: Sort order for replies ('time' or 'engagement'). Default is 'time'.
+                 Note: Only applies to keyword search, not account search.
 
     Returns:
         dict: Dictionary containing:
@@ -334,7 +337,7 @@ def get_post_replies(
     # timeline_only must be False for reply searches
     timeline_only = False
     enable_ai = False
-    sort_by = "time"  # Sort by time for replies
+    # sort_by is passed as parameter (default: "time")
     start_date = "2020-01-01"  # Default start date (may be ignored for reply searches)
     end_date = "2025-12-31"  # Default end date
 
