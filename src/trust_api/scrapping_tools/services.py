@@ -493,20 +493,34 @@ def process_posts_service(max_posts: int | None = None) -> dict[str, Any]:
             candidate_id = post.get("candidate_id", "unknown")
 
             try:
-                # Fetch replies from Information Tracer service
-                # Use max_replies from post if available, otherwise default to 100
-                max_replies = post.get("max_replies", 100)
+                # Determine maximum posts to fetch from Information Tracer
+                # Priority: max_replies > replies_count > default (100)
+                # max_replies has priority as it's an explicit limit set by the user
+                replies_count = post.get("replies_count")
+                max_replies = post.get("max_replies")
 
-                # Skip posts with no replies expected (max_replies <= 0)
-                if max_replies is None or max_replies <= 0:
-                    skip_reason = f"max_replies={max_replies} (no replies expected)"
+                # Use max_replies if available and valid (has priority)
+                if max_replies is not None and max_replies > 0:
+                    max_posts_to_fetch = max_replies
+                # Fallback to replies_count if max_replies is not available
+                elif replies_count is not None and replies_count > 0:
+                    max_posts_to_fetch = replies_count
+                else:
+                    # Default to 100 if neither is available or both are invalid
+                    max_posts_to_fetch = 100
+
+                # Skip posts with no replies expected (both replies_count and max_replies are <= 0 or None)
+                if (replies_count is None or replies_count <= 0) and (
+                    max_replies is None or max_replies <= 0
+                ):
+                    skip_reason = f"replies_count={replies_count}, max_replies={max_replies} (no replies expected)"
                     add_log_entry(
                         post_id=post_id,
                         url="N/A",
                         success=False,
                         skipped=True,
                         skip_reason=skip_reason,
-                        max_replies=max_replies,
+                        max_replies=max_posts_to_fetch,
                     )
                     results["skipped"] += 1
                     # Update status to "skipped" in Firestore
@@ -527,10 +541,11 @@ def process_posts_service(max_posts: int | None = None) -> dict[str, Any]:
 
                 if info_data is None:
                     # File doesn't exist, fetch from Information Tracer service
+                    # Use replies_count as maximum (or fallback to max_replies/default)
                     info_data = fetch_post_information(
                         post_id=post_id,
                         platform=platform,
-                        max_posts=max_replies,
+                        max_posts=max_posts_to_fetch,
                     )
 
                     # Save to GCS
@@ -549,7 +564,7 @@ def process_posts_service(max_posts: int | None = None) -> dict[str, Any]:
                         success=True,
                         skipped=True,
                         skip_reason="File already exists in GCS",
-                        max_replies=max_replies,
+                        max_replies=max_posts_to_fetch,
                     )
 
                 # Update status to "done" in Firestore after successful save

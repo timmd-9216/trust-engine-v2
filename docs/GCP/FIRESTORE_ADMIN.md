@@ -108,6 +108,21 @@ for status in statuses:
 | `status` | string | Estado: `noreplies`, `done`, `skipped` |
 | `updated_at` | timestamp | Última actualización del documento |
 
+### Lógica de determinación del máximo de respuestas a buscar
+
+Al procesar posts con el endpoint `/process-posts`, el sistema determina cuántas respuestas buscar de Information Tracer usando la siguiente prioridad:
+
+1. **`max_replies`** (prioridad más alta): Si este campo existe y es mayor a 0, se usa como límite máximo.
+2. **`replies_count`** (fallback): Si `max_replies` no está disponible o es inválido, se usa `replies_count` si existe y es mayor a 0.
+3. **Valor por defecto**: Si ninguno de los campos anteriores está disponible o es válido, se usa 100 como límite por defecto.
+
+**Ejemplo:**
+- Si `max_replies=50` y `replies_count=200`, se buscarán máximo 50 respuestas (usa `max_replies`).
+- Si `max_replies` no existe y `replies_count=200`, se buscarán máximo 200 respuestas (usa `replies_count`).
+- Si ambos campos son `null` o `<= 0`, se buscarán máximo 100 respuestas (valor por defecto).
+
+**Nota:** Si ambos campos (`max_replies` y `replies_count`) son `null` o `<= 0`, el post se marca como `skipped` y no se procesa.
+
 ## Estados de los posts
 
 | Estado | Descripción |
