@@ -20,6 +20,9 @@ env:
   STANZA_RESOURCES_DIR: ${{ secrets.STANZA_RESOURCES_DIR || vars.STANZA_RESOURCES_DIR || '/app/stanza_resources' }}
   INFORMATION_TRACER_API_KEY: ${{ secrets.INFORMATION_TRACER_API_KEY || vars.INFORMATION_TRACER_API_KEY || '' }}
   GCS_BUCKET_NAME: ${{ secrets.GCS_BUCKET_NAME || vars.GCS_BUCKET_NAME || '' }}
+  # Set to 'true' to use Secret Manager for INFORMATION_TRACER_API_KEY (more secure but requires permissions)
+  # Set to 'false' to use environment variables directly (less secure but simpler)
+  USE_SECRET_MANAGER: ${{ vars.USE_SECRET_MANAGER || 'false' }}
 
 jobs:
   deploy:
@@ -252,75 +255,55 @@ jobs:
             ENV_VARS="${ENV_VARS},GCS_BUCKET_NAME=${GCS_BUCKET_NAME}"
           fi
           
-          # Build secrets string (sensitive vars from Secret Manager)
-          # Note: The secret must be created manually before first deployment using:
-          # ./scripts/create_secret_manager_secret.sh
+          # Handle INFORMATION_TRACER_API_KEY
+          # Option 1: Use Secret Manager (more secure) - requires secretmanager.secretAccessor permission
+          # Option 2: Use environment variable directly (less secure but simpler)
           SECRETS_ARGS=""
           SECRET_NAME=""
+          # USE_SECRET_MANAGER is set in the workflow env section
+          
           if [ -n "${INFORMATION_TRACER_API_KEY}" ]; then
-            SECRET_NAME="INFORMATION_TRACER_API_KEY"
-            # Verify secret exists
-            echo "Checking if secret ${SECRET_NAME} exists in project ${GCP_PROJECT_ID}..."
-            echo "Service account from config: ${GCP_SERVICE_ACCOUNT_EMAIL}"
-            echo ""
-            ERROR_OUTPUT=$(gcloud secrets describe "${SECRET_NAME}" --project="${GCP_PROJECT_ID}" 2>&1) || SECRET_ERROR=$?
-            
-            if [ ${SECRET_ERROR:-0} -eq 0 ]; then
-              echo "✓ Secret ${SECRET_NAME} exists, creating new version..."
-              echo -n "${INFORMATION_TRACER_API_KEY}" | gcloud secrets versions add "${SECRET_NAME}" \
-                --project="${GCP_PROJECT_ID}" \
-                --data-file=-
-              # Add secret to deployment args
-              SECRETS_ARGS="--update-secrets=INFORMATION_TRACER_API_KEY=${SECRET_NAME}:latest"
-            else
-              # Handle different error types
-              if echo "${ERROR_OUTPUT}" | grep -q "NOT_FOUND\|does not exist"; then
-                echo "⚠ ERROR: Secret ${SECRET_NAME} does not exist in Secret Manager."
-                echo "Please create it manually first using: ./scripts/create_secret_manager_secret.sh"
-                echo "See docs/GCP/SECRET_MANAGER_SETUP.md for more information"
-                exit 1
-              elif echo "${ERROR_OUTPUT}" | grep -q "PERMISSION_DENIED"; then
-                echo "⚠ ERROR: Permission denied when accessing secret ${SECRET_NAME}."
-                echo ""
-                echo "Error details: ${ERROR_OUTPUT}"
-                echo ""
-                echo "Diagnosis:"
-                echo "1. Service account configured: ${GCP_SERVICE_ACCOUNT_EMAIL}"
-                echo "2. Expected service account: ci-deployer@trust-481601.iam.gserviceaccount.com"
-                echo ""
-                echo "Troubleshooting steps:"
-                echo ""
-                echo "1. Verify the secret GCP_SERVICE_ACCOUNT_EMAIL in GitHub (environment: trust-engine):"
-                echo "   - Go to: https://github.com/timmd-9216/trust-engine-v2/settings/environments/trust-engine"
-                echo "   - Ensure it's exactly: ci-deployer@trust-481601.iam.gserviceaccount.com"
-                echo ""
-                echo "2. Verify Workload Identity Federation bindings for repository timmd-9216/trust-engine-v2:"
-                echo "   Run locally: ./scripts/verify_wif_setup.sh"
-                echo ""
-                echo "3. Verify IAM bindings on the secret:"
-                echo "   gcloud secrets get-iam-policy ${SECRET_NAME} --project=${GCP_PROJECT_ID}"
-                echo ""
-                echo "4. Check that the WIF provider attribute condition matches the repository:"
-                echo "   gcloud iam workload-identity-pools providers describe github-provider \\"
-                echo "     --project=${GCP_PROJECT_ID} \\"
-                echo "     --location=global \\"
-                echo "     --workload-identity-pool=github-pool \\"
-                echo "     --format='value(attributeCondition)'"
-                echo "   Should be: attribute.repository=='timmd-9216/trust-engine-v2'"
-                echo ""
-                echo "5. Common causes:"
-                echo "   - Service account mismatch (check step 1)"
-                echo "   - WIF bindings not configured for the correct repository"
-                echo "   - Permissions propagation delay (wait 2-3 more minutes after granting permissions)"
-                echo ""
-                echo "If all checks pass, the issue may be with Workload Identity Federation authentication."
-                echo "Verify that the workflow has 'permissions: id-token: write' set."
-                exit 1
+            if [ "${USE_SECRET_MANAGER}" = "true" ]; then
+              SECRET_NAME="INFORMATION_TRACER_API_KEY"
+              # Verify secret exists
+              echo "Checking if secret ${SECRET_NAME} exists in project ${GCP_PROJECT_ID}..."
+              echo "Service account from config: ${GCP_SERVICE_ACCOUNT_EMAIL}"
+              echo ""
+              ERROR_OUTPUT=$(gcloud secrets describe "${SECRET_NAME}" --project="${GCP_PROJECT_ID}" 2>&1) || SECRET_ERROR=$?
+              
+              if [ ${SECRET_ERROR:-0} -eq 0 ]; then
+                echo "✓ Secret ${SECRET_NAME} exists, creating new version..."
+                echo -n "${INFORMATION_TRACER_API_KEY}" | gcloud secrets versions add "${SECRET_NAME}" \
+                  --project="${GCP_PROJECT_ID}" \
+                  --data-file=-
+                # Add secret to deployment args
+                SECRETS_ARGS="--update-secrets=INFORMATION_TRACER_API_KEY=${SECRET_NAME}:latest"
               else
-                echo "⚠ ERROR: Could not access secret ${SECRET_NAME}."
-                echo "Error: ${ERROR_OUTPUT}"
-                exit 1
+                # Handle different error types
+                if echo "${ERROR_OUTPUT}" | grep -q "NOT_FOUND\|does not exist"; then
+                  echo "⚠ ERROR: Secret ${SECRET_NAME} does not exist in Secret Manager."
+                  echo "Please create it manually first using: ./scripts/create_secret_manager_secret.sh"
+                  echo "See docs/GCP/SECRET_MANAGER_SETUP.md for more information"
+                  exit 1
+                elif echo "${ERROR_OUTPUT}" | grep -q "PERMISSION_DENIED"; then
+                  echo "⚠ ERROR: Permission denied when accessing secret ${SECRET_NAME}."
+                  echo ""
+                  echo "Error details: ${ERROR_OUTPUT}"
+                  echo ""
+                  echo "As a workaround, you can set USE_SECRET_MANAGER=false to use environment variables instead."
+                  echo "This is less secure but will allow the deployment to proceed."
+                  exit 1
+                else
+                  echo "⚠ ERROR: Could not access secret ${SECRET_NAME}."
+                  echo "Error: ${ERROR_OUTPUT}"
+                  exit 1
+                fi
               fi
+            else
+              # Use environment variable directly (less secure but simpler)
+              echo "Using INFORMATION_TRACER_API_KEY as environment variable (not Secret Manager)"
+              echo "Note: For better security, set USE_SECRET_MANAGER=true and configure Secret Manager permissions"
+              ENV_VARS="${ENV_VARS},INFORMATION_TRACER_API_KEY=${INFORMATION_TRACER_API_KEY}"
             fi
           fi
           
