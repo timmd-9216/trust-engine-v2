@@ -306,7 +306,9 @@ def get_post_replies(
         token: API authentication token. If None, uses API_KEY from environment variables.
 
     Returns:
-        dict: Dictionary containing the collected replies. The structure depends on the platform.
+        dict: Dictionary containing:
+            - "data": The collected replies (structure depends on the platform)
+            - "job_id": The Information Tracer job ID (id_hash256)
 
     Raises:
         ValueError: If submission fails or job ID is not returned.
@@ -314,8 +316,8 @@ def get_post_replies(
         Exception: If result retrieval fails.
 
     Example:
-        >>> replies = get_post_replies("1234567890", "twitter", max_post=500)
-        >>> print(f"Retrieved {len(replies)} replies")
+        >>> result = get_post_replies("1234567890", "twitter", max_post=500)
+        >>> print(f"Job ID: {result['job_id']}, Retrieved {len(result['data'])} replies")
     """
     if token is None:
         token = API_KEY
@@ -379,11 +381,13 @@ def get_post_replies(
         raise RuntimeError(error_msg)
 
     if isinstance(result, list):
-        logger.info(f"Successfully retrieved {len(result)} replies for post_id={post_id}")
+        logger.info(
+            f"Successfully retrieved {len(result)} replies for post_id={post_id}, job_id={id_hash256}"
+        )
     else:
-        logger.info(f"Successfully retrieved results for post_id={post_id}")
+        logger.info(f"Successfully retrieved results for post_id={post_id}, job_id={id_hash256}")
 
-    return result
+    return {"data": result, "job_id": id_hash256}
 
 
 if __name__ == "__main__":

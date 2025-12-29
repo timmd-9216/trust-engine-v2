@@ -78,6 +78,7 @@ def add_log_entry(
     max_replies: int | None = None,
     skipped: bool = False,
     skip_reason: str | None = None,
+    job_id: str | None = None,
 ) -> None:
     """
     Add a log entry to the execution logs (in-memory).
@@ -92,6 +93,7 @@ def add_log_entry(
         max_replies: Maximum number of replies requested for this post (if available)
         skipped: Whether the post was skipped (not queried)
         skip_reason: Reason for skipping (if skipped)
+        job_id: Information Tracer job ID (id_hash256) if available
     """
     now = datetime.now(timezone.utc)
     log_entry = {
@@ -105,6 +107,7 @@ def add_log_entry(
         "max_replies": max_replies,
         "skipped": skipped,
         "skip_reason": skip_reason,
+        "job_id": job_id,
     }
     _execution_logs.append(log_entry)
 
@@ -228,7 +231,11 @@ def fetch_post_information(
             token=settings.information_tracer_api_key,
         )
 
-        # Add log entry for successful call
+        # Extract data and job_id from result
+        data = result.get("data", result)  # Fallback to result if no "data" key
+        job_id = result.get("job_id")
+
+        # Add log entry for successful call (including job_id if available)
         response_time_ms = (time.time() - start_time) * 1000
         add_log_entry(
             post_id=post_id,
@@ -237,9 +244,10 @@ def fetch_post_information(
             status_code=200,
             response_time_ms=response_time_ms,
             max_replies=max_posts,
+            job_id=job_id,
         )
 
-        return result
+        return data
 
     except ValueError as e:
         error_message = str(e)
