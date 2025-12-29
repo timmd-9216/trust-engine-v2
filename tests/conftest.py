@@ -126,6 +126,8 @@ def mock_env_vars(monkeypatch):
     monkeypatch.setenv("STANZA_LANG", "es")
     monkeypatch.setenv("STANZA_RESOURCES_DIR", "/tmp/stanza_resources")
     # Don't set OPENROUTER_API_KEY by default to test fallback behavior
+    # Clear INFORMATION_TRACER_API_KEY to prevent accidental API calls
+    monkeypatch.delenv("INFORMATION_TRACER_API_KEY", raising=False)
 
 
 @pytest.fixture
