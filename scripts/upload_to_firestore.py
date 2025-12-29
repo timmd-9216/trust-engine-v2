@@ -65,6 +65,7 @@ def upload_to_firestore(
     project_id: str = None,
     limit: int | None = 10,
     skip: int = 0,
+    skip_existing: bool = False,
 ):
     """
     Upload records from CSV to Firestore.
@@ -76,6 +77,7 @@ def upload_to_firestore(
         project_id: GCP project ID (if None, uses default from gcloud)
         limit: Number of records to upload (default: 10, None to upload all)
         skip: Number of records to skip from the beginning (default: 0)
+        skip_existing: If True, skip records where post_id already exists in Firestore (default: False)
     """
     # Initialize Firestore client
     if project_id:
@@ -177,6 +179,20 @@ def upload_to_firestore(
                 except (ValueError, TypeError):
                     doc_data["max_replies"] = max_replies
 
+            # Check if post_id already exists (if skip_existing is enabled)
+            if skip_existing and post_id:
+                # Query for existing document with this post_id
+                existing_query = (
+                    client.collection(collection).where("post_id", "==", post_id).limit(1).stream()
+                )
+                existing_docs = list(existing_query)
+
+                if existing_docs:
+                    print(
+                        f"Skipped record {i + 1} (position {i + 1} in CSV): post_id={post_id} already exists"
+                    )
+                    continue
+
             # Create a new document with auto-generated ID
             doc_ref = client.collection(collection).document()
             doc_ref.set(doc_data)
@@ -184,7 +200,7 @@ def upload_to_firestore(
 
             print(
                 f"Uploaded record {i + 1} (position {i + 1} in CSV): platform={platform}, "
-                f"country={country}, candidate_id={candidate_id}, created_at={created_at}"
+                f"country={country}, candidate_id={candidate_id}, post_id={post_id}, created_at={created_at}"
             )
 
     print(
@@ -192,10 +208,12 @@ def upload_to_firestore(
     )
     if skip > 0:
         print(f"Skipped first {skip} records from CSV")
+    if skip_existing:
+        print("Note: Records with existing post_id were skipped (--skip-existing enabled)")
     if limit is not None and records_uploaded < limit:
         print(
             f"Warning: Only {records_uploaded} records were uploaded (requested {limit}). "
-            f"CSV file may have fewer records than expected."
+            f"CSV file may have fewer records than expected, or some were skipped due to duplicates."
         )
     return records_uploaded
 
@@ -226,6 +244,9 @@ Examples:
   
   # Upload ALL records starting from position 50
   python upload_to_firestore.py data/test-input.csv posts socialnetworks trust-481601 --all --skip 50
+  
+  # Upload records skipping those that already exist (by post_id)
+  python upload_to_firestore.py data/test-input.csv posts socialnetworks trust-481601 50 --skip-existing
         """,
     )
     parser.add_argument(
@@ -279,6 +300,11 @@ Examples:
         action="store_true",
         help="Upload all records from CSV (ignores limit)",
     )
+    parser.add_argument(
+        "--skip-existing",
+        action="store_true",
+        help="Skip records where post_id already exists in Firestore",
+    )
 
     args = parser.parse_args()
 
@@ -310,7 +336,10 @@ Examples:
             print(f"Uploading first {limit} records from {args.csv_path} to Firestore...")
     print(f"Collection: {args.collection}")
     print(f"Database: {args.database_name}")
-    print(f"Project ID: {project_id or 'default from gcloud'}\n")
+    print(f"Project ID: {project_id or 'default from gcloud'}")
+    if args.skip_existing:
+        print("Skip existing: Enabled (records with existing post_id will be skipped)")
+    print()
 
     upload_to_firestore(
         args.csv_path,
@@ -319,4 +348,5 @@ Examples:
         project_id,
         limit,
         args.skip,
+        args.skip_existing,
     )
