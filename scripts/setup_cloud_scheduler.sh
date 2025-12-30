@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Script to set up Cloud Scheduler to call the /process-posts endpoint hourly with max_posts=10
+# Script to set up Cloud Scheduler jobs for both /process-posts and /process-jobs endpoints
+# Creates two schedulers:
+#   1. process-posts-hourly: Runs every hour at minute 0, calls /process-posts?max_posts=10
+#   2. process-jobs-hourly: Runs every hour at minute 30, calls /process-jobs (processes all pending jobs)
 #
 # Usage:
 #   ./scripts/setup_cloud_scheduler.sh <project_id> <region> <scrapping_tools_service_name> <service_account_email>
@@ -72,15 +75,20 @@ if [ -z "${SERVICE_URL}" ]; then
   exit 1
 fi
 
+# ============================================================================
+# Scheduler 1: process-posts-hourly
+# ============================================================================
 ENDPOINT_URL="${SERVICE_URL}/process-posts?max_posts=10"
 JOB_NAME="process-posts-hourly"
 SCHEDULE="0 * * * *"  # Every hour at minute 0
 
+echo "=========================================="
 echo "Setting up Cloud Scheduler job: ${JOB_NAME}"
+echo "=========================================="
 echo "Project: ${PROJECT_ID}"
 echo "Region: ${REGION}"
 echo "Endpoint: ${ENDPOINT_URL}"
-echo "Schedule: ${SCHEDULE} (every hour, processing 10 posts)"
+echo "Schedule: ${SCHEDULE} (every hour at minute 0, processing 10 posts)"
 echo "Time Zone: UTC"
 echo "Service Account: ${SERVICE_ACCOUNT_EMAIL}"
 echo ""
@@ -110,15 +118,75 @@ else
     --time-zone "UTC"
 fi
 
+echo "✓ Cloud Scheduler job '${JOB_NAME}' configured successfully!"
 echo ""
-echo "✓ Cloud Scheduler job configured successfully!"
+
+# ============================================================================
+# Scheduler 2: process-jobs-hourly
+# ============================================================================
+PROCESS_JOBS_ENDPOINT_URL="${SERVICE_URL}/process-jobs"
+PROCESS_JOBS_JOB_NAME="process-jobs-hourly"
+PROCESS_JOBS_SCHEDULE="30 * * * *"  # Every hour at minute 30
+
+echo "=========================================="
+echo "Setting up Cloud Scheduler job: ${PROCESS_JOBS_JOB_NAME}"
+echo "=========================================="
+echo "Project: ${PROJECT_ID}"
+echo "Region: ${REGION}"
+echo "Endpoint: ${PROCESS_JOBS_ENDPOINT_URL}"
+echo "Schedule: ${PROCESS_JOBS_SCHEDULE} (every hour at minute 30, processes all pending jobs)"
+echo "Time Zone: UTC"
+echo "Service Account: ${SERVICE_ACCOUNT_EMAIL}"
 echo ""
-echo "To manually trigger the job:"
+
+# Check if job already exists
+if gcloud scheduler jobs describe "${PROCESS_JOBS_JOB_NAME}" \
+  --project "${PROJECT_ID}" \
+  --location "${REGION}" >/dev/null 2>&1; then
+  echo "Job ${PROCESS_JOBS_JOB_NAME} already exists. Updating..."
+  gcloud scheduler jobs update http "${PROCESS_JOBS_JOB_NAME}" \
+    --project "${PROJECT_ID}" \
+    --location "${REGION}" \
+    --schedule "${PROCESS_JOBS_SCHEDULE}" \
+    --uri "${PROCESS_JOBS_ENDPOINT_URL}" \
+    --http-method POST \
+    --oidc-service-account-email "${SERVICE_ACCOUNT_EMAIL}" \
+    --time-zone "UTC"
+else
+  echo "Creating new job ${PROCESS_JOBS_JOB_NAME}..."
+  gcloud scheduler jobs create http "${PROCESS_JOBS_JOB_NAME}" \
+    --project "${PROJECT_ID}" \
+    --location "${REGION}" \
+    --schedule "${PROCESS_JOBS_SCHEDULE}" \
+    --uri "${PROCESS_JOBS_ENDPOINT_URL}" \
+    --http-method POST \
+    --oidc-service-account-email "${SERVICE_ACCOUNT_EMAIL}" \
+    --time-zone "UTC"
+fi
+
+echo "✓ Cloud Scheduler job '${PROCESS_JOBS_JOB_NAME}' configured successfully!"
+echo ""
+
+# ============================================================================
+# Summary
+# ============================================================================
+echo "=========================================="
+echo "✓ Both Cloud Scheduler jobs configured successfully!"
+echo "=========================================="
+echo ""
+echo "Jobs created:"
+echo "  1. ${JOB_NAME} - Runs at :00 every hour"
+echo "  2. ${PROCESS_JOBS_JOB_NAME} - Runs at :30 every hour"
+echo ""
+echo "To manually trigger the jobs:"
 echo "  gcloud scheduler jobs run ${JOB_NAME} --project ${PROJECT_ID} --location ${REGION}"
+echo "  gcloud scheduler jobs run ${PROCESS_JOBS_JOB_NAME} --project ${PROJECT_ID} --location ${REGION}"
 echo ""
 echo "To view job details:"
 echo "  gcloud scheduler jobs describe ${JOB_NAME} --project ${PROJECT_ID} --location ${REGION}"
+echo "  gcloud scheduler jobs describe ${PROCESS_JOBS_JOB_NAME} --project ${PROJECT_ID} --location ${REGION}"
 echo ""
-echo "To delete the job:"
+echo "To delete the jobs:"
 echo "  gcloud scheduler jobs delete ${JOB_NAME} --project ${PROJECT_ID} --location ${REGION}"
+echo "  gcloud scheduler jobs delete ${PROCESS_JOBS_JOB_NAME} --project ${PROJECT_ID} --location ${REGION}"
 

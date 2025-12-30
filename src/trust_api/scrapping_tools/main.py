@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from trust_api.scrapping_tools.core.config import settings
 from trust_api.scrapping_tools.services import (
     fetch_post_information,
+    fix_jobs_service,
     process_pending_jobs_service,
     process_posts_service,
     query_pending_jobs,
@@ -40,11 +41,24 @@ class ProcessJobsResponse(BaseModel):
     errors: list[str]
     saved_files: list[str]
     log_file: str | None = None  # GCS URI of the execution log file
+    error_log_file: str | None = None  # GCS URI of the error log file (for empty results)
 
 
 class PendingJobsResponse(BaseModel):
     total: int
     jobs: list[dict]  # List of pending jobs with job_id, post_id, platform, etc.
+
+
+class FixJobsResponse(BaseModel):
+    checked: int
+    empty_found: int
+    fixed: int
+    still_empty: int
+    errors: list[str]
+    fixed_files: list[str]
+    empty_jobs: list[dict]  # List of jobs that are still empty after retry
+    log_file: str | None = None  # GCS URI of the execution log file
+    error_log_file: str | None = None  # GCS URI of the error log file (for empty results)
 
 
 app = FastAPI(
@@ -205,4 +219,35 @@ async def process_jobs_endpoint(max_jobs: int | None = None):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error processing jobs: {str(e)}",
+        )
+
+
+@app.post("/fix-jobs", response_model=FixJobsResponse)
+async def fix_jobs_endpoint(max_jobs: int | None = None):
+    """
+    Fix jobs that are marked as 'done' but have empty JSON files in GCS.
+
+    This endpoint:
+    1. Queries Firestore collection 'pending_jobs' for documents with status='done'
+    2. For each job, reads the JSON file from GCS
+    3. If the file is empty, retries fetching from Information Tracer API
+    4. If the result is still empty, logs the issue
+    5. If successful, updates the file in GCS
+
+    Args:
+        max_jobs: Maximum number of jobs to check. If None, checks all done jobs.
+
+    Returns:
+        FixJobsResponse with processing results including checked count, fixed count, errors, etc.
+
+    Raises:
+        HTTPException: If the processing fails or configuration is missing
+    """
+    try:
+        results = fix_jobs_service(max_jobs=max_jobs)
+        return FixJobsResponse(**results)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fixing jobs: {str(e)}",
         )

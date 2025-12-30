@@ -250,7 +250,7 @@ def get_result(
     id_hash256: str,
     token: str,
     platform: PlatformType,
-) -> dict | None:
+) -> dict | list | None:
     """Retrieve and save the results of a completed data collection job.
 
     Fetches the collected data from the Information Tracer API and saves it as a JSON file.
@@ -262,7 +262,9 @@ def get_result(
         platform: The platform from which data was collected.
 
     Returns:
-        dict: The collected data as a dictionary.
+        dict | list: The collected data as a dictionary or list.
+                     Returns a list (often empty []) when no results are found.
+                     Returns None if there's an error.
 
     Raises:
         Logs errors if the request fails or file cannot be saved.
@@ -271,12 +273,17 @@ def get_result(
     try:
         response = requests.get(url)
         records = response.json()
-        logger.info(f"Received {len(records)} records from {platform}")
+        # Information Tracer returns a list when there are results (or empty list if none)
+        if isinstance(records, list):
+            logger.info(f"Received {len(records)} records from {platform}")
+        else:
+            logger.info(f"Received result from {platform} (type: {type(records).__name__})")
         return records
 
     except Exception as e:
         logger.error("exception in requesting raw data")
         logger.exception(e)
+        return None
 
 
 def get_post_replies(

@@ -36,6 +36,17 @@ gcloud firestore indexes composite create \
   --field-config field-path=created_at,order=ASCENDING \
   2>&1 || echo "   (El índice puede ya existir)"
 
+# Índice: status + updated_at (para query de jobs done ordenados por fecha de actualización)
+echo "3️⃣  Creando índice: pending_jobs - status + updated_at..."
+gcloud firestore indexes composite create \
+  --project="${PROJECT_ID}" \
+  --database="${DATABASE}" \
+  --collection-group=pending_jobs \
+  --query-scope=COLLECTION \
+  --field-config field-path=status,order=ASCENDING \
+  --field-config field-path=updated_at,order=ASCENDING \
+  2>&1 || echo "   (El índice puede ya existir)"
+
 echo ""
 echo "=========================================="
 echo "Índices creados/verificados"

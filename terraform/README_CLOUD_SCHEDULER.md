@@ -1,17 +1,22 @@
-# Cloud Scheduler para `/process-posts` con Terraform
+# Cloud Scheduler para `/process-posts` y `/process-jobs` con Terraform
 
-Este archivo Terraform crea un Cloud Scheduler job que ejecuta automáticamente el endpoint `/process-posts` del servicio `scrapping-tools` según un schedule configurado.
+Este archivo Terraform crea dos Cloud Scheduler jobs:
+1. **process-posts-hourly**: Ejecuta `/process-posts` cada hora en el minuto 0
+2. **process-jobs-hourly**: Ejecuta `/process-jobs` cada hora en el minuto 30 (30 minutos después del primero)
 
-## Equivalente al script bash
+## Flujo de dos fases
 
-Este archivo Terraform es equivalente a ejecutar:
-```bash
-./scripts/setup_cloud_scheduler.sh \
-  trust-481601 \
-  us-east1 \
-  scrapping-tools \
-  scheduler@trust-481601.iam.gserviceaccount.com
-```
+El sistema funciona en dos fases separadas:
+
+1. **Fase 1 - Crear Jobs** (`/process-posts`): 
+   - Se ejecuta cada hora en el minuto 0
+   - Hace submit de posts a Information Tracer y guarda los hash_id en `pending_jobs`
+   - Este proceso es rápido y no espera resultados
+
+2. **Fase 2 - Procesar Jobs** (`/process-jobs`):
+   - Se ejecuta cada hora en el minuto 30 (30 minutos después de la Fase 1)
+   - Procesa todos los jobs pendientes en `pending_jobs`
+   - Verifica el estado, descarga resultados y guarda en GCS
 
 ## Prerrequisitos
 
@@ -63,8 +68,10 @@ terraform apply \
 | `scrapping_tools_service_name` | Nombre del servicio Cloud Run | (requerido) |
 | `service_account_email` | Email del service account para OIDC | (requerido) |
 | `max_posts` | Máximo de posts a procesar por ejecución | `10` |
-| `schedule` | Expresión cron (formato unix-cron) | `0 * * * *` (cada hora) |
-| `job_name` | Nombre del job de Cloud Scheduler | `process-posts-hourly` |
+| `schedule` | Expresión cron para process-posts | `0 * * * *` (cada hora en minuto 0) |
+| `job_name` | Nombre del job de Cloud Scheduler para process-posts | `process-posts-hourly` |
+| `process_jobs_schedule` | Expresión cron para process-jobs | `30 * * * *` (cada hora en minuto 30) |
+| `process_jobs_job_name` | Nombre del job de Cloud Scheduler para process-jobs | `process-jobs-hourly` |
 | `time_zone` | Zona horaria para el schedule | `UTC` |
 
 ### 4. Usar archivo de variables (opcional)
@@ -89,30 +96,48 @@ terraform apply
 
 ## Ejemplos de schedules
 
-- `0 * * * *` - Cada hora en el minuto 0
+**Para process-posts:**
+- `0 * * * *` - Cada hora en el minuto 0 (default)
 - `0 */2 * * *` - Cada 2 horas
 - `0 9 * * *` - Todos los días a las 9:00 AM
-- `0 9 * * 1` - Todos los lunes a las 9:00 AM
+
+**Para process-jobs:**
+- `30 * * * *` - Cada hora en el minuto 30 (default, 30 min después de process-posts)
+- `15 * * * *` - Cada hora en el minuto 15
 - `*/30 * * * *` - Cada 30 minutos
+
+**Nota:** Se recomienda mantener process-jobs al menos 30 minutos después de process-posts para dar tiempo a que los jobs se completen en Information Tracer.
 
 Para más información sobre el formato cron, ver: [Cron job format and time zone](https://cloud.google.com/scheduler/docs/configuring/cron-job-schedules)
 
-## Verificar el job
+## Verificar los jobs
 
-Después de aplicar, puedes verificar el job con:
+Después de aplicar, puedes verificar ambos jobs:
 
 ```bash
+# Verificar process-posts
 gcloud scheduler jobs describe process-posts-hourly \
+  --project=trust-481601 \
+  --location=us-east1
+
+# Verificar process-jobs
+gcloud scheduler jobs describe process-jobs-hourly \
   --project=trust-481601 \
   --location=us-east1
 ```
 
 ## Ejecutar manualmente
 
-Para probar el job manualmente:
+Para probar los jobs manualmente:
 
 ```bash
+# Ejecutar process-posts
 gcloud scheduler jobs run process-posts-hourly \
+  --project=trust-481601 \
+  --location=us-east1
+
+# Ejecutar process-jobs
+gcloud scheduler jobs run process-jobs-hourly \
   --project=trust-481601 \
   --location=us-east1
 ```
@@ -121,9 +146,15 @@ gcloud scheduler jobs run process-posts-hourly \
 
 Después de aplicar, Terraform mostrará:
 
-- `scheduler_job_name`: Nombre del job creado
-- `scheduler_job_id`: ID completo del recurso
-- `endpoint_url`: URL completa que será llamada
+**Para process-posts:**
+- `scheduler_job_name`: Nombre del job process-posts
+- `scheduler_job_id`: ID completo del recurso process-posts
+- `endpoint_url`: URL completa que será llamada para process-posts
+
+**Para process-jobs:**
+- `process_jobs_scheduler_job_name`: Nombre del job process-jobs
+- `process_jobs_scheduler_job_id`: ID completo del recurso process-jobs
+- `process_jobs_endpoint_url`: URL completa que será llamada para process-jobs
 
 ## Eliminar el job
 

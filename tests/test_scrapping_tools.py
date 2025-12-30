@@ -113,6 +113,8 @@ class TestResetExecutionLogs:
         services.reset_execution_logs()
 
         assert len(services._execution_logs) == 0
+        # Also verify that error logs are cleared
+        assert len(services._error_logs) == 0
 
 
 class TestFetchPostInformation:

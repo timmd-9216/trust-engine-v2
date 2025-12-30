@@ -61,11 +61,15 @@ def query_posts_without_replies(max_posts: int | None = None) -> list[dict[str, 
 # Global list to accumulate logs during execution
 _execution_logs: list[dict[str, Any]] = []
 
+# Global list to accumulate error logs (for empty results and other errors)
+_error_logs: list[dict[str, Any]] = []
+
 
 def reset_execution_logs() -> None:
     """Reset the execution logs list for a new execution."""
-    global _execution_logs
+    global _execution_logs, _error_logs
     _execution_logs = []
+    _error_logs = []
 
 
 def add_log_entry(
@@ -164,6 +168,142 @@ def save_execution_logs(
         blob = bucket.blob(blob_path)
         blob.upload_from_string(
             json.dumps(log_file, ensure_ascii=False, indent=2),
+            content_type="application/json",
+        )
+
+        return f"gs://{settings.gcs_bucket_name}/{blob_path}"
+    except Exception:
+        # Silently fail logging to avoid breaking the main flow
+        # In production, you might want to log this to a logging service
+        return None
+
+
+def _get_gcs_blob_path(
+    country: str,
+    platform: str,
+    candidate_id: str,
+    post_id: str,
+) -> str:
+    """
+    Generate the GCS blob path for a post.
+
+    Args:
+        country: Country name
+        platform: Platform name
+        candidate_id: Candidate ID
+        post_id: Post ID (used for filename)
+
+    Returns:
+        Blob path in GCS
+    """
+    # Normalize path components to avoid issues with special characters
+    safe_country = country.replace("/", "_").replace("\\", "_")
+    safe_platform = platform.replace("/", "_").replace("\\", "_")
+    safe_candidate_id = str(candidate_id).replace("/", "_").replace("\\", "_")
+    safe_post_id = str(post_id).replace("/", "_").replace("\\", "_")
+
+    layer_name = "raw"
+    return f"{layer_name}/{safe_country}/{safe_platform}/{safe_candidate_id}/{safe_post_id}.json"
+
+
+def add_error_entry(
+    job_id: str,
+    post_id: str,
+    platform: str,
+    country: str,
+    candidate_id: str,
+    error_type: str,
+    error_message: str,
+    job_doc_id: str | None = None,
+) -> None:
+    """
+    Add an error entry to the error logs list.
+
+    Args:
+        job_id: The Information Tracer job ID
+        post_id: The post ID
+        platform: The platform name
+        country: The country name
+        candidate_id: The candidate ID
+        error_type: Type of error (e.g., "empty_result", "retry_still_empty")
+        error_message: Detailed error message
+        job_doc_id: The Firestore job document ID (optional)
+    """
+    global _error_logs
+    now = datetime.now(timezone.utc)
+
+    error_entry = {
+        "timestamp": now.isoformat(),
+        "job_id": job_id,
+        "post_id": post_id,
+        "platform": platform,
+        "country": country,
+        "candidate_id": candidate_id,
+        "error_type": error_type,
+        "error_message": error_message,
+        "job_doc_id": job_doc_id,
+        "gcs_path": _get_gcs_blob_path(country, platform, candidate_id, post_id),
+    }
+
+    _error_logs.append(error_entry)
+
+
+def save_error_logs(
+    execution_type: str = "process-jobs",
+    requested_max_items: int | None = None,
+    available_items: int | None = None,
+) -> str | None:
+    """
+    Save all accumulated error logs to GCS bucket in errors/ folder.
+    Uses a single file per execution.
+
+    Args:
+        execution_type: Type of execution (e.g., "process-jobs", "fix-jobs")
+        requested_max_items: Maximum number of items requested in the API call (if specified)
+        available_items: Total number of items available (if specified)
+
+    Returns:
+        GCS URI of the saved error log file, or None if logging fails or is disabled
+    """
+    if not settings.gcs_bucket_name:
+        return None
+
+    if not _error_logs:
+        # No errors to save
+        return None
+
+    try:
+        client = get_gcs_client()
+        bucket = client.bucket(settings.gcs_bucket_name)
+
+        # Create filename: errors/YYYY-MM-DD/HH-MM-SS-{timestamp}.json
+        now = datetime.now(timezone.utc)
+        date_str = now.strftime("%Y-%m-%d")
+        time_str = now.strftime("%H-%M-%S-%f")[:-3]  # Include milliseconds
+        filename = f"{time_str}.json"
+        blob_path = f"errors/{date_str}/{filename}"
+
+        # Calculate summary statistics
+        total_errors = len(_error_logs)
+        error_types = {}
+        for error in _error_logs:
+            error_type = error.get("error_type", "unknown")
+            error_types[error_type] = error_types.get(error_type, 0) + 1
+
+        # Create error log file content with metadata and all entries
+        error_file = {
+            "execution_timestamp": now.isoformat(),
+            "execution_type": execution_type,
+            "requested_max_items": requested_max_items,
+            "available_items": available_items,
+            "total_errors": total_errors,
+            "error_types": error_types,
+            "errors": _error_logs,
+        }
+
+        blob = bucket.blob(blob_path)
+        blob.upload_from_string(
+            json.dumps(error_file, ensure_ascii=False, indent=2),
             content_type="application/json",
         )
 
@@ -298,34 +438,6 @@ def fetch_post_information(
         raise
 
 
-def _get_gcs_blob_path(
-    country: str,
-    platform: str,
-    candidate_id: str,
-    post_id: str,
-) -> str:
-    """
-    Generate the GCS blob path for a post.
-
-    Args:
-        country: Country name
-        platform: Platform name
-        candidate_id: Candidate ID
-        post_id: Post ID (used for filename)
-
-    Returns:
-        Blob path in GCS
-    """
-    # Normalize path components to avoid issues with special characters
-    safe_country = country.replace("/", "_").replace("\\", "_")
-    safe_platform = platform.replace("/", "_").replace("\\", "_")
-    safe_candidate_id = str(candidate_id).replace("/", "_").replace("\\", "_")
-    safe_post_id = str(post_id).replace("/", "_").replace("\\", "_")
-
-    layer_name = "raw"
-    return f"{layer_name}/{safe_country}/{safe_platform}/{safe_candidate_id}/{safe_post_id}.json"
-
-
 def read_from_gcs_if_exists(
     country: str,
     platform: str,
@@ -374,6 +486,45 @@ def read_from_gcs_if_exists(
         return None
 
 
+def _is_result_empty(result: dict[str, Any] | list[Any]) -> bool:
+    """
+    Check if a result is empty or contains no useful data.
+
+    Args:
+        result: The result data to check (dict or list)
+
+    Returns:
+        True if the result is empty or contains no useful data, False otherwise
+    """
+    if result is None:
+        return True
+
+    # Check if it's an empty list
+    if isinstance(result, list):
+        return len(result) == 0
+
+    # Check if it's an empty dict
+    if isinstance(result, dict):
+        if len(result) == 0:
+            return True
+
+        # Check if all values are empty (None, empty strings, empty lists, empty dicts)
+        for value in result.values():
+            if value is None:
+                continue
+            if isinstance(value, str) and value.strip() == "":
+                continue
+            if isinstance(value, (list, dict)) and len(value) == 0:
+                continue
+            # If we find at least one non-empty value, the result is not empty
+            return False
+
+        # All values were empty
+        return True
+
+    return False
+
+
 def save_to_gcs(
     data: dict[str, Any],
     country: str,
@@ -395,10 +546,14 @@ def save_to_gcs(
         GCS URI of the saved file
 
     Raises:
-        ValueError: If GCS_BUCKET_NAME is not configured
+        ValueError: If GCS_BUCKET_NAME is not configured or if data is empty
     """
     if not settings.gcs_bucket_name:
         raise ValueError("GCS_BUCKET_NAME is not configured")
+
+    # Validate that data is not empty
+    if _is_result_empty(data):
+        raise ValueError("Cannot save empty result to GCS")
 
     client = get_gcs_client()
     bucket = client.bucket(settings.gcs_bucket_name)
@@ -515,6 +670,38 @@ def query_pending_jobs(max_jobs: int | None = None) -> list[dict[str, Any]]:
         client.collection(settings.firestore_jobs_collection)
         .where("status", "==", "pending")
         .order_by("created_at")  # Order by created_at ascending (oldest first)
+    )
+
+    # Apply limit if specified
+    if max_jobs is not None and max_jobs > 0:
+        query = query.limit(max_jobs)
+
+    jobs = []
+    for doc in query.stream():
+        doc_data = doc.to_dict()
+        doc_data["_doc_id"] = doc.id  # Store document ID for later update
+        jobs.append(doc_data)
+
+    return jobs
+
+
+def query_done_jobs(max_jobs: int | None = None) -> list[dict[str, Any]]:
+    """
+    Query Firestore for done jobs.
+    Results are ordered by updated_at (oldest first).
+
+    Args:
+        max_jobs: Maximum number of jobs to return. If None, returns all jobs.
+
+    Returns:
+        List of job documents with fields: job_id, post_doc_id, post_id, etc.
+        Each document also includes '_doc_id' field with the Firestore document ID.
+    """
+    client = get_firestore_client()
+    query = (
+        client.collection(settings.firestore_jobs_collection)
+        .where("status", "==", "done")
+        .order_by("updated_at")  # Order by updated_at ascending (oldest first)
     )
 
     # Apply limit if specified
@@ -844,6 +1031,36 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                         update_job_status(job_doc_id, "failed")
                         continue
 
+                    # Validate that result is not empty before saving
+                    if _is_result_empty(result):
+                        error_msg = (
+                            f"Result is empty for job_id={job_id}, post_id={post_id}. "
+                            f"Skipping save to GCS."
+                        )
+                        results["errors"].append(error_msg)
+                        results["failed"] += 1
+                        update_job_status(job_doc_id, "failed")
+                        # Log the empty result in execution logs
+                        add_log_entry(
+                            post_id=post_id,
+                            url=f"https://informationtracer.com/rawdata (job_id:{job_id})",
+                            success=False,
+                            error_message="Result is empty",
+                            job_id=job_id,
+                        )
+                        # Also save to error logs file
+                        add_error_entry(
+                            job_id=job_id,
+                            post_id=post_id,
+                            platform=platform,
+                            country=country,
+                            candidate_id=candidate_id,
+                            error_type="empty_result",
+                            error_message="Result from Information Tracer is empty ([] or empty dict)",
+                            job_doc_id=job_doc_id,
+                        )
+                        continue
+
                     # Save to GCS
                     gcs_uri = save_to_gcs(result, country, platform, candidate_id, post_id)
                     results["saved_files"].append(gcs_uri)
@@ -900,5 +1117,206 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
         )
         if log_file_uri:
             results["log_file"] = log_file_uri
+
+        # Save error logs if there are any
+        error_file_uri = save_error_logs(
+            execution_type="process-jobs",
+            requested_max_items=max_jobs,
+            available_items=results["processed"],
+        )
+        if error_file_uri:
+            results["error_log_file"] = error_file_uri
+
+    return results
+
+
+def fix_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
+    """
+    Fix jobs that are marked as 'done' but have empty JSON files in GCS.
+    For each job:
+    1. Query jobs with status='done'
+    2. Read the JSON file from GCS
+    3. If empty, retry fetching from Information Tracer
+    4. If still empty, log the issue
+    5. If successful, update the file in GCS
+
+    Args:
+        max_jobs: Maximum number of jobs to check. If None, checks all done jobs.
+
+    Returns:
+        Dictionary with processing results including checked count, fixed count, errors, etc.
+    """
+    # Reset logs for this execution
+    reset_execution_logs()
+
+    results = {
+        "checked": 0,
+        "empty_found": 0,
+        "fixed": 0,
+        "still_empty": 0,
+        "errors": [],
+        "fixed_files": [],
+        "empty_jobs": [],
+    }
+
+    if not settings.information_tracer_api_key:
+        results["errors"].append("INFORMATION_TRACER_API_KEY is not configured")
+        return results
+
+    try:
+        # Import here to avoid circular dependencies
+        from trust_api.scrapping_tools.information_tracer import get_result
+
+        # Query done jobs
+        jobs = query_done_jobs(max_jobs=max_jobs)
+        results["checked"] = len(jobs)
+
+        for job in jobs:
+            job_doc_id = job.get("_doc_id")
+            job_id = job.get("job_id")
+            post_id = job.get("post_id")
+            platform = job.get("platform", "unknown")
+            country = job.get("country", "unknown")
+            candidate_id = job.get("candidate_id", "unknown")
+
+            if not job_id or not job_doc_id or not post_id:
+                error_msg = (
+                    f"Job missing required fields: job_id={job_id}, "
+                    f"job_doc_id={job_doc_id}, post_id={post_id}"
+                )
+                results["errors"].append(error_msg)
+                continue
+
+            try:
+                # Read JSON from GCS
+                gcs_data = read_from_gcs_if_exists(
+                    country=country,
+                    platform=platform,
+                    candidate_id=candidate_id,
+                    post_id=post_id,
+                )
+
+                # Check if file exists and is not empty
+                if gcs_data is None:
+                    error_msg = f"JSON file not found in GCS for job_id={job_id}, post_id={post_id}"
+                    results["errors"].append(error_msg)
+                    continue
+
+                if not _is_result_empty(gcs_data):
+                    # File exists and is not empty, skip
+                    continue
+
+                # File is empty, need to retry
+                results["empty_found"] += 1
+
+                # Retry fetching from Information Tracer
+                result = get_result(
+                    job_id,
+                    settings.information_tracer_api_key,
+                    platform.lower(),  # type: ignore
+                )
+
+                if result is None:
+                    error_msg = f"Failed to retrieve results on retry for job_id={job_id}, post_id={post_id}"
+                    results["errors"].append(error_msg)
+                    results["still_empty"] += 1
+                    # Log the empty result in execution logs
+                    add_log_entry(
+                        post_id=post_id,
+                        url=f"https://informationtracer.com/rawdata (job_id:{job_id})",
+                        success=False,
+                        error_message="Failed to retrieve results on retry",
+                        job_id=job_id,
+                    )
+                    # Also save to error logs file
+                    add_error_entry(
+                        job_id=job_id,
+                        post_id=post_id,
+                        platform=platform,
+                        country=country,
+                        candidate_id=candidate_id,
+                        error_type="retry_failed",
+                        error_message="Failed to retrieve results from Information Tracer on retry",
+                        job_doc_id=job_doc_id,
+                    )
+                    results["empty_jobs"].append(
+                        {
+                            "job_id": job_id,
+                            "post_id": post_id,
+                            "platform": platform,
+                        }
+                    )
+                    continue
+
+                # Check if retry result is still empty
+                if _is_result_empty(result):
+                    error_msg = (
+                        f"Result is still empty after retry for job_id={job_id}, post_id={post_id}"
+                    )
+                    results["errors"].append(error_msg)
+                    results["still_empty"] += 1
+                    # Log the empty result in execution logs
+                    add_log_entry(
+                        post_id=post_id,
+                        url=f"https://informationtracer.com/rawdata (job_id:{job_id})",
+                        success=False,
+                        error_message="Result is still empty after retry",
+                        job_id=job_id,
+                    )
+                    # Also save to error logs file
+                    add_error_entry(
+                        job_id=job_id,
+                        post_id=post_id,
+                        platform=platform,
+                        country=country,
+                        candidate_id=candidate_id,
+                        error_type="retry_still_empty",
+                        error_message="Result is still empty after retry from Information Tracer",
+                        job_doc_id=job_doc_id,
+                    )
+                    results["empty_jobs"].append(
+                        {
+                            "job_id": job_id,
+                            "post_id": post_id,
+                            "platform": platform,
+                        }
+                    )
+                    continue
+
+                # Result is not empty, save to GCS
+                gcs_uri = save_to_gcs(result, country, platform, candidate_id, post_id)
+                results["fixed_files"].append(gcs_uri)
+                results["fixed"] += 1
+
+                # Log successful fix
+                add_log_entry(
+                    post_id=post_id,
+                    url=f"https://informationtracer.com/rawdata (job_id:{job_id})",
+                    success=True,
+                    status_code=200,
+                    job_id=job_id,
+                )
+
+            except Exception as e:
+                error_msg = f"Error fixing job_id={job_id}, post_id={post_id}: {str(e)}"
+                results["errors"].append(error_msg)
+
+    finally:
+        # Save all logs to GCS at the end of execution
+        log_file_uri = save_execution_logs(
+            requested_max_posts=max_jobs,
+            available_posts=results["checked"],
+        )
+        if log_file_uri:
+            results["log_file"] = log_file_uri
+
+        # Save error logs if there are any
+        error_file_uri = save_error_logs(
+            execution_type="fix-jobs",
+            requested_max_items=max_jobs,
+            available_items=results["checked"],
+        )
+        if error_file_uri:
+            results["error_log_file"] = error_file_uri
 
     return results
