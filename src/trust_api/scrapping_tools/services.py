@@ -1008,6 +1008,8 @@ def process_posts_service(
                             error_message="Failed to submit job to Information Tracer",
                             max_replies=max_posts_to_fetch,
                         )
+                        # Stop processing when submit fails - likely API quota/rate limit issue
+                        break
                 else:
                     # File already exists, skip job creation and update status
                     if doc_id:
@@ -1020,21 +1022,14 @@ def process_posts_service(
                 results["failed"] += 1
 
     finally:
-        # Save logs if there are errors (especially "Failed to submit job" errors)
-        # This helps debug API quota/rate limit issues
-        if results["errors"]:
-            # Check if there are "Failed to submit job" errors
-            failed_submit_errors = [
-                err for err in results["errors"] if "Failed to submit job" in err
-            ]
-            if failed_submit_errors:
-                # Save execution logs with API usage info for debugging
-                log_file_uri = save_execution_logs(
-                    requested_max_posts=max_posts,
-                    available_posts=results["processed"],
-                )
-                if log_file_uri:
-                    results["log_file"] = log_file_uri
+        # Always save logs if there are any (especially important when execution stops early due to submit failure)
+        if _execution_logs:
+            log_file_uri = save_execution_logs(
+                requested_max_posts=max_posts,
+                available_posts=results["processed"],
+            )
+            if log_file_uri:
+                results["log_file"] = log_file_uri
 
     return results
 
