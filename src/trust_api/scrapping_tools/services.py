@@ -443,17 +443,197 @@ def update_post_status(doc_id: str, new_status: str = "done") -> None:
     )
 
 
+def save_pending_job(
+    job_id: str,
+    post_doc_id: str,
+    post_id: str,
+    platform: str,
+    country: str,
+    candidate_id: str,
+    max_posts: int,
+    sort_by: Literal["time", "engagement"] = "time",
+) -> str:
+    """
+    Save a pending job to Firestore jobs collection.
+
+    Args:
+        job_id: The Information Tracer job ID (hash_id)
+        post_doc_id: The Firestore document ID of the post
+        post_id: The post ID
+        platform: The platform name
+        country: The country name
+        candidate_id: The candidate ID
+        max_posts: Maximum number of posts to fetch
+        sort_by: Sort order for replies ('time' or 'engagement'). Default is 'time'.
+
+    Returns:
+        The Firestore document ID of the created job
+
+    Raises:
+        ValueError: If required parameters are missing
+    """
+    if not job_id or not post_doc_id or not post_id:
+        raise ValueError("job_id, post_doc_id, and post_id are required")
+
+    client = get_firestore_client()
+    now = datetime.now(timezone.utc)
+
+    job_data = {
+        "job_id": job_id,
+        "post_doc_id": post_doc_id,
+        "post_id": post_id,
+        "platform": platform,
+        "country": country,
+        "candidate_id": candidate_id,
+        "max_posts": max_posts,
+        "sort_by": sort_by,
+        "status": "pending",
+        "created_at": now,
+        "updated_at": now,
+    }
+
+    doc_ref = client.collection(settings.firestore_jobs_collection).document()
+    doc_ref.set(job_data)
+
+    return doc_ref.id
+
+
+def query_pending_jobs(max_jobs: int | None = None) -> list[dict[str, Any]]:
+    """
+    Query Firestore for pending jobs.
+    Results are ordered by created_at (oldest first).
+
+    Args:
+        max_jobs: Maximum number of jobs to return. If None, returns all jobs.
+
+    Returns:
+        List of job documents with fields: job_id, post_doc_id, post_id, etc.
+        Each document also includes '_doc_id' field with the Firestore document ID.
+    """
+    client = get_firestore_client()
+    query = (
+        client.collection(settings.firestore_jobs_collection)
+        .where("status", "==", "pending")
+        .order_by("created_at")  # Order by created_at ascending (oldest first)
+    )
+
+    # Apply limit if specified
+    if max_jobs is not None and max_jobs > 0:
+        query = query.limit(max_jobs)
+
+    jobs = []
+    for doc in query.stream():
+        doc_data = doc.to_dict()
+        doc_data["_doc_id"] = doc.id  # Store document ID for later update
+        jobs.append(doc_data)
+
+    return jobs
+
+
+def update_job_status(doc_id: str, new_status: str) -> None:
+    """
+    Update the status field of a job document and set updated_at timestamp.
+
+    Args:
+        doc_id: The Firestore document ID of the job to update
+        new_status: The new status value ('pending', 'processing', 'done', 'failed')
+
+    Raises:
+        ValueError: If doc_id is not provided
+    """
+    if not doc_id:
+        raise ValueError("doc_id is required to update job status")
+
+    client = get_firestore_client()
+    doc_ref = client.collection(settings.firestore_jobs_collection).document(doc_id)
+
+    # Get current timestamp in UTC
+    now = datetime.now(timezone.utc)
+
+    # Update both status and updated_at
+    doc_ref.update(
+        {
+            "status": new_status,
+            "updated_at": now,
+        }
+    )
+
+
+def submit_post_job(
+    post_id: str,
+    platform: str,
+    max_posts: int = 100,
+    sort_by: Literal["time", "engagement"] = "time",
+) -> str | None:
+    """
+    Submit a post replies job to Information Tracer API and return the job ID (hash_id).
+    This function only submits the job, it does not wait for completion.
+
+    Args:
+        post_id: The post ID to get replies for
+        platform: The platform where the post is located (twitter, facebook, instagram, etc.)
+        max_posts: Maximum number of replies to collect (default: 100)
+        sort_by: Sort order for replies ('time' or 'engagement'). Default is 'time'.
+                 Note: Only applies to keyword search, not account search.
+
+    Returns:
+        The job ID (id_hash256) if submission is successful, None otherwise
+
+    Raises:
+        ValueError: If INFORMATION_TRACER_API_KEY is not configured or invalid platform
+    """
+    if not settings.information_tracer_api_key:
+        raise ValueError("INFORMATION_TRACER_API_KEY is not configured")
+
+    # Import here to avoid circular dependencies
+    from trust_api.scrapping_tools.information_tracer import PlatformType, submit
+
+    # Validate platform type
+    valid_platforms: list[PlatformType] = [
+        "twitter",
+        "facebook",
+        "instagram",
+        "reddit",
+        "youtube",
+        "threads",
+    ]
+    if platform.lower() not in valid_platforms:
+        raise ValueError(
+            f"Invalid platform: {platform}. Valid platforms are: {', '.join(valid_platforms)}"
+        )
+
+    # Construct query for reply search: 'reply:post_id'
+    query = f"reply:{post_id}"
+
+    # Default parameters for reply collection
+    timeline_only = False
+    enable_ai = False
+    start_date = "2020-01-01"
+    end_date = "2025-12-31"
+
+    # Submit the job
+    id_hash256, _ = submit(
+        token=settings.information_tracer_api_key,
+        query=query,
+        max_post=max_posts,
+        sort_by=sort_by,
+        start_date=start_date,
+        end_date=end_date,
+        platform=platform.lower(),  # type: ignore
+        timeline_only=timeline_only,
+        enable_ai=enable_ai,
+    )
+
+    return id_hash256
+
+
 def process_posts_service(
     max_posts: int | None = None,
     sort_by: Literal["time", "engagement"] = "time",
 ) -> dict[str, Any]:
     """
-    Main processing function that:
-    1. Queries Firestore for posts with status='noreplies'
-    2. For each post, queries the external Information Tracer service
-    3. Saves the results to GCS
-    4. Updates the post status to 'done' in Firestore after successful save
-    5. Logs all Information Tracer calls to a single file in GCS
+    Submit jobs to Information Tracer API and save hash_ids to pending_jobs collection.
+    This function only submits the jobs, it does not wait for completion.
 
     Args:
         max_posts: Maximum number of posts to process. If None, processes all posts with status='noreplies'.
@@ -461,24 +641,20 @@ def process_posts_service(
                  Note: Only applies to keyword search, not account search.
 
     Returns:
-        Dictionary with processing results including success count, errors, etc.
+        Dictionary with processing results including success count, errors, jobs created, etc.
     """
-    # Reset logs for this execution
-    reset_execution_logs()
-
     results = {
         "processed": 0,
         "succeeded": 0,
         "failed": 0,
         "skipped": 0,
         "errors": [],
-        "saved_files": [],
+        "jobs_created": [],
     }
 
     try:
-        # Query all posts without replies to get total count
+        # Query all posts without replies
         all_posts = query_posts_without_replies(max_posts=None)
-        available_posts_count = len(all_posts)
 
         # Apply limit if specified (limit in Python to avoid second query)
         if max_posts is not None and max_posts > 0:
@@ -488,7 +664,7 @@ def process_posts_service(
 
         results["processed"] = len(posts)
 
-        for post in posts:
+        for index, post in enumerate(posts):
             post_id = post.get("post_id")
             doc_id = post.get("_doc_id")
             if not post_id:
@@ -504,7 +680,6 @@ def process_posts_service(
             try:
                 # Determine maximum posts to fetch from Information Tracer
                 # Priority: max_replies > replies_count > default (100)
-                # max_replies has priority as it's an explicit limit set by the user
                 replies_count = post.get("replies_count")
                 max_replies = post.get("max_replies")
 
@@ -518,19 +693,10 @@ def process_posts_service(
                     # Default to 100 if neither is available or both are invalid
                     max_posts_to_fetch = 100
 
-                # Skip posts with no replies expected (both replies_count and max_replies are <= 0 or None)
+                # Skip posts with no replies expected
                 if (replies_count is None or replies_count <= 0) and (
                     max_replies is None or max_replies <= 0
                 ):
-                    skip_reason = f"replies_count={replies_count}, max_replies={max_replies} (no replies expected)"
-                    add_log_entry(
-                        post_id=post_id,
-                        url="N/A",
-                        success=False,
-                        skipped=True,
-                        skip_reason=skip_reason,
-                        max_replies=max_posts_to_fetch,
-                    )
                     results["skipped"] += 1
                     # Update status to "skipped" in Firestore
                     if doc_id:
@@ -538,9 +704,6 @@ def process_posts_service(
                     continue
 
                 # Check if JSON already exists in GCS to avoid duplicate requests
-                # WARNING: This check requires a GCS read operation (blob.exists() + download),
-                # which is slower than directly calling the API, but prevents duplicate API calls
-                # to Information Tracer and saves API quota/costs
                 info_data = read_from_gcs_if_exists(
                     country=country,
                     platform=platform,
@@ -549,39 +712,43 @@ def process_posts_service(
                 )
 
                 if info_data is None:
-                    # File doesn't exist, fetch from Information Tracer service
-                    # Use replies_count as maximum (or fallback to max_replies/default)
-                    info_data = fetch_post_information(
+                    # Submit job to Information Tracer
+                    job_id = submit_post_job(
                         post_id=post_id,
                         platform=platform,
                         max_posts=max_posts_to_fetch,
                         sort_by=sort_by,
                     )
 
-                    # Save to GCS
-                    gcs_uri = save_to_gcs(info_data, country, platform, candidate_id, post_id)
-                    results["saved_files"].append(gcs_uri)
+                    if job_id:
+                        # Save job to pending_jobs collection
+                        job_doc_id = save_pending_job(
+                            job_id=job_id,
+                            post_doc_id=doc_id,
+                            post_id=post_id,
+                            platform=platform,
+                            country=country,
+                            candidate_id=candidate_id,
+                            max_posts=max_posts_to_fetch,
+                            sort_by=sort_by,
+                        )
+                        results["jobs_created"].append(
+                            {
+                                "job_id": job_id,
+                                "job_doc_id": job_doc_id,
+                                "post_id": post_id,
+                            }
+                        )
+                        results["succeeded"] += 1
+                    else:
+                        error_msg = f"Failed to submit job for post_id={post_id}"
+                        results["errors"].append(error_msg)
+                        results["failed"] += 1
                 else:
-                    # File already exists, use existing data
-                    # Reconstruct GCS URI for logging
-                    blob_path = _get_gcs_blob_path(country, platform, candidate_id, post_id)
-                    gcs_uri = f"gs://{settings.gcs_bucket_name}/{blob_path}"
-                    results["saved_files"].append(gcs_uri)
-                    # Log that we skipped the API call
-                    add_log_entry(
-                        post_id=post_id,
-                        url="N/A (file already exists in GCS)",
-                        success=True,
-                        skipped=True,
-                        skip_reason="File already exists in GCS",
-                        max_replies=max_posts_to_fetch,
-                    )
-
-                # Update status to "done" in Firestore after successful save
-                if doc_id:
-                    update_post_status(doc_id, "done")
-
-                results["succeeded"] += 1
+                    # File already exists, skip job creation and update status
+                    if doc_id:
+                        update_post_status(doc_id, "done")
+                    results["skipped"] += 1
 
             except Exception as e:
                 error_msg = f"Error processing post_id={post_id}: {str(e)}"
@@ -589,10 +756,147 @@ def process_posts_service(
                 results["failed"] += 1
 
     finally:
+        # Note: No logs saved here since we're not calling the API synchronously
+        pass
+
+    return results
+
+
+def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
+    """
+    Process pending jobs from Firestore jobs collection.
+    For each job:
+    1. Check job status with Information Tracer API
+    2. If finished, retrieve results
+    3. Save results to GCS
+    4. Update post status to 'done' in Firestore
+    5. Update job status to 'done' in Firestore
+
+    Args:
+        max_jobs: Maximum number of jobs to process. If None, processes all pending jobs.
+
+    Returns:
+        Dictionary with processing results including success count, errors, etc.
+    """
+    # Reset logs for this execution
+    reset_execution_logs()
+
+    results = {
+        "processed": 0,
+        "succeeded": 0,
+        "failed": 0,
+        "still_pending": 0,
+        "errors": [],
+        "saved_files": [],
+    }
+
+    if not settings.information_tracer_api_key:
+        results["errors"].append("INFORMATION_TRACER_API_KEY is not configured")
+        return results
+
+    try:
+        # Query pending jobs
+        jobs = query_pending_jobs(max_jobs=max_jobs)
+        results["processed"] = len(jobs)
+
+        # Import here to avoid circular dependencies
+        from trust_api.scrapping_tools.information_tracer import (
+            check_status,
+            get_result,
+        )
+
+        for index, job in enumerate(jobs):
+            job_doc_id = job.get("_doc_id")
+            job_id = job.get("job_id")
+            post_doc_id = job.get("post_doc_id")
+            post_id = job.get("post_id")
+            platform = job.get("platform", "unknown")
+            country = job.get("country", "unknown")
+            candidate_id = job.get("candidate_id", "unknown")
+
+            if not job_id or not job_doc_id:
+                error_msg = f"Job missing required fields: job_id={job_id}, job_doc_id={job_doc_id}"
+                results["errors"].append(error_msg)
+                results["failed"] += 1
+                continue
+
+            try:
+                # Update job status to processing
+                update_job_status(job_doc_id, "processing")
+
+                # Check job status
+                status = check_status(job_id, settings.information_tracer_api_key)
+
+                if status == "finished":
+                    # Get results
+                    result = get_result(
+                        job_id,
+                        settings.information_tracer_api_key,
+                        platform.lower(),  # type: ignore
+                    )
+
+                    if result is None:
+                        error_msg = (
+                            f"Failed to retrieve results for job_id={job_id}, post_id={post_id}"
+                        )
+                        results["errors"].append(error_msg)
+                        results["failed"] += 1
+                        update_job_status(job_doc_id, "failed")
+                        continue
+
+                    # Save to GCS
+                    gcs_uri = save_to_gcs(result, country, platform, candidate_id, post_id)
+                    results["saved_files"].append(gcs_uri)
+
+                    # Update post status to done
+                    if post_doc_id:
+                        update_post_status(post_doc_id, "done")
+
+                    # Update job status to done
+                    update_job_status(job_doc_id, "done")
+
+                    # Log successful processing
+                    add_log_entry(
+                        post_id=post_id,
+                        url=f"https://informationtracer.com/rawdata (job_id:{job_id})",
+                        success=True,
+                        status_code=200,
+                        job_id=job_id,
+                    )
+
+                    results["succeeded"] += 1
+
+                elif status == "failed":
+                    error_msg = f"Job failed for job_id={job_id}, post_id={post_id}"
+                    results["errors"].append(error_msg)
+                    results["failed"] += 1
+                    update_job_status(job_doc_id, "failed")
+
+                elif status == "timeout":
+                    # Job is still processing, keep it as pending
+                    update_job_status(job_doc_id, "pending")
+                    results["still_pending"] += 1
+
+                else:
+                    # Unknown status, keep as pending
+                    update_job_status(job_doc_id, "pending")
+                    results["still_pending"] += 1
+
+            except Exception as e:
+                error_msg = f"Error processing job_id={job_id}, post_id={post_id}: {str(e)}"
+                results["errors"].append(error_msg)
+                results["failed"] += 1
+                # Update job status to failed on exception
+                try:
+                    update_job_status(job_doc_id, "failed")
+                except Exception:
+                    pass  # Ignore errors updating status
+
+    finally:
         # Save all logs to GCS at the end of execution
         log_file_uri = save_execution_logs(
-            requested_max_posts=max_posts,
-            available_posts=available_posts_count,
+            requested_max_posts=max_jobs,
+            available_posts=results["processed"],
         )
         if log_file_uri:
             results["log_file"] = log_file_uri

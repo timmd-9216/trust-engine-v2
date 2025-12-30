@@ -4,7 +4,12 @@ from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel
 
 from trust_api.scrapping_tools.core.config import settings
-from trust_api.scrapping_tools.services import fetch_post_information, process_posts_service
+from trust_api.scrapping_tools.services import (
+    fetch_post_information,
+    process_pending_jobs_service,
+    process_posts_service,
+    query_pending_jobs,
+)
 
 
 class PostInformationRequest(BaseModel):
@@ -22,9 +27,24 @@ class ProcessPostsResponse(BaseModel):
     processed: int
     succeeded: int
     failed: int
+    skipped: int
+    errors: list[str]
+    jobs_created: list[dict]  # List of jobs created with job_id, job_doc_id, post_id
+
+
+class ProcessJobsResponse(BaseModel):
+    processed: int
+    succeeded: int
+    failed: int
+    still_pending: int
     errors: list[str]
     saved_files: list[str]
     log_file: str | None = None  # GCS URI of the execution log file
+
+
+class PendingJobsResponse(BaseModel):
+    total: int
+    jobs: list[dict]  # List of pending jobs with job_id, post_id, platform, etc.
 
 
 app = FastAPI(
@@ -93,14 +113,14 @@ async def process_posts_endpoint(
     sort_by: Literal["time", "engagement"] = "time",
 ):
     """
-    Process posts from Firestore that have status='noreplies'.
+    Submit jobs to Information Tracer API for posts with status='noreplies'.
 
     This endpoint:
     1. Queries Firestore collection 'posts' for documents with status='noreplies'
-    2. For each post, queries the external Information Tracer service using post_id
-    3. Saves the JSON response to GCS bucket with structure:
-       country/platform/candidate_id/{post_id}.json
-    4. Updates the post status to 'done' in Firestore after successful save
+    2. For each post, submits a job to Information Tracer API (does not wait for completion)
+    3. Saves the job ID (hash_id) to the 'pending_jobs' collection in Firestore
+
+    This is a fast operation that only submits jobs. To retrieve results, use /process-jobs endpoint.
 
     Args:
         max_posts: Maximum number of posts to process in this call. If None, processes all posts with status='noreplies'.
@@ -108,7 +128,7 @@ async def process_posts_endpoint(
                  Note: Only applies to keyword search, not account search.
 
     Returns:
-        ProcessPostsResponse with processing results including success count, errors, etc.
+        ProcessPostsResponse with processing results including jobs created, errors, etc.
 
     Raises:
         HTTPException: If the processing fails or configuration is missing
@@ -120,4 +140,69 @@ async def process_posts_endpoint(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error processing posts: {str(e)}",
+        )
+
+
+@app.get("/pending-jobs", response_model=PendingJobsResponse)
+async def get_pending_jobs_endpoint(max_jobs: int | None = None):
+    """
+    Query pending jobs from Firestore 'pending_jobs' collection without processing them.
+
+    This endpoint only lists the pending jobs, it does not process them.
+    To process jobs, use /process-jobs endpoint.
+
+    Args:
+        max_jobs: Maximum number of jobs to return. If None, returns all pending jobs.
+
+    Returns:
+        PendingJobsResponse with list of pending jobs and total count.
+
+    Raises:
+        HTTPException: If the query fails or configuration is missing
+    """
+    try:
+        jobs = query_pending_jobs(max_jobs=max_jobs)
+        # Remove internal _doc_id field from response (keep it internal)
+        jobs_clean = []
+        for job in jobs:
+            job_copy = {k: v for k, v in job.items() if k != "_doc_id"}
+            jobs_clean.append(job_copy)
+        return PendingJobsResponse(total=len(jobs_clean), jobs=jobs_clean)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error querying pending jobs: {str(e)}",
+        )
+
+
+@app.post("/process-jobs", response_model=ProcessJobsResponse)
+async def process_jobs_endpoint(max_jobs: int | None = None):
+    """
+    Process pending jobs from Firestore 'pending_jobs' collection.
+
+    This endpoint:
+    1. Queries Firestore collection 'pending_jobs' for documents with status='pending'
+    2. For each job, checks the status with Information Tracer API
+    3. If the job is finished, retrieves the results
+    4. Saves the JSON response to GCS bucket with structure:
+       country/platform/candidate_id/{post_id}.json
+    5. Updates the post status to 'done' in Firestore after successful save
+    6. Updates the job status to 'done' in Firestore
+
+    Args:
+        max_jobs: Maximum number of jobs to process in this call. If None, processes all pending jobs.
+
+    Returns:
+        ProcessJobsResponse with processing results including success count, errors, saved files, etc.
+
+    Raises:
+        HTTPException: If the processing fails or configuration is missing
+    """
+    try:
+        results = process_pending_jobs_service(max_jobs=max_jobs)
+        return ProcessJobsResponse(**results)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing jobs: {str(e)}",
         )

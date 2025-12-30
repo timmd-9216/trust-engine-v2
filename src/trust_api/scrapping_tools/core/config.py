@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     # Firestore configuration
     firestore_database: str = os.getenv("FIRESTORE_DATABASE", "socialnetworks")
     firestore_collection: str = os.getenv("FIRESTORE_COLLECTION", "posts")
+    firestore_jobs_collection: str = os.getenv("FIRESTORE_JOBS_COLLECTION", "pending_jobs")
     gcp_project_id: str = os.getenv("GCP_PROJECT_ID", "")
 
     # External Information Tracer service configuration
