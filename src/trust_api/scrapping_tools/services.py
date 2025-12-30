@@ -29,7 +29,7 @@ def get_gcs_client() -> storage.Client:
 def query_posts_without_replies(max_posts: int | None = None) -> list[dict[str, Any]]:
     """
     Query Firestore for posts with status='noreplies'.
-    Results are ordered by created_at (oldest first).
+    Results are prioritized by platform (twitter first), then ordered by created_at (oldest first).
 
     Args:
         max_posts: Maximum number of posts to return. If None, returns all posts.
@@ -37,23 +37,56 @@ def query_posts_without_replies(max_posts: int | None = None) -> list[dict[str, 
     Returns:
         List of post documents with fields: post_id, country, platform, candidate_id, etc.
         Each document also includes '_doc_id' field with the Firestore document ID.
+        Posts are returned with twitter posts first, then other platforms, all ordered by created_at.
     """
     client = get_firestore_client()
-    query = (
+    posts = []
+
+    # First, get twitter posts (prioritized)
+    # Requires index: status + platform + created_at
+    twitter_query = (
         client.collection(settings.firestore_collection)
         .where("status", "==", "noreplies")
+        .where("platform", "==", "twitter")
         .order_by("created_at")  # Order by created_at ascending (oldest first)
     )
 
-    # Apply limit if specified
-    if max_posts is not None and max_posts > 0:
-        query = query.limit(max_posts)
-
-    posts = []
-    for doc in query.stream():
+    twitter_posts = []
+    for doc in twitter_query.stream():
         doc_data = doc.to_dict()
-        doc_data["_doc_id"] = doc.id  # Store document ID for later update
-        posts.append(doc_data)
+        doc_data["_doc_id"] = doc.id
+        twitter_posts.append(doc_data)
+
+    posts.extend(twitter_posts)
+
+    # If we haven't reached max_posts, get posts from other platforms
+    if max_posts is None or len(posts) < max_posts:
+        # Get all posts with status='noreplies' ordered by created_at
+        # We'll filter out twitter posts in Python since Firestore doesn't support != operator
+        other_query = (
+            client.collection(settings.firestore_collection)
+            .where("status", "==", "noreplies")
+            .order_by("created_at")  # Order by created_at ascending (oldest first)
+        )
+
+        other_posts = []
+        for doc in other_query.stream():
+            # Stop if we've reached the limit
+            if max_posts is not None and len(posts) + len(other_posts) >= max_posts:
+                break
+
+            doc_data = doc.to_dict()
+            platform = doc_data.get("platform", "").lower()
+            # Skip twitter posts (already included in first query)
+            if platform != "twitter":
+                doc_data["_doc_id"] = doc.id
+                other_posts.append(doc_data)
+
+        posts.extend(other_posts)
+
+    # Apply final limit if specified (shouldn't be necessary, but just in case)
+    if max_posts is not None and max_posts > 0:
+        posts = posts[:max_posts]
 
     return posts
 
@@ -154,6 +187,17 @@ def save_execution_logs(
         skipped_count = sum(1 for log in _execution_logs if log.get("skipped", False))
         api_calls = total_calls - skipped_count
 
+        # Get API usage information
+        api_usage = None
+        try:
+            from trust_api.scrapping_tools.information_tracer import check_api_usage
+
+            if settings.information_tracer_api_key:
+                api_usage = check_api_usage(settings.information_tracer_api_key)
+        except Exception as e:
+            # Log the error but don't fail the entire logging process
+            api_usage = {"error": f"Failed to check API usage: {str(e)}"}
+
         # Create log file content with metadata and all entries
         log_file = {
             "execution_timestamp": now.isoformat(),
@@ -162,6 +206,7 @@ def save_execution_logs(
             "total_entries": total_calls,
             "api_calls": api_calls,
             "skipped_posts": skipped_count,
+            "api_usage": api_usage,  # Include API usage information
             "calls": _execution_logs,
         }
 
@@ -290,6 +335,17 @@ def save_error_logs(
             error_type = error.get("error_type", "unknown")
             error_types[error_type] = error_types.get(error_type, 0) + 1
 
+        # Get API usage information (especially important when there are errors)
+        api_usage = None
+        try:
+            from trust_api.scrapping_tools.information_tracer import check_api_usage
+
+            if settings.information_tracer_api_key:
+                api_usage = check_api_usage(settings.information_tracer_api_key)
+        except Exception as e:
+            # Log the error but don't fail the entire logging process
+            api_usage = {"error": f"Failed to check API usage: {str(e)}"}
+
         # Create error log file content with metadata and all entries
         error_file = {
             "execution_timestamp": now.isoformat(),
@@ -298,6 +354,7 @@ def save_error_logs(
             "available_items": available_items,
             "total_errors": total_errors,
             "error_types": error_types,
+            "api_usage": api_usage,  # Include API usage information (important for debugging errors)
             "errors": _error_logs,
         }
 
@@ -830,6 +887,9 @@ def process_posts_service(
     Returns:
         Dictionary with processing results including success count, errors, jobs created, etc.
     """
+    # Reset logs for this execution
+    reset_execution_logs()
+
     results = {
         "processed": 0,
         "succeeded": 0,
@@ -940,6 +1000,14 @@ def process_posts_service(
                         error_msg = f"Failed to submit job for post_id={post_id}"
                         results["errors"].append(error_msg)
                         results["failed"] += 1
+                        # Log the failed submission
+                        add_log_entry(
+                            post_id=post_id,
+                            url=f"https://informationtracer.com/submit (reply:{post_id})",
+                            success=False,
+                            error_message="Failed to submit job to Information Tracer",
+                            max_replies=max_posts_to_fetch,
+                        )
                 else:
                     # File already exists, skip job creation and update status
                     if doc_id:
@@ -952,8 +1020,21 @@ def process_posts_service(
                 results["failed"] += 1
 
     finally:
-        # Note: No logs saved here since we're not calling the API synchronously
-        pass
+        # Save logs if there are errors (especially "Failed to submit job" errors)
+        # This helps debug API quota/rate limit issues
+        if results["errors"]:
+            # Check if there are "Failed to submit job" errors
+            failed_submit_errors = [
+                err for err in results["errors"] if "Failed to submit job" in err
+            ]
+            if failed_submit_errors:
+                # Save execution logs with API usage info for debugging
+                log_file_uri = save_execution_logs(
+                    requested_max_posts=max_posts,
+                    available_posts=results["processed"],
+                )
+                if log_file_uri:
+                    results["log_file"] = log_file_uri
 
     return results
 
