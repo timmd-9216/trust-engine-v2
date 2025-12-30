@@ -31,6 +31,8 @@ class ProcessPostsResponse(BaseModel):
     skipped: int
     errors: list[str]
     jobs_created: list[dict]  # List of jobs created with job_id, job_doc_id, post_id
+    log_file: str | None = None  # GCS URI of the execution log file
+    error_log_file: str | None = None  # GCS URI of the error log file (for submit failures, etc.)
 
 
 class ProcessJobsResponse(BaseModel):

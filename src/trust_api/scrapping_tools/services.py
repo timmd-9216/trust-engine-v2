@@ -299,7 +299,7 @@ def save_error_logs(
     available_items: int | None = None,
 ) -> str | None:
     """
-    Save all accumulated error logs to GCS bucket in errors/ folder.
+    Save all accumulated error logs to GCS bucket in logs/errors/ folder.
     Uses a single file per execution.
 
     Args:
@@ -326,7 +326,7 @@ def save_error_logs(
         date_str = now.strftime("%Y-%m-%d")
         time_str = now.strftime("%H-%M-%S-%f")[:-3]  # Include milliseconds
         filename = f"{time_str}.json"
-        blob_path = f"errors/{date_str}/{filename}"
+        blob_path = f"logs/errors/{date_str}/{filename}"
 
         # Calculate summary statistics
         total_errors = len(_error_logs)
@@ -1000,13 +1000,24 @@ def process_posts_service(
                         error_msg = f"Failed to submit job for post_id={post_id}"
                         results["errors"].append(error_msg)
                         results["failed"] += 1
-                        # Log the failed submission
+                        # Log the failed submission in execution logs
                         add_log_entry(
                             post_id=post_id,
                             url=f"https://informationtracer.com/submit (reply:{post_id})",
                             success=False,
                             error_message="Failed to submit job to Information Tracer",
                             max_replies=max_posts_to_fetch,
+                        )
+                        # Also add to error logs
+                        add_error_entry(
+                            job_id=None,  # No job_id since submit failed
+                            post_id=post_id,
+                            platform=platform,
+                            country=country,
+                            candidate_id=candidate_id,
+                            error_type="submit_failed",
+                            error_message="Failed to submit job to Information Tracer API",
+                            job_doc_id=None,
                         )
                         # Stop processing when submit fails - likely API quota/rate limit issue
                         break
@@ -1030,6 +1041,16 @@ def process_posts_service(
             )
             if log_file_uri:
                 results["log_file"] = log_file_uri
+
+        # Save error logs if there are any errors (especially "Failed to submit job" errors)
+        if _error_logs:
+            error_file_uri = save_error_logs(
+                execution_type="process-posts",
+                requested_max_items=max_posts,
+                available_items=results["processed"],
+            )
+            if error_file_uri:
+                results["error_log_file"] = error_file_uri
 
     return results
 
