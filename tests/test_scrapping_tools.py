@@ -221,21 +221,19 @@ class TestQueryPostsWithoutReplies:
     def test_query_posts_with_limit(self, mock_get_client):
         """Test that limit is applied when max_posts is specified (applied in Python, not Firestore)."""
         mock_client = MagicMock()
-        mock_collection = MagicMock()
+        mock_get_client.return_value = mock_client
 
-        # Mock the collection chain for Twitter query (status='noreplies' AND platform='twitter')
-        mock_where_status = MagicMock()
+        # Create separate mock collections for each query
+        mock_collection_twitter = MagicMock()
+        mock_collection_other = MagicMock()
+
+        # Setup Twitter query chain
+        mock_where_status_twitter = MagicMock()
         mock_where_platform = MagicMock()
         mock_order_by_twitter = MagicMock()
 
-        mock_get_client.return_value = mock_client
-        mock_client.collection.return_value = mock_collection
-
-        # First call: Twitter query
-        mock_collection.where.return_value = mock_where_status
-        mock_where_status.where.return_value = (
-            mock_where_platform  # Second where for platform='twitter'
-        )
+        mock_collection_twitter.where.return_value = mock_where_status_twitter
+        mock_where_status_twitter.where.return_value = mock_where_platform
         mock_where_platform.order_by.return_value = mock_order_by_twitter
 
         # Create mock documents for Twitter posts (more than the limit)
@@ -253,13 +251,24 @@ class TestQueryPostsWithoutReplies:
 
         mock_order_by_twitter.stream.return_value = mock_twitter_docs
 
-        # Second call: Other platforms query (status='noreplies')
+        # Setup other platforms query chain
         mock_where_other = MagicMock()
         mock_order_by_other = MagicMock()
-        # When called again, return the other query chain
-        mock_collection.where.return_value = mock_where_other
+        mock_collection_other.where.return_value = mock_where_other
         mock_where_other.order_by.return_value = mock_order_by_other
         mock_order_by_other.stream.return_value = []  # No other platform posts
+
+        # Make collection() return different mocks on each call
+        call_count = {"count": 0}
+
+        def collection_side_effect(*args, **kwargs):
+            call_count["count"] += 1
+            if call_count["count"] == 1:
+                return mock_collection_twitter
+            else:
+                return mock_collection_other
+
+        mock_client.collection.side_effect = collection_side_effect
 
         result = services.query_posts_without_replies(max_posts=10)
 
