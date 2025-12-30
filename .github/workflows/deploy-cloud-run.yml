@@ -4,6 +4,13 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'src/**'
+      - 'terraform/**'
+      - 'Dockerfile'
+      - 'pyproject.toml'
+      - 'poetry.lock'
+      - '.github/workflows/deploy-cloud-run.yml'
   workflow_dispatch:
 
 env:

@@ -219,24 +219,56 @@ class TestQueryPostsWithoutReplies:
 
     @patch("trust_api.scrapping_tools.services.get_firestore_client")
     def test_query_posts_with_limit(self, mock_get_client):
-        """Test that limit is applied when max_posts is specified."""
+        """Test that limit is applied when max_posts is specified (applied in Python, not Firestore)."""
         mock_client = MagicMock()
         mock_collection = MagicMock()
-        mock_where = MagicMock()
-        mock_order_by = MagicMock()
-        mock_limit = MagicMock()
+
+        # Mock the collection chain for Twitter query (status='noreplies' AND platform='twitter')
+        mock_where_status = MagicMock()
+        mock_where_platform = MagicMock()
+        mock_order_by_twitter = MagicMock()
 
         mock_get_client.return_value = mock_client
         mock_client.collection.return_value = mock_collection
-        mock_collection.where.return_value = mock_where
-        mock_where.order_by.return_value = mock_order_by
-        mock_order_by.limit.return_value = mock_limit
-        mock_limit.stream.return_value = []
 
-        services.query_posts_without_replies(max_posts=10)
+        # First call: Twitter query
+        mock_collection.where.return_value = mock_where_status
+        mock_where_status.where.return_value = (
+            mock_where_platform  # Second where for platform='twitter'
+        )
+        mock_where_platform.order_by.return_value = mock_order_by_twitter
 
-        # Verify limit was called
-        mock_order_by.limit.assert_called_once_with(10)
+        # Create mock documents for Twitter posts (more than the limit)
+        mock_twitter_docs = []
+        for i in range(15):  # More than max_posts=10 to test truncation
+            mock_doc = MagicMock()
+            mock_doc.id = f"twitter_doc_{i}"
+            mock_doc.to_dict.return_value = {
+                "post_id": f"twitter_{i}",
+                "platform": "twitter",
+                "country": "argentina",
+                "candidate_id": "cand1",
+            }
+            mock_twitter_docs.append(mock_doc)
+
+        mock_order_by_twitter.stream.return_value = mock_twitter_docs
+
+        # Second call: Other platforms query (status='noreplies')
+        mock_where_other = MagicMock()
+        mock_order_by_other = MagicMock()
+        # When called again, return the other query chain
+        mock_collection.where.return_value = mock_where_other
+        mock_where_other.order_by.return_value = mock_order_by_other
+        mock_order_by_other.stream.return_value = []  # No other platform posts
+
+        result = services.query_posts_without_replies(max_posts=10)
+
+        # Verify that limit is applied in Python (result should have max 10 posts)
+        assert len(result) == 10
+        # Verify all returned posts are from Twitter
+        for post in result:
+            assert post["platform"] == "twitter"
+            assert "_doc_id" in post
 
 
 class TestProcessPostsService:

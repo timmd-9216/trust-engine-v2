@@ -7,6 +7,14 @@ on:
       - completed
   pull_request:
     branches: [main, develop]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'terraform/**'
+      - 'Dockerfile'
+      - 'pyproject.toml'
+      - 'poetry.lock'
+      - '.github/workflows/**'
   workflow_dispatch:
 
 jobs:
