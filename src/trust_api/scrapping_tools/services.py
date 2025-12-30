@@ -888,6 +888,15 @@ def process_posts_service(
                     # Update status to "skipped" in Firestore
                     if doc_id:
                         update_post_status(doc_id, "skipped")
+                    # Log the skipped post
+                    add_log_entry(
+                        post_id=post_id,
+                        url="N/A",
+                        success=False,
+                        skipped=True,
+                        skip_reason=f"max_replies={max_replies}, replies_count={replies_count} (no replies expected)",
+                        max_replies=max_replies or replies_count or 0,
+                    )
                     continue
 
                 # Check if JSON already exists in GCS to avoid duplicate requests

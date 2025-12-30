@@ -290,16 +290,14 @@ class TestProcessPostsService:
             assert "max_replies" in entry["skip_reason"]
 
     @patch("trust_api.scrapping_tools.services.query_posts_without_replies")
-    @patch("trust_api.scrapping_tools.services.fetch_post_information")
-    @patch("trust_api.scrapping_tools.services.save_to_gcs")
-    @patch("trust_api.scrapping_tools.services.update_post_status")
-    @patch("trust_api.scrapping_tools.services.save_execution_logs")
+    @patch("trust_api.scrapping_tools.services.submit_post_job")
+    @patch("trust_api.scrapping_tools.services.save_pending_job")
+    @patch("trust_api.scrapping_tools.services.read_from_gcs_if_exists")
     def test_process_posts_success(
         self,
-        mock_save_logs,
-        mock_update_status,
-        mock_save_gcs,
-        mock_fetch_info,
+        mock_read_gcs,
+        mock_save_job,
+        mock_submit_job,
         mock_query_posts,
     ):
         """Test successful processing of posts."""
@@ -313,9 +311,10 @@ class TestProcessPostsService:
                 "_doc_id": "doc1",
             },
         ]
-        mock_fetch_info.return_value = {"replies": []}
-        mock_save_gcs.return_value = "gs://bucket/path/123.json"
-        mock_save_logs.return_value = "gs://bucket/logs/log.json"
+        # File doesn't exist in GCS, so we need to create a job
+        mock_read_gcs.return_value = None
+        mock_submit_job.return_value = "job123"
+        mock_save_job.return_value = "job_doc_id_123"
 
         result = services.process_posts_service(max_posts=10)
 
@@ -323,10 +322,9 @@ class TestProcessPostsService:
         assert result["succeeded"] == 1
         assert result["failed"] == 0
         assert result["skipped"] == 0
-        assert "gs://bucket/path/123.json" in result["saved_files"]
-
-        # Verify post was updated to "done" status
-        mock_update_status.assert_called_once_with("doc1", "done")
+        assert len(result["jobs_created"]) == 1
+        assert result["jobs_created"][0]["job_id"] == "job123"
+        assert result["jobs_created"][0]["post_id"] == "123"
 
 
 class TestSaveExecutionLogs:
