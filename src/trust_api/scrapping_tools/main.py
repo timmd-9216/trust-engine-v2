@@ -131,6 +131,8 @@ async def process_posts_endpoint(
 
     This endpoint:
     1. Queries Firestore collection 'posts' for documents with status='noreplies'
+       - Posts are prioritized by platform: Twitter posts are processed first
+       - Within each platform, posts are ordered by created_at (oldest first)
     2. For each post, submits a job to Information Tracer API (does not wait for completion)
     3. Saves the job ID (hash_id) to the 'pending_jobs' collection in Firestore
 
@@ -138,6 +140,8 @@ async def process_posts_endpoint(
 
     Args:
         max_posts: Maximum number of posts to process in this call. If None, processes all posts with status='noreplies'.
+                   When max_posts is specified, Twitter posts are prioritized (e.g., if max_posts=30 and there are
+                   30+ Twitter posts, all 30 will be Twitter posts).
         sort_by: Sort order for replies ('time' or 'engagement'). Default is 'time'.
                  Note: Only applies to keyword search, not account search.
 

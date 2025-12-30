@@ -2,6 +2,10 @@
 
 Esta guía explica cómo configurar **Cloud Scheduler** para ejecutar automáticamente el endpoint `/process-posts` del servicio `scrapping-tools` cada hora, procesando 10 posts por ejecución.
 
+**Ver también:** 
+- [Information Tracer - Guía de Integración](../INFORMATION_TRACER.md) para entender cómo funciona Information Tracer y su API
+- [Testing Process Posts Locally](../TESTING_PROCESS_POSTS_LOCAL.md) para probar el flujo localmente
+
 ## ¿Por qué Cloud Scheduler y no Cloud Workflows?
 
 **Cloud Scheduler** es la mejor opción para este caso porque:
@@ -117,8 +121,10 @@ gcloud scheduler jobs describe process-posts-hourly \
 El script configura:
 - **Nombre del job**: `process-posts-hourly`
 - **Schedule**: `0 * * * *` (cada hora, en el minuto 0)
+- **Time Zone**: `UTC`
 - **Método HTTP**: `POST`
 - **Endpoint**: `{SERVICE_URL}/process-posts?max_posts=10` (procesa 10 posts por ejecución)
+  - Ejemplo: `https://scrapping-tools-127336238226.us-east1.run.app/process-posts?max_posts=10`
 - **Autenticación**: OIDC usando el Service Account especificado
 
 ### Flujo de dos fases

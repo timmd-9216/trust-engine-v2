@@ -2,6 +2,8 @@
 
 Este documento explica cómo desplegar el servicio `scrapping-tools` a Cloud Run usando GitHub Actions o manualmente.
 
+**Ver también:** [Information Tracer - Guía de Integración](../INFORMATION_TRACER.md) para entender cómo funciona Information Tracer y su API.
+
 ## Resumen
 
 El servicio `scrapping-tools` se despliega usando la misma imagen Docker que los otros servicios, pero con una variable de entorno diferente (`APP_MODULE=trust_api.scrapping_tools.main:app`) para ejecutar el módulo correcto.

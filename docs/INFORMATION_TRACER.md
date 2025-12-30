@@ -228,6 +228,9 @@ Nuestro sistema implementa un flujo optimizado de dos fases para evitar bloquear
 ### Fase 1: Crear Jobs (`/process-posts`)
 
 1. Consulta posts con `status='noreplies'` en Firestore
+   - **Prioridad por plataforma**: Los posts de Twitter se procesan primero
+   - **Ordenamiento**: Dentro de cada plataforma, se ordenan por `created_at` (más antiguos primero)
+   - Si se especifica `max_posts`, se priorizan los posts de Twitter (ej: si `max_posts=30` y hay 30+ posts de Twitter, todos serán de Twitter)
 2. Para cada post, hace **submit** a Information Tracer
 3. Guarda el `id_hash256` (job_id) en la colección `pending_jobs` de Firestore
 4. **No espera** por los resultados (rápido, no bloquea)
