@@ -12,7 +12,9 @@ Este documento describe las tareas de administración de Firestore para el proye
 
 Firestore requiere índices compuestos para queries que combinan filtros y ordenamiento en diferentes campos.
 
-### Índice requerido: status + created_at
+### Índices requeridos
+
+#### Índice: posts - status + created_at
 
 Este índice es necesario para la query que obtiene posts con `status='noreplies'` ordenados por `created_at`:
 
@@ -21,6 +23,20 @@ gcloud firestore indexes composite create \
   --project=trust-481601 \
   --database=socialnetworks \
   --collection-group=posts \
+  --query-scope=COLLECTION \
+  --field-config field-path=status,order=ASCENDING \
+  --field-config field-path=created_at,order=ASCENDING
+```
+
+#### Índice: pending_jobs - status + created_at
+
+Este índice es necesario para la query que obtiene jobs pendientes con `status='pending'` ordenados por `created_at`:
+
+```bash
+gcloud firestore indexes composite create \
+  --project=trust-481601 \
+  --database=socialnetworks \
+  --collection-group=pending_jobs \
   --query-scope=COLLECTION \
   --field-config field-path=status,order=ASCENDING \
   --field-config field-path=created_at,order=ASCENDING
@@ -123,13 +139,35 @@ Al procesar posts con el endpoint `/process-posts`, el sistema determina cuánta
 
 **Nota:** Si ambos campos (`max_replies` y `replies_count`) son `null` o `<= 0`, el post se marca como `skipped` y no se procesa.
 
-## Estados de los posts
+## Estados
+
+### Estados
+
+### Estados de los posts
 
 | Estado | Descripción |
 |--------|-------------|
 | `noreplies` | Post pendiente de procesar |
 | `done` | Post procesado exitosamente, respuestas guardadas en GCS |
 | `skipped` | Post saltado porque `max_replies <= 0` |
+
+### Estados de los jobs
+
+| Estado | Descripción |
+|--------|-------------|
+| `pending` | Job pendiente de procesar |
+| `processing` | Job en proceso de verificación con Information Tracer |
+| `done` | Job completado exitosamente, resultados guardados en GCS |
+| `failed` | Job falló al procesar |
+
+### Estados de los jobs
+
+| Estado | Descripción |
+|--------|-------------|
+| `pending` | Job pendiente de procesar |
+| `processing` | Job en proceso de verificación con Information Tracer |
+| `done` | Job completado exitosamente, resultados guardados en GCS |
+| `failed` | Job falló al procesar |
 
 ## Actualizar status de un documento
 
