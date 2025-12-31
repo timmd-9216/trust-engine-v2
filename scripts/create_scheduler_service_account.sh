@@ -41,3 +41,4 @@ echo "    --region us-east1 \\"
 echo "    --member=\"serviceAccount:${SA_EMAIL}\" \\"
 echo "    --role=\"roles/run.invoker\""
 
+

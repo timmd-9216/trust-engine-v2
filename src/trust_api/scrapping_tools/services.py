@@ -996,6 +996,15 @@ def process_posts_service(
                             }
                         )
                         results["succeeded"] += 1
+                        # Log successful job submission
+                        add_log_entry(
+                            post_id=post_id,
+                            url=f"https://informationtracer.com/submit (reply:{post_id})",
+                            success=True,
+                            status_code=200,
+                            job_id=job_id,
+                            max_replies=max_posts_to_fetch,
+                        )
                     else:
                         error_msg = f"Failed to submit job for post_id={post_id}"
                         results["errors"].append(error_msg)
