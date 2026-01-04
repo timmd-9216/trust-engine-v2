@@ -1,0 +1,247 @@
+country: argentina
+election_date: '2025-10-26'
+start_date: '2025-10-08'
+end_date: '2025-10-31'
+candidates:
+- candidate_id: arg01cast
+  name: Manuela Castaneira
+  keywords:
+  - Manuela Castaneira
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/manuelacastaneira/
+  twitter_profile_url: https://x.com/manuelac22?s=21
+  twitter_username: manuelac22
+  instagram_username: manuelacastaneira
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: arg02breg
+  name: Myriam Bregman
+  keywords:
+  - Myriam Bregman
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/myriambregman/
+  twitter_profile_url: https://x.com/myriambregman?s=21
+  twitter_username: myriambregman
+  instagram_username: myriambregman
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: arg03kirc
+  name: Cristina Fernández de Kirchner
+  keywords:
+  - Cristina Fernández de Kirchner
+  - CFK
+  - Cristina Kirchner
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/cristinafkirchner/
+  twitter_profile_url: https://x.com/CFKArgentina
+  twitter_username: CFKArgentina
+  instagram_username: cristinafkirchner
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: arg04virg
+  name: María Virginia Gallardo
+  keywords:
+  - María Virginia Gallardo
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/virchugallardo/
+  twitter_profile_url: https://x.com/virchugallardo
+  twitter_username: virchugallardo
+  instagram_username: virchugallardo
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: arg05sota
+  name: Natalia de la Sota
+  keywords:
+  - Natalia de la Sota
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/nataliadlsok/
+  twitter_profile_url: https://x.com/nataliadlsok?s=21
+  twitter_username: nataliadlsok
+  instagram_username: nataliadlsok
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: arg06gail
+  name: Carolina Gaillard
+  keywords:
+  - Carolina Gaillard
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/carolinagaillard/
+  twitter_profile_url: https://x.com/CaroGaillard
+  twitter_username: CaroGaillard
+  instagram_username: carolinagaillard
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: arg07scag
+  name: Gisela Scaglia
+  keywords:
+  - Gisela Scaglia
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/giselascaglia/
+  twitter_profile_url: https://x.com/giscaglia?s=21
+  twitter_username: giscaglia
+  instagram_username: giselascaglia
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: arg08vill
+  name: Lorena Villaverde
+  keywords:
+  - Lorena Villaverde
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/lorenavillaverdern/
+  twitter_profile_url: https://x.com/lorevillaverde1
+  twitter_username: lorevillaverde1
+  instagram_username: lorenavillaverdern
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: arg09mile
+  name: Karina Milei
+  keywords:
+  - Karina Milei
+  youtube_profile_url: null
+  instagram_profile_url: null
+  twitter_profile_url: https://x.com/karinamileiok?s=21
+  twitter_username: karinamileiok
+  instagram_username: null
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: arg10bull
+  name: Patricia Bullrich
+  keywords:
+  - Patricia Bullrich
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/patobullrich/
+  twitter_profile_url: https://x.com/patobullrich?s=21
+  twitter_username: patobullrich
+  instagram_username: patobullrich
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: arg11bian
+  name: Antonella Bianco
+  keywords:
+  - Antonella Bianco
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/antonellabianco___/
+  twitter_profile_url: https://x.com/antobianco__?s=21
+  twitter_username: antobianco__
+  instagram_username: antonellabianco___
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: arg12oliv
+  name: Liliana Olivero
+  keywords:
+  - Liliana Olivero
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/olivero_liliana/
+  twitter_profile_url: https://x.com/LilianaOlivero
+  twitter_username: LilianaOlivero
+  instagram_username: olivero_liliana
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: arg13reic
+  name: Karen Reichart
+  keywords:
+  - Karen Reichart
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/karenreichardt1/
+  twitter_profile_url: https://x.com/karenreichardt1?s=21
+  twitter_username: karenreichardt1
+  instagram_username: karenreichardt1
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: arg14mend
+  name: Mayra Mendoza
+  keywords:
+  - Mayra Mendoza
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/mayrasolmendoza/
+  twitter_profile_url: https://x.com/mayrasmendoza?s=21
+  twitter_username: mayrasmendoza
+  instagram_username: mayrasolmendoza
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: arg15disa
+  name: Julia Di Santi
+  keywords:
+  - Julia Di Santi
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/juliadisanti_/
+  twitter_profile_url: https://x.com/juliadisanti1?s=21
+  twitter_username: juliadisanti1
+  instagram_username: juliadisanti_
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: arg16mene
+  name: Martín Menem
+  keywords:
+  - Martín Menem
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/martinmenemok/?hl=es
+  twitter_profile_url: https://x.com/MenemMartin
+  twitter_username: MenemMartin
+  instagram_username: martinmenemok
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: arg17hagm
+  name: Itai Hagman
+  keywords:
+  - Itai Hagman
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/itai_hagman/
+  twitter_profile_url: https://x.com/itaihagman?s=21
+  twitter_username: itaihagman
+  instagram_username: itai_hagman
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: arg18sant
+  name: Diego Santilli
+  keywords:
+  - Diego Santilli
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/diegosantilliok/
+  twitter_profile_url: https://x.com/diegosantilli?s=21
+  twitter_username: diegosantilli
+  instagram_username: diegosantilliok
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: arg19taia
+  name: Jorge Taiana
+  keywords:
+  - Jorge Taiana
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/taianajorgeok/
+  twitter_profile_url: https://x.com/jorgetaiana?s=21
+  twitter_username: jorgetaiana
+  instagram_username: taianajorgeok
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: arg20delc
+  name: Nicolás del Caño
+  keywords:
+  - Nicolás del Caño
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/nico_del_cano/
+  twitter_profile_url: https://x.com/nicolasdelcano?s=21
+  twitter_username: nicolasdelcano
+  instagram_username: nico_del_cano
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null

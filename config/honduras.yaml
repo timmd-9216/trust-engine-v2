@@ -1,0 +1,245 @@
+country: honduras
+election_date: '2025-11-30'
+start_date: '2025-11-12'
+end_date: '2025-12-05'
+candidates:
+- candidate_id: hnd01monc
+  name: Rixi Ramona Moncada
+  keywords:
+  - Rixi Ramona Moncada
+  youtube_profile_url: https://www.youtube.com/@rixipresidenta
+  instagram_profile_url: https://www.instagram.com/rixipresidenta/
+  twitter_profile_url: https://x.com/RixiPresidenta
+  twitter_username: RixiPresidenta
+  instagram_username: rixipresidenta
+  youtube_username: '@rixipresidenta'
+  youtube_channel_id: UCDe9xhIjHpxmGZjt1HUrcTg
+  youtube_uploads_playlist_id: UUDe9xhIjHpxmGZjt1HUrcTg
+- candidate_id: hnd02cast
+  name: Xiomara Castro de Zelaya
+  keywords:
+  - Xiomara Castro de Zelaya
+  youtube_profile_url: https://www.youtube.com/@xiomaracastroz
+  instagram_profile_url: https://www.instagram.com/xiomaracastroz/
+  twitter_profile_url: https://x.com/XiomaraCastroZ
+  twitter_username: XiomaraCastroZ
+  instagram_username: xiomaracastroz
+  youtube_username: '@xiomaracastroz'
+  youtube_channel_id: UC8_NyEjsT6mVAf7TRIR93NQ
+  youtube_uploads_playlist_id: UU8_NyEjsT6mVAf7TRIR93NQ
+- candidate_id: hnd03gonz
+  name: Yamileth Gonzales
+  keywords:
+  - Yamileth Gonzales
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/yamilethgonzaleshn/
+  twitter_profile_url: https://x.com/YamiGonzalesj
+  twitter_username: YamiGonzalesj
+  instagram_username: yamilethgonzaleshn
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: hnd04guan
+  name: Karen Guandique
+  keywords:
+  - Karen Guandique
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/karenguandique7/
+  twitter_profile_url: https://x.com/KarenGuandique
+  twitter_username: KarenGuandique
+  instagram_username: karenguandique7
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: hnd05pere
+  name: Kritza Pérez
+  keywords:
+  - Kritza Pérez
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/kritzaperez/
+  twitter_profile_url: https://x.com/KritzaPerez
+  twitter_username: KritzaPerez
+  instagram_username: kritzaperez
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: hnd06hayd
+  name: Carmen Haydeé
+  keywords:
+  - Carmen Haydeé
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/haydeevos/?hl=es
+  twitter_profile_url: https://x.com/flophaydee?lang=es
+  twitter_username: flophaydee
+  instagram_username: haydeevos
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: hnd07elvi
+  name: Iroshka Elvir
+  keywords:
+  - Iroshka Elvir
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/iroshka_nasralla/?hl=es
+  twitter_profile_url: https://x.com/IroshkaElvir
+  twitter_username: IroshkaElvir
+  instagram_username: iroshka_nasralla
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: hnd08cano
+  name: Lissi Matute Cano
+  keywords:
+  - Lissi Matute Cano
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/lissimatutecano/
+  twitter_profile_url: https://x.com/LissiCano
+  twitter_username: LissiCano
+  instagram_username: lissimatutecano
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: hnd09sosa
+  name: Maria José Sosa
+  keywords:
+  - Maria José Sosa
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/soymj17/?hl=es-la
+  twitter_profile_url: https://x.com/soymj17?s=21&t=2B5AK962HJ_g0jWnxUiLqQ&utm_source=ig&utm_medium=social&utm_content=link_in_bio&fbclid=PAZXh0bgNhZW0CMTEAc3J0YwZhcHBfaWQMMjU2MjgxMDQwNTU4AAGn_7HmVvnDQKB4oIqY17xDwGfXdUe7Oa1RBvbOKELlUUf1bG5fgsvYeOe0qHw_aem_A5rmtuMN1YiMeIdYVPOTig
+  twitter_username: soymj17
+  instagram_username: soymj17
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: hnd10sier
+  name: Grace Sierra
+  keywords:
+  - Grace Sierra
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/gracesierrahn/
+  twitter_profile_url: https://x.com/GraceSierra1
+  twitter_username: GraceSierra1
+  instagram_username: gracesierrahn
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: hnd11pine
+  name: Iris Pineda
+  keywords:
+  - Iris Pineda
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/diputadairispineda/
+  twitter_profile_url: https://x.com/IrisPinedaPaz
+  twitter_username: IrisPinedaPaz
+  instagram_username: diputadairispineda
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: hnd12ando
+  name: Daisy Andonie
+  keywords:
+  - Daisy Andonie
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/daisyandoniel/
+  twitter_profile_url: https://x.com/DaisyAndonie
+  twitter_username: DaisyAndonie
+  instagram_username: daisyandoniel
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: hnd13hall
+  name: Ana Paola Hall
+  keywords:
+  - Ana Paola Hall
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/anap.hall/?hl=en
+  twitter_profile_url: https://x.com/APHall_CNE
+  twitter_username: APHall_CNE
+  instagram_username: anap.hall
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: hnd14espi
+  name: Maribel Espinoza
+  keywords:
+  - Maribel Espinoza
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/mespinoza.hn/?hl=es
+  twitter_profile_url: https://x.com/MaribelE59
+  twitter_username: MaribelE59
+  instagram_username: mespinoza.hn
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: hnd15lope
+  name: Cossette López
+  keywords:
+  - Cossette López
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/cossetteoficial/
+  twitter_profile_url: https://x.com/CossetteOficial
+  twitter_username: CossetteOficial
+  instagram_username: cossetteoficial
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: hnd16asfu
+  name: Nasry Asfura
+  keywords:
+  - Nasry Asfura
+  youtube_profile_url: https://www.youtube.com/c/NasryTitoAsfura
+  instagram_profile_url: https://www.instagram.com/papialaorden/
+  twitter_profile_url: https://x.com/titoasfura?lang=es
+  twitter_username: titoasfura
+  instagram_username: papialaorden
+  youtube_username: NasryTitoAsfura
+  youtube_channel_id: UCIZviNZ2baLody7GJagxgLA
+  youtube_uploads_playlist_id: UUIZviNZ2baLody7GJagxgLA
+- candidate_id: hnd17nasr
+  name: Salvador Nasralla
+  keywords:
+  - Salvador Nasralla
+  youtube_profile_url: https://www.youtube.com/@SalvaPresidente
+  instagram_profile_url: https://www.instagram.com/salvadornasralla/
+  twitter_profile_url: https://x.com/SalvaPresidente
+  twitter_username: SalvaPresidente
+  instagram_username: salvadornasralla
+  youtube_username: '@SalvaPresidente'
+  youtube_channel_id: UCjov_nNYqAUVPvyZDtMosRA
+  youtube_uploads_playlist_id: UUjov_nNYqAUVPvyZDtMosRA
+- candidate_id: hnd18avil
+  name: Jorge Nelson Ávila Gutiérrez
+  keywords:
+  - Jorge Nelson Ávila Gutiérrez
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/nelsonavilapresidente
+  twitter_profile_url: https://x.com/Nelson_Avila_Hn
+  twitter_username: Nelson_Avila_Hn
+  instagram_username: nelsonavilapresidente
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: hnd19rive
+  name: Mario Rivera Callejas
+  keywords:
+  - Mario Rivera Callejas
+  youtube_profile_url: https://www.youtube.com/@soychanorivera
+  instagram_profile_url: https://www.instagram.com/soychanorivera
+  twitter_profile_url: https://x.com/SoyChanoRivera
+  twitter_username: SoyChanoRivera
+  instagram_username: soychanorivera
+  youtube_username: '@soychanorivera'
+  youtube_channel_id: UCo32FlwYfJA2g719PbprjJQ
+  youtube_uploads_playlist_id: UUo32FlwYfJA2g719PbprjJQ
+- candidate_id: hnd20barr
+  name: Ramon Barrios
+  keywords:
+  - Ramon Barrios
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/ramon.barrios05?igsh=MW1tc3d5aTQ1aWNtNw==
+  twitter_profile_url: https://x.com/ramonbarriosm?lang=es
+  twitter_username: ramonbarriosm
+  instagram_username: ramon.barrios05
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
