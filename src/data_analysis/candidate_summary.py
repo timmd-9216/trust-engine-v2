@@ -399,6 +399,8 @@ def compute_youtube_metrics_from_records(records: List[Dict[str, Any]], youtube_
         "videos": 0,
         "videos_own": 0,
         "unique_channels": 0,
+        "video_ids_count": 0,
+        "comments_count": 0,
         "sum_view_count": 0,
         "sum_like_count": 0,
         "sum_comment_count": 0,
@@ -408,7 +410,9 @@ def compute_youtube_metrics_from_records(records: List[Dict[str, Any]], youtube_
 
     channels = set()
     langs = set()
+    video_ids = set()
     dur_sum = 0
+    total_comments = 0
 
     for record in records:
         out["files"] += 1
@@ -418,6 +422,12 @@ def compute_youtube_metrics_from_records(records: List[Dict[str, Any]], youtube_
             ch = str(item.get("channel_id") or "").strip()
             if ch:
                 channels.add(ch)
+            video_id = str(item.get("video_id") or "").strip()
+            if video_id:
+                video_ids.add(video_id)
+            comments = item.get("comments")
+            if isinstance(comments, list):
+                total_comments += len(comments)
             if target_ch and ch == target_ch:
                 out["videos_own"] += 1
 
@@ -432,6 +442,8 @@ def compute_youtube_metrics_from_records(records: List[Dict[str, Any]], youtube_
                 langs.add(lang)
 
     out["unique_channels"] = len(channels)
+    out["video_ids_count"] = len(video_ids)
+    out["comments_count"] = total_comments
     out["avg_duration_seconds"] = int(dur_sum / out["videos"]) if out["videos"] else 0
 
     # Keep a stable, short languages string
@@ -1061,8 +1073,8 @@ def main() -> int:
                     "youtube_channel_id",
                     "videos",
                     "videos_own",
-                    "own_posts_retrieved",
-                    "unique_channels",
+                    "video_ids_count",
+                    "comments_count",
                     "sum_view_count",
                     "sum_like_count",
                     "sum_comment_count",
@@ -1104,9 +1116,8 @@ def main() -> int:
                         "youtube_channel_id": youtube_channel_id,
                         "videos": m.get("videos", 0),
                         "videos_own": m.get("videos_own", 0),
-                        # Keep naming consistent with other reports: files retrieved from candidate folder
-                        "own_posts_retrieved": m.get("files", 0),
-                        "unique_channels": m.get("unique_channels", 0),
+                        "video_ids_count": m.get("video_ids_count", 0),
+                        "comments_count": m.get("comments_count", 0),
                         "sum_view_count": m.get("sum_view_count", 0),
                         "sum_like_count": m.get("sum_like_count", 0),
                         "sum_comment_count": m.get("sum_comment_count", 0),
