@@ -1,0 +1,257 @@
+country: chile
+election_date: '2025-11-16'
+start_date: '2025-10-29'
+end_date: '2025-11-21'
+candidates:
+- candidate_id: chl01musa
+  name: Camila Musante
+  keywords:
+  - Camila Musante
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/camila_musante/
+  twitter_profile_url: https://x.com/camila_musante
+  twitter_username: camila_musante
+  instagram_username: camila_musante
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: chl02mart
+  name: Constanza Martinez
+  keywords:
+  - Constanza Martinez
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/contimartinezg/?hl=es
+  twitter_profile_url: https://x.com/contimartinez?s=21
+  twitter_username: contimartinez
+  instagram_username: contimartinezg
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: chl03lonc
+  name: Elisa Loncón
+  keywords:
+  - Elisa Loncón
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/elisalonconantileo/
+  twitter_profile_url: https://x.com/ElisaLoncon
+  twitter_username: ElisaLoncon
+  instagram_username: elisalonconantileo
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: chl04schn
+  name: Emilia Schneider
+  keywords:
+  - Emilia Schneider
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/emischneiderv/
+  twitter_profile_url: https://x.com/emischneiderv
+  twitter_username: emischneiderv
+  instagram_username: emischneiderv
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: chl05hass
+  name: Irací Hassler
+  keywords:
+  - Irací Hassler
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/iraci.hassler/
+  twitter_profile_url: https://x.com/IraciHassler
+  twitter_username: IraciHassler
+  instagram_username: iraci.hassler
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: chl06alca
+  name: Isidora Alcalde
+  keywords:
+  - Isidora Alcalde
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/isidoraalcalde/
+  twitter_profile_url: https://x.com/isidoraalcalde
+  twitter_username: isidoraalcalde
+  instagram_username: isidoraalcalde
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: chl07sedi
+  name: Mara Sedini
+  keywords:
+  - Mara Sedini
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/marasedini/
+  twitter_profile_url: https://x.com/marasedini
+  twitter_username: marasedini
+  instagram_username: marasedini
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: chl08cubi
+  name: Marcela Cubillos
+  keywords:
+  - Marcela Cubillos
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/marcelacubillossigall/?hl=es
+  twitter_profile_url: https://x.com/mcubillossigall
+  twitter_username: mcubillossigall
+  instagram_username: marcelacubillossigall
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: chl09cand
+  name: María Candelaria
+  keywords:
+  - María Candelaria
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/mariacandelaria.diputada/
+  twitter_profile_url: null
+  twitter_username: null
+  instagram_username: mariacandelaria.diputada
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: chl10jile
+  name: Pamela Jiles
+  keywords:
+  - Pamela Jiles
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/pamelajilesdiputada/
+  twitter_profile_url: https://x.com/PamJiles
+  twitter_username: PamJiles
+  instagram_username: pamelajilesdiputada
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: chl11kais
+  name: Vanessa Kaiser
+  keywords:
+  - Vanessa Kaiser
+  youtube_profile_url: https://www.youtube.com/@ElNacionalLibertario
+  instagram_profile_url: https://www.instagram.com/vanessakaiserbarents/
+  twitter_profile_url: https://x.com/vanessakaiser22
+  twitter_username: vanessakaiser22
+  instagram_username: vanessakaiserbarents
+  youtube_username: '@ElNacionalLibertario'
+  youtube_channel_id: UC2tdSec2KF32KGz6E9YWRQA
+  youtube_uploads_playlist_id: UU2tdSec2KF32KGz6E9YWRQA
+- candidate_id: chl12delg
+  name: Viviana Delgado
+  keywords:
+  - Viviana Delgado
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/vivianadelgadodiputada/
+  twitter_profile_url: https://x.com/vivianadiputada
+  twitter_username: vivianadiputada
+  instagram_username: vivianadelgadodiputada
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: chl13jara
+  name: Jeannette Jara
+  keywords:
+  - Jeannette Jara
+  youtube_profile_url: https://www.youtube.com/@Jeannette-Jara
+  instagram_profile_url: https://www.instagram.com/jeannettejararoman?igsh=MWFpcWNvNWFsbDZkOQ==
+  twitter_profile_url: https://x.com/jeannette_jara?s=21
+  twitter_username: jeannette_jara
+  instagram_username: jeannettejararoman
+  youtube_username: '@Jeannette'
+  youtube_channel_id: UCac2nS68J7voeJeTA6mr4rQ
+  youtube_uploads_playlist_id: UUac2nS68J7voeJeTA6mr4rQ
+- candidate_id: chl14muno
+  name: Francesca Muñoz Gonzalez
+  keywords:
+  - Francesca Muñoz Gonzalez
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/francescamunozdiputada/
+  twitter_profile_url: https://x.com/FrancescaD20Dip
+  twitter_username: FrancescaD20Dip
+  instagram_username: francescamunozdiputada
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: chl15merb
+  name: Magdalena Merbilháa
+  keywords:
+  - Magdalena Merbilháa
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/mmerbilhaa/
+  twitter_profile_url: https://x.com/merbi2
+  twitter_username: merbi2
+  instagram_username: mmerbilhaa
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: chl16iban
+  name: Diego Ibañez
+  keywords:
+  - Diego Ibañez
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/diego_ibanezc/?hl=es
+  twitter_profile_url: https://x.com/diego_ibanezc
+  twitter_username: diego_ibanezc
+  instagram_username: diego_ibanezc
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: chl17kast
+  name: José Antonio Kast
+  keywords:
+  - José Antonio Kast
+  youtube_profile_url: https://www.youtube.com/c/JoséAntonioKastOficial
+  instagram_profile_url: https://www.instagram.com/joseantoniokast?igsh=cnV1N296Mm8xa3l3
+  twitter_profile_url: https://x.com/joseantoniokast?s=21
+  twitter_username: joseantoniokast
+  instagram_username: joseantoniokast
+  youtube_username: JoséAntonioKastOficial
+  youtube_channel_id: UCGLRRRKMp4K1AKJabf8OeEg
+  youtube_uploads_playlist_id: UUGLRRRKMp4K1AKJabf8OeEg
+- candidate_id: chl18wint
+  name: Gonzalo Winter
+  keywords:
+  - Gonzalo Winter
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/gonzalo.winter/?hl=es
+  twitter_profile_url: https://x.com/gonzalowinter
+  twitter_username: gonzalowinter
+  instagram_username: gonzalo.winter
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: chl19podu
+  name: Iván Poduje
+  keywords:
+  - Iván Poduje
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/ipoduje
+  twitter_profile_url: https://x.com/ipoduje
+  twitter_username: ipoduje
+  instagram_username: ipoduje
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: chl20cart
+  name: Rodolfo Carter
+  keywords:
+  - Rodolfo Carter
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/rodolfocarterfernandez/
+  twitter_profile_url: https://x.com/rodolfocarter
+  twitter_username: rodolfocarter
+  instagram_username: rodolfocarterfernandez
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: chl21matt
+  name: Evelyn Matthei
+  keywords:
+  - Evelyn Matthei
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/evelynmatthei/?hl=es-la
+  twitter_profile_url: https://x.com/evelynmatthei?s=20
+  twitter_username: evelynmatthei
+  instagram_username: evelynmatthei
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null

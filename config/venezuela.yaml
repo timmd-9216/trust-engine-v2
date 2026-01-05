@@ -1,0 +1,245 @@
+country: venezuela
+election_date: '2025-05-25'
+start_date: '2025-05-07'
+end_date: '2025-05-30'
+candidates:
+- candidate_id: ven01vill
+  name: Asia Villegas Poljack
+  keywords:
+  - Asia Villegas Poljack
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/asiavillegasp/?hl=es-la
+  twitter_profile_url: https://x.com/asiavillegasp
+  twitter_username: asiavillegasp
+  instagram_username: asiavillegasp
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: ven02eekh
+  name: Blanca Eekhout
+  keywords:
+  - Blanca Eekhout
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/blancaeekhout/?hl=es-la
+  twitter_profile_url: https://x.com/eekhout_blanca?lang=es
+  twitter_username: eekhout_blanca
+  instagram_username: blancaeekhout
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: ven03rome
+  name: Blanca Romero Vargas
+  keywords:
+  - Blanca Romero Vargas
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/blancaromerova/
+  twitter_profile_url: https://x.com/blancaromerova
+  twitter_username: blancaromerova
+  instagram_username: blancaromerova
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: ven04flor
+  name: Cilia Flores de Maduro
+  keywords:
+  - Cilia Flores de Maduro
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/florescilia/?hl=es
+  twitter_profile_url: https://x.com/conciliaflores?s=21
+  twitter_username: conciliaflores
+  instagram_username: florescilia
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: ven05pena
+  name: Erika Farías Peña
+  keywords:
+  - Erika Farías Peña
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/erikafariasccs/?hl=en
+  twitter_profile_url: https://x.com/erikapsuv
+  twitter_username: erikapsuv
+  instagram_username: erikafariasccs
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: ven06fari
+  name: Jackeline Farías
+  keywords:
+  - Jackeline Farías
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/jackiepsuv/?hl=en
+  twitter_profile_url: https://x.com/jacquelinepsuv?lang=en
+  twitter_username: jacquelinepsuv
+  instagram_username: jackiepsuv
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: ven07mill
+  name: Karen Millán
+  keywords:
+  - Karen Millán
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/kv.millan/?hl=en
+  twitter_profile_url: https://x.com/kvmillan?lang=en
+  twitter_username: kvmillan
+  instagram_username: kv.millan
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: ven08quin
+  name: Liseth Quintero
+  keywords:
+  - Liseth Quintero
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/liseth_1148/
+  twitter_profile_url: https://x.com/LisethQuin1148
+  twitter_username: LisethQuin1148
+  instagram_username: liseth_1148
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: ven09vall
+  name: María Gabriela Vallenilla
+  keywords:
+  - María Gabriela Vallenilla
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/mariavallenilla_27/
+  twitter_profile_url: https://x.com/mariavallenil15?lang=en
+  twitter_username: mariavallenil15
+  instagram_username: mariavallenilla_27
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: ven10vega
+  name: María Gabriela Vega
+  keywords:
+  - María Gabriela Vega
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/mariagabrielavegaan/?hl=en
+  twitter_profile_url: https://x.com/MariaGabiAN
+  twitter_username: MariaGabiAN
+  instagram_username: mariagabrielavegaan
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: ven11sanc
+  name: Mercedes Sánchez
+  keywords:
+  - Mercedes Sánchez
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/mercedes_psuv/
+  twitter_profile_url: https://x.com/mercedess_psuv
+  twitter_username: mercedess_psuv
+  instagram_username: mercedes_psuv
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: ven12marc
+  name: Milagros Marcano
+  keywords:
+  - Milagros Marcano
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/milagrosmarcanopsuv/
+  twitter_profile_url: https://x.com/MilagrosJ_Psuv?fbclid=PAZXh0bgNhZW0CMTEAAado2Ha-MDsonKkzaBahQLc1dU5IDmecSf7I6UALrGnKhpj6ZJAxTn3C0tNjbg_aem_qOU6IVHYKL3oIVQimE4AsQ
+  twitter_username: MilagrosJ_Psuv
+  instagram_username: milagrosmarcanopsuv
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: ven13pere
+  name: América Pérez
+  keywords:
+  - América Pérez
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/americavaliente_?igsh=MW1zN3M0NTNhdzNyMA==
+  twitter_profile_url: https://x.com/amkvalentina
+  twitter_username: amkvalentina
+  instagram_username: americavaliente_
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: ven14moro
+  name: Camila Moros
+  keywords:
+  - Camila Moros
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/_camilamoros/?hl=es
+  twitter_profile_url: https://x.com/_camilamoros?s=21
+  twitter_username: _camilamoros
+  instagram_username: _camilamoros
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: ven15colm
+  name: Grecia Colmenares
+  keywords:
+  - Grecia Colmenares
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/greciacolmenaress?igsh=MXF0Zjd0Z2F1ZnI3cQ==
+  twitter_profile_url: https://x.com/grecia_jpsuv?s=21
+  twitter_username: grecia_jpsuv
+  instagram_username: greciacolmenaress
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: ven16rodr
+  name: Jorge Rodríguez
+  keywords:
+  - Jorge Rodríguez
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/jorgerpsuv_/?hl=es
+  twitter_profile_url: https://x.com/jorgerpsuv?s=20
+  twitter_username: jorgerpsuv
+  instagram_username: jorgerpsuv_
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: ven17guzm
+  name: Jehyson Guzman
+  keywords:
+  - Jehyson Guzman
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/jehysonguzman/?hl=es
+  twitter_profile_url: https://x.com/JEHYSONGUZMAN?s=20
+  twitter_username: JEHYSONGUZMAN
+  instagram_username: jehysonguzman
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: ven18capr
+  name: Henrique Capriles Radonski
+  keywords:
+  - Henrique Capriles Radonski
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/hcapriles/?hl=es
+  twitter_profile_url: https://x.com/hcapriles?s=20
+  twitter_username: hcapriles
+  instagram_username: hcapriles
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: ven19gonz
+  name: Stalin González
+  keywords:
+  - Stalin González
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/stalingonzalez/
+  twitter_profile_url: https://x.com/stalin_gonzalez?s=20
+  twitter_username: stalin_gonzalez
+  instagram_username: stalingonzalez
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: ven20brit
+  name: José Brito
+  keywords:
+  - José Brito
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/josebritoven/?hl=es
+  twitter_profile_url: https://x.com/josebritoven?s=20
+  twitter_username: josebritoven
+  instagram_username: josebritoven
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
