@@ -23,14 +23,12 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
-from typing import Iterable
 
 import pandas as pd
 
-
 try:
     import requests  # type: ignore
-except Exception as e:  # pragma: no cover
+except Exception:  # pragma: no cover
     requests = None
 
 
