@@ -780,7 +780,7 @@ def update_job_status(doc_id: str, new_status: str) -> None:
 
     Args:
         doc_id: The Firestore document ID of the job to update
-        new_status: The new status value ('pending', 'processing', 'done', 'failed')
+        new_status: The new status value ('pending', 'processing', 'done', 'failed', 'empty_result')
 
     Raises:
         ValueError: If doc_id is not provided
@@ -1154,7 +1154,7 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                         )
                         results["errors"].append(error_msg)
                         results["failed"] += 1
-                        update_job_status(job_doc_id, "failed")
+                        update_job_status(job_doc_id, "empty_result")
                         # Log the empty result in execution logs
                         add_log_entry(
                             post_id=post_id,
