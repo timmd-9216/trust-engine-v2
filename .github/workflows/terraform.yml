@@ -99,6 +99,7 @@ jobs:
         id: plan
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
+          set +e  # Don't exit on error, we'll handle it manually
           terraform plan \
             -var="project_id=${GCP_PROJECT_ID}" \
             -var="region=${GCP_REGION}" \
@@ -109,31 +110,48 @@ jobs:
             -input=false \
             -no-color \
             -out=tfplan \
-            -detailed-exitcode || PLAN_EXIT_CODE=$?
-          # Capture exit code (0=no changes, 1=error, 2=changes)
-          echo "exitcode=${PLAN_EXIT_CODE:-$?}" >> $GITHUB_OUTPUT
-        continue-on-error: true
+            -detailed-exitcode
+          PLAN_EXIT_CODE=$?
+          set -e  # Re-enable exit on error
+          
+          # Exit codes: 0=no changes, 1=error, 2=changes
+          if [ $PLAN_EXIT_CODE -eq 1 ]; then
+            echo "❌ ERROR: Terraform plan failed with exit code 1" >&2
+            echo "Check the logs above for errors." >&2
+            exit 1
+          fi
+          
+          echo "exitcode=${PLAN_EXIT_CODE}" >> $GITHUB_OUTPUT
+          echo "Plan exit code: ${PLAN_EXIT_CODE}"
 
-      - name: Check if plan file exists
+      - name: Check if plan file exists and is valid
         id: check-plan-file
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
-          if [ -f "tfplan" ]; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-            echo "✓ Terraform plan file created successfully"
-          else
+          if [ ! -f "tfplan" ]; then
             echo "exists=false" >> $GITHUB_OUTPUT
+            echo "valid=false" >> $GITHUB_OUTPUT
             echo "❌ ERROR: Terraform plan file 'tfplan' not found." >&2
             echo "This usually means terraform plan failed. Check the logs above for errors." >&2
-            echo "Common causes:" >&2
-            echo "  - Missing required variables (check GitHub secrets/vars)" >&2
-            echo "  - Terraform validation errors" >&2
-            echo "  - Authentication/permission issues" >&2
+            exit 1
+          fi
+          
+          # Validate plan file by trying to show it
+          if terraform show -json tfplan > /dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "valid=true" >> $GITHUB_OUTPUT
+            echo "✓ Terraform plan file created and validated successfully"
+          else
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "valid=false" >> $GITHUB_OUTPUT
+            echo "❌ ERROR: Terraform plan file exists but is invalid or incomplete." >&2
+            echo "This usually means terraform plan encountered errors during generation." >&2
+            terraform show tfplan || true
             exit 1
           fi
 
       - name: Upload Plan to GitHub Artifacts
-        if: steps.check-plan-file.outputs.exists == 'true'
+        if: steps.check-plan-file.outputs.exists == 'true' && steps.check-plan-file.outputs.valid == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: tfplan
@@ -141,7 +159,7 @@ jobs:
           retention-days: 5
 
       - name: Upload Plan to GCS (backup)
-        if: steps.check-plan-file.outputs.exists == 'true'
+        if: steps.check-plan-file.outputs.exists == 'true' && steps.check-plan-file.outputs.valid == 'true'
         run: |
           PLAN_PATH="gs://trust-481601-terraform-state/terraform/plans/${GITHUB_RUN_ID}-${GITHUB_SHA:0:7}.tfplan"
           gsutil cp ${{ env.TF_WORKING_DIR }}/tfplan "${PLAN_PATH}"
@@ -239,21 +257,34 @@ jobs:
           fi
         continue-on-error: true
 
-      - name: Check if plan exists
+      - name: Check if plan exists and validate
         id: check-plan
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
-          if [ -f "tfplan" ]; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-          else
+          if [ ! -f "tfplan" ]; then
             echo "exists=false" >> $GITHUB_OUTPUT
+            echo "valid=false" >> $GITHUB_OUTPUT
             echo "Error: tfplan not found in artifacts or GCS. Ensure terraform-plan job succeeded."
+            exit 1
+          fi
+          
+          # Validate plan file before applying
+          if terraform show -json tfplan > /dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "valid=true" >> $GITHUB_OUTPUT
+            echo "✓ Plan file validated successfully"
+          else
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "valid=false" >> $GITHUB_OUTPUT
+            echo "❌ ERROR: Plan file exists but is invalid or incomplete." >&2
+            echo "Cannot apply incomplete plan. Check terraform-plan job logs." >&2
+            terraform show tfplan || true
             exit 1
           fi
 
       - name: Terraform Apply
         working-directory: ${{ env.TF_WORKING_DIR }}
-        if: steps.check-plan.outputs.exists == 'true'
+        if: steps.check-plan.outputs.exists == 'true' && steps.check-plan.outputs.valid == 'true'
         run: terraform apply -input=false -auto-approve tfplan
 
       - name: Terraform Output
