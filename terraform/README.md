@@ -69,7 +69,7 @@ terraform destroy
 terraform plan \
   -var="project_id=trust-481601" \
   -var="region=us-east1" \
-  -var="gcs_bucket=trust-engine-data"
+  -var="gcs_bucket=trust-prd"
 ```
 
 ## GitHub Actions (CI/CD)

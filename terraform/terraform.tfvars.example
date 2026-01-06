@@ -11,7 +11,7 @@
 
 project_id = "trust-481601"
 region     = "us-east1"
-gcs_bucket = "trust-engine-data"
+gcs_bucket = "trust-prd"
 
 # Optional: Environment
 # environment = "prod"
