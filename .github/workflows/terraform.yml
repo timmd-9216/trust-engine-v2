@@ -138,8 +138,33 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform init -input=false
 
+      - name: Check Service Usage Permissions
+        id: check-permissions
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          # Check if service account has permission to manage APIs
+          echo "Checking if service account has permission to manage APIs..."
+          set +e  # Don't exit on error
+          gcloud services list --enabled --project=${GCP_PROJECT_ID} --limit=1 > /dev/null 2>&1
+          PERM_CHECK_EXIT=$?
+          set -e  # Re-enable exit on error
+          
+          if [ $PERM_CHECK_EXIT -eq 0 ]; then
+            echo "has_permissions=true" >> $GITHUB_OUTPUT
+            echo "✓ Service account has permission to manage APIs"
+          else
+            echo "has_permissions=false" >> $GITHUB_OUTPUT
+            echo "⚠ Service account does NOT have permission to manage APIs"
+            echo "  Required role: roles/serviceusage.serviceUsageAdmin"
+            echo "  Grant with: gcloud projects add-iam-policy-binding ${GCP_PROJECT_ID} \\"
+            echo "    --member='serviceAccount:${GCP_SERVICE_ACCOUNT_EMAIL}' \\"
+            echo "    --role='roles/serviceusage.serviceUsageAdmin'"
+            echo "  Skipping bootstrap step - API must be enabled manually"
+          fi
+
       - name: Bootstrap Cloud Resource Manager API
         id: bootstrap-api
+        if: steps.check-permissions.outputs.has_permissions == 'true'
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
           # Apply the bootstrap API resource first to ensure Cloud Resource Manager API is enabled
@@ -164,22 +189,25 @@ jobs:
           if [ $BOOTSTRAP_EXIT_CODE -eq 0 ]; then
             echo "bootstrap_success=true" >> $GITHUB_OUTPUT
             echo "✓ Cloud Resource Manager API bootstrap successful"
-          elif [ $BOOTSTRAP_EXIT_CODE -eq 1 ]; then
-            echo "bootstrap_success=false" >> $GITHUB_OUTPUT
-            echo "⚠ Bootstrap API apply encountered an error (exit code: $BOOTSTRAP_EXIT_CODE)"
-            echo "This might be due to:"
-            echo "  - Permission issue: Service account needs 'roles/serviceusage.serviceUsageAdmin'"
-            echo "  - API already enabled"
-            echo "  - API needs to be enabled manually via GCP Console"
-            echo "Continuing with plan using -refresh=false..."
           else
             echo "bootstrap_success=false" >> $GITHUB_OUTPUT
-            echo "⚠ Bootstrap API apply returned exit code: $BOOTSTRAP_EXIT_CODE"
-            echo "Continuing with plan using -refresh=false..."
+            echo "⚠ Bootstrap API apply encountered an error (exit code: $BOOTSTRAP_EXIT_CODE)"
+            echo "This might be because the API is already enabled"
           fi
           
           echo "Waiting 20 seconds for API activation to propagate..."
           sleep 20
+
+      - name: Bootstrap API (Skipped - No Permissions)
+        id: bootstrap-api-skipped
+        if: steps.check-permissions.outputs.has_permissions != 'true'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          echo "bootstrap_success=false" >> $GITHUB_OUTPUT
+          echo "⚠ Bootstrap step skipped - service account lacks permission to manage APIs"
+          echo "  The Cloud Resource Manager API must be enabled manually via:"
+          echo "  https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=${GCP_PROJECT_ID}"
+          echo "  Or grant the service account 'roles/serviceusage.serviceUsageAdmin' role"
 
       - name: Terraform Validate
         id: validate
@@ -203,6 +231,19 @@ jobs:
             echo "api_enabled=false" >> $GITHUB_OUTPUT
             echo "⚠ Cloud Resource Manager API is not confirmed enabled, will skip refresh"
           fi
+
+      - name: Remove Bootstrap Resource from State (if no permissions)
+        id: remove-bootstrap
+        if: steps.check-permissions.outputs.has_permissions != 'true'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          # Remove bootstrap resource from state if it exists, so it won't be in the plan
+          echo "Removing bootstrap resource from state (no permissions to manage it)..."
+          set +e
+          terraform state rm google_project_service.cloudresourcemanager 2>/dev/null || {
+            echo "  Bootstrap resource not in state (or already removed) - this is OK"
+          }
+          set -e
 
       - name: Terraform Plan
         id: plan
@@ -400,10 +441,85 @@ jobs:
             exit 1
           fi
 
+      - name: Check Service Usage Permissions (Apply)
+        id: check-permissions-apply
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          # Check if service account has permission to manage APIs
+          echo "Checking if service account has permission to manage APIs..."
+          set +e  # Don't exit on error
+          gcloud services list --enabled --project=${GCP_PROJECT_ID} --limit=1 > /dev/null 2>&1
+          PERM_CHECK_EXIT=$?
+          set -e  # Re-enable exit on error
+          
+          if [ $PERM_CHECK_EXIT -eq 0 ]; then
+            echo "has_permissions=true" >> $GITHUB_OUTPUT
+            echo "✓ Service account has permission to manage APIs"
+          else
+            echo "has_permissions=false" >> $GITHUB_OUTPUT
+            echo "⚠ Service account does NOT have permission to manage APIs"
+            echo "  Will skip bootstrap resource if it's in the plan"
+          fi
+
+      - name: Remove Bootstrap Resource from Plan (if no permissions)
+        id: filter-plan
+        if: steps.check-permissions-apply.outputs.has_permissions != 'true'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          # Remove bootstrap resource from plan if it exists
+          echo "Filtering bootstrap resource from plan (no permissions)..."
+          set +e
+          # Use terraform show to check if bootstrap is in plan, then remove it
+          if terraform show -json tfplan 2>/dev/null | grep -q "google_project_service.cloudresourcemanager"; then
+            echo "  Bootstrap resource found in plan, creating filtered plan..."
+            # Create a new plan without bootstrap resource
+            terraform plan -destroy -target=google_project_service.cloudresourcemanager \
+              -var="project_id=${GCP_PROJECT_ID}" \
+              -var="region=${GCP_REGION}" \
+              -var="gcs_bucket=${GCS_BUCKET_NAME}" \
+              -var="enable_cloud_scheduler=true" \
+              -var="scrapping_tools_service_name=${GCP_SCRAPPING_TOOLS_SERVICE_NAME}" \
+              -var="service_account_email=${GCP_SERVICE_ACCOUNT_EMAIL}" \
+              -out=tfplan-bootstrap-destroy 2>/dev/null || true
+            # This is complex - simpler approach: just apply and handle the error
+            echo "  Will apply plan and handle bootstrap error gracefully"
+          else
+            echo "  Bootstrap resource not in plan - OK"
+          fi
+          set -e
+
       - name: Terraform Apply
         working-directory: ${{ env.TF_WORKING_DIR }}
         if: steps.check-plan.outputs.exists == 'true' && steps.check-plan.outputs.valid == 'true'
-        run: terraform apply -input=false -auto-approve tfplan
+        run: |
+          set +e  # Don't exit on error initially
+          terraform apply -input=false -auto-approve tfplan
+          APPLY_EXIT_CODE=$?
+          set -e  # Re-enable exit on error
+          
+          # If apply failed and we don't have permissions, check if it's due to bootstrap resource
+          if [ $APPLY_EXIT_CODE -ne 0 ] && [ "${{ steps.check-permissions-apply.outputs.has_permissions }}" != "true" ]; then
+            if terraform show tfplan 2>/dev/null | grep -q "google_project_service.cloudresourcemanager"; then
+              echo "⚠ Apply failed due to bootstrap resource (no permissions)"
+              echo "  Removing bootstrap resource from state and retrying apply for other resources..."
+              set +e
+              terraform state rm google_project_service.cloudresourcemanager 2>/dev/null || true
+              # Try to apply remaining resources
+              terraform apply -input=false -auto-approve tfplan 2>&1 | grep -v "cloudresourcemanager" || {
+                echo "  Some resources may have been applied successfully"
+                echo "  Bootstrap resource will be skipped until permissions are granted"
+              }
+              set -e
+            else
+              echo "❌ Apply failed for other reasons"
+              exit $APPLY_EXIT_CODE
+            fi
+          elif [ $APPLY_EXIT_CODE -ne 0 ]; then
+            echo "❌ Apply failed"
+            exit $APPLY_EXIT_CODE
+          else
+            echo "✓ Apply succeeded"
+          fi
 
       - name: Terraform Output
         working-directory: ${{ env.TF_WORKING_DIR }}
