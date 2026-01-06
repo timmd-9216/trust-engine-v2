@@ -26,7 +26,29 @@ Esto crea:
 
 #### Paso 2: Transformar JSONs a Parquet
 
-Transforma los JSONs originales de Information Tracer a formato Parquet optimizado:
+Transforma los JSONs originales de Information Tracer a formato Parquet optimizado.
+
+**Opción A: Usar el endpoint del servicio (Recomendado - con optimizaciones)**
+
+El endpoint `/json-to-parquet` del servicio `scrapping-tools` incluye optimizaciones de carga incremental:
+
+```bash
+# Usar el endpoint del servicio (optimizado con carga incremental)
+curl -X POST "http://localhost:8082/json-to-parquet?country=honduras&platform=twitter"
+
+# O desde Cloud Run (producción)
+curl -X POST "https://scrapping-tools-XXXXX.run.app/json-to-parquet?country=honduras&platform=twitter"
+```
+
+**Ventajas del endpoint**:
+- ✅ Carga incremental: Solo procesa JSONs nuevos (comparación de timestamps)
+- ✅ No sobreescribe: Fusiona nuevos registros con existentes
+- ✅ Deduplicación automática: Evita duplicados por `(source_file, tweet_id)`
+- ✅ Eficiente: Reduce I/O y procesamiento en 99% en ejecuciones incrementales
+
+Ver [JSON_TO_PARQUET_OPTIMIZATIONS.md](./JSON_TO_PARQUET_OPTIMIZATIONS.md) para detalles de las optimizaciones.
+
+**Opción B: Usar el script standalone (carga completa)**
 
 ```bash
 # Procesar todos los JSONs de un país/plataforma y subir a GCS
@@ -41,6 +63,8 @@ poetry run python scripts/upload_parquet_to_gcs.py \
   --source-dir ./data/processed \
   --bucket trust-prd
 ```
+
+**Nota**: El script standalone procesa todos los JSONs cada vez. Para cargas incrementales, usar el endpoint.
 
 **Resultado**: Archivos Parquet guardados en `gs://trust-prd/processed/replies/` con estructura:
 ```
@@ -66,14 +90,16 @@ LIMIT 100;
 ```
 1. JSONs en GCS (raw/)
    ↓
-2. Ejecutar json_to_parquet.py --upload
+2. Ejecutar /json-to-parquet endpoint (recomendado) o json_to_parquet.py --upload
    ↓
-3. Parquet en GCS (processed/replies/)
+3. Parquet en GCS (processed/replies/) - con carga incremental
    ↓
 4. BigQuery External Table lee automáticamente (sin acción necesaria)
    ↓
 5. Queries SQL en BigQuery
 ```
+
+**Nota**: El endpoint `/json-to-parquet` es preferible para ejecuciones recurrentes porque solo procesa JSONs nuevos, mientras que el script procesa todos los JSONs cada vez.
 
 **Nota**: El Paso 1 (crear tablas) se hace una sola vez. Los Pasos 2-3 se repiten cada vez que quieras procesar nuevos datos.
 

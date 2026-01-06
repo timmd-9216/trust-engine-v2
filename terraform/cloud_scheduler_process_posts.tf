@@ -59,6 +59,18 @@ variable "process_jobs_schedule" {
   default     = "30 * * * *"
 }
 
+variable "json_to_parquet_job_name" {
+  description = "Name of the Cloud Scheduler job for json-to-parquet"
+  type        = string
+  default     = "json-to-parquet-daily"
+}
+
+variable "json_to_parquet_schedule" {
+  description = "Cron schedule expression for json-to-parquet (default: daily at 7 AM UTC)"
+  type        = string
+  default     = "0 7 * * *"
+}
+
 # Provider is configured in versions.tf
 
 # Enable Cloud Scheduler API
@@ -83,7 +95,7 @@ data "google_cloud_run_service" "scrapping_tools" {
 
 # Create Cloud Scheduler job
 resource "google_cloud_scheduler_job" "process_posts" {
-  count = var.enable_cloud_scheduler ? 1 : 0
+  count            = var.enable_cloud_scheduler ? 1 : 0
   name             = var.job_name
   description      = "Process posts hourly by calling /process-posts endpoint"
   schedule         = var.schedule
@@ -124,7 +136,7 @@ output "endpoint_url" {
 # Second scheduler for processing pending jobs
 # Runs 30 minutes after process-posts (at minute 30 of every hour)
 resource "google_cloud_scheduler_job" "process_jobs" {
-  count = var.enable_cloud_scheduler ? 1 : 0
+  count            = var.enable_cloud_scheduler ? 1 : 0
   name             = var.process_jobs_job_name
   description      = "Process pending jobs by calling /process-jobs endpoint"
   schedule         = var.process_jobs_schedule
@@ -160,5 +172,46 @@ output "process_jobs_scheduler_job_id" {
 output "process_jobs_endpoint_url" {
   description = "Full endpoint URL that will be called for process-jobs"
   value       = var.enable_cloud_scheduler ? "${data.google_cloud_run_service.scrapping_tools[0].status[0].url}/process-jobs" : null
+}
+
+# Third scheduler for converting JSONs to Parquet
+# Runs daily at 7 AM UTC to convert new JSONs to Parquet format
+resource "google_cloud_scheduler_job" "json_to_parquet" {
+  count            = var.enable_cloud_scheduler ? 1 : 0
+  name             = var.json_to_parquet_job_name
+  description      = "Convert JSONs to Parquet format daily by calling /json-to-parquet endpoint"
+  schedule         = var.json_to_parquet_schedule
+  time_zone        = var.time_zone
+  region           = var.region
+  attempt_deadline = "600s" # 10 minutes - conversion can take longer
+
+  http_target {
+    uri         = "${data.google_cloud_run_service.scrapping_tools[0].status[0].url}/json-to-parquet"
+    http_method = "POST"
+
+    oidc_token {
+      service_account_email = var.service_account_email
+    }
+  }
+
+  depends_on = [
+    google_project_service.cloudscheduler,
+    data.google_cloud_run_service.scrapping_tools,
+  ]
+}
+
+output "json_to_parquet_scheduler_job_name" {
+  description = "Name of the json-to-parquet Cloud Scheduler job"
+  value       = var.enable_cloud_scheduler ? google_cloud_scheduler_job.json_to_parquet[0].name : null
+}
+
+output "json_to_parquet_scheduler_job_id" {
+  description = "Full resource ID of the json-to-parquet Cloud Scheduler job"
+  value       = var.enable_cloud_scheduler ? google_cloud_scheduler_job.json_to_parquet[0].id : null
+}
+
+output "json_to_parquet_endpoint_url" {
+  description = "Full endpoint URL that will be called for json-to-parquet"
+  value       = var.enable_cloud_scheduler ? "${data.google_cloud_run_service.scrapping_tools[0].status[0].url}/json-to-parquet" : null
 }
 
