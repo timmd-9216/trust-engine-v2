@@ -306,7 +306,36 @@ for (date_str, platform), new_records in records_by_partition.items():
 
 **Recomendación**: Para cargas iniciales grandes, considerar ejecutar en lotes por país/plataforma usando los filtros del endpoint.
 
-### 4. Filtros Opcionales
+### 4. Parámetro `skip_timestamp_filter` (Modo Seguro)
+
+**Problema**: En algunos casos, el filtro por timestamp puede ser demasiado agresivo y saltar JSONs nuevos que deberían procesarse (por ejemplo, si tienen timestamps más antiguos que el Parquet).
+
+**Solución**: Parámetro `skip_timestamp_filter` que permite deshabilitar el filtro por timestamp y confiar solo en la deduplicación.
+
+**Comportamiento**:
+- `skip_timestamp_filter=false` (por defecto): Usa optimización de timestamp - solo procesa JSONs más nuevos que el Parquet
+- `skip_timestamp_filter=true`: Procesa todos los JSONs sin filtrar por timestamp, confía solo en deduplicación por `(source_file, tweet_id)`
+
+**Cuándo usar `skip_timestamp_filter=true`**:
+- Si los JSONs nuevos no se están procesando debido a problemas con timestamps
+- Si necesitas garantizar que todos los JSONs se procesen (modo seguro)
+- Si prefieres confiar en la deduplicación en lugar del filtro por timestamp
+
+**Trade-offs**:
+- **Ventaja**: Garantiza que todos los JSONs se procesen, incluso si tienen timestamps antiguos
+- **Desventaja**: Menos eficiente - descarga y procesa todos los JSONs en cada ejecución
+- **Mitigación**: La deduplicación es muy eficiente (O(1) lookup), por lo que el costo adicional es principalmente I/O
+
+**Ejemplo**:
+```bash
+# Modo optimizado (por defecto)
+POST /json-to-parquet
+
+# Modo seguro (procesa todos los JSONs)
+POST /json-to-parquet?skip_timestamp_filter=true
+```
+
+### 5. Filtros Opcionales
 
 **Filtros disponibles**: `country`, `platform`, `candidate_id`
 
@@ -319,9 +348,12 @@ POST /json-to-parquet?country=honduras&platform=twitter
 
 # Procesa solo un candidato específico
 POST /json-to-parquet?country=honduras&platform=twitter&candidate_id=hnd01monc
+
+# Deshabilitar filtro por timestamp (procesa todos los JSONs)
+POST /json-to-parquet?skip_timestamp_filter=true
 ```
 
-### 5. Consistencia de Datos
+### 6. Consistencia de Datos
 
 **Garantía**: La deduplicación asegura que no haya duplicados en el resultado final.
 
@@ -346,6 +378,9 @@ curl -X POST "http://localhost:8082/json-to-parquet?country=honduras&platform=tw
 
 # Solo procesar un candidato específico
 curl -X POST "http://localhost:8082/json-to-parquet?country=honduras&platform=twitter&candidate_id=hnd01monc"
+
+# Deshabilitar filtro por timestamp (procesa todos los JSONs, confía en deduplicación)
+curl -X POST "http://localhost:8082/json-to-parquet?skip_timestamp_filter=true"
 ```
 
 ### Respuesta del Endpoint

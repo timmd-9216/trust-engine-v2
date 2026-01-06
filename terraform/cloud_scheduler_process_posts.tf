@@ -8,7 +8,7 @@
 variable "enable_cloud_scheduler" {
   description = "Enable Cloud Scheduler resources (set to false to disable)"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "scrapping_tools_service_name" {
@@ -186,7 +186,7 @@ resource "google_cloud_scheduler_job" "json_to_parquet" {
   attempt_deadline = "600s" # 10 minutes - conversion can take longer
 
   http_target {
-    uri         = "${data.google_cloud_run_service.scrapping_tools[0].status[0].url}/json-to-parquet"
+    uri         = "${data.google_cloud_run_service.scrapping_tools[0].status[0].url}/json-to-parquet?skip_timestamp_filter=false"
     http_method = "POST"
 
     oidc_token {
@@ -212,6 +212,6 @@ output "json_to_parquet_scheduler_job_id" {
 
 output "json_to_parquet_endpoint_url" {
   description = "Full endpoint URL that will be called for json-to-parquet"
-  value       = var.enable_cloud_scheduler ? "${data.google_cloud_run_service.scrapping_tools[0].status[0].url}/json-to-parquet" : null
+  value       = var.enable_cloud_scheduler ? "${data.google_cloud_run_service.scrapping_tools[0].status[0].url}/json-to-parquet?skip_timestamp_filter=false" : null
 }
 

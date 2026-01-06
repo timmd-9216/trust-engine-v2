@@ -42,3 +42,6 @@ echo "    --member=\"serviceAccount:${SA_EMAIL}\" \\"
 echo "    --role=\"roles/run.invoker\""
 
 
+
+
+

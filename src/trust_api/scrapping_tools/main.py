@@ -273,6 +273,7 @@ async def json_to_parquet_endpoint(
     country: str | None = None,
     platform: str | None = None,
     candidate_id: str | None = None,
+    skip_timestamp_filter: bool = False,
 ):
     """
     Convert JSON files from GCS raw layer to Parquet format with incremental loading.
@@ -312,6 +313,9 @@ async def json_to_parquet_endpoint(
         country: Country name to filter (e.g., 'honduras'). If None, processes all countries.
         platform: Platform name to filter (e.g., 'twitter', 'instagram'). If None, processes all platforms.
         candidate_id: Candidate ID to filter. If None, processes all candidates.
+        skip_timestamp_filter: If True, processes all JSONs regardless of timestamp (relies on deduplication).
+                              If False, uses timestamp-based optimization to skip already-processed JSONs.
+                              Use this if new JSONs are not being processed.
 
     Returns:
         JsonToParquetResponse with processing results including records processed, files written, etc.
@@ -321,7 +325,10 @@ async def json_to_parquet_endpoint(
     """
     try:
         results = json_to_parquet_service(
-            country=country, platform=platform, candidate_id=candidate_id
+            country=country,
+            platform=platform,
+            candidate_id=candidate_id,
+            skip_timestamp_filter=skip_timestamp_filter,
         )
         return JsonToParquetResponse(**results)
     except Exception as e:
