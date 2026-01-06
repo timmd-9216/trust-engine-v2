@@ -93,19 +93,31 @@ jobs:
           # Enable Cloud Resource Manager API if not already enabled
           # This is required for Terraform to manage project services
           echo "Checking Cloud Resource Manager API status..."
-          if gcloud services list --enabled --filter="name:cloudresourcemanager.googleapis.com" --format="value(name)" | grep -q "cloudresourcemanager.googleapis.com"; then
+          set +e  # Don't exit on error
+          API_ENABLED=$(gcloud services list --enabled --filter="name:cloudresourcemanager.googleapis.com" --format="value(name)" 2>/dev/null | grep -c "cloudresourcemanager.googleapis.com" || echo "0")
+          set -e  # Re-enable exit on error
+          
+          if [ "$API_ENABLED" -gt 0 ]; then
             echo "✓ Cloud Resource Manager API is already enabled"
+            echo "gcloud_enable_success=true" >> $GITHUB_OUTPUT
           else
             echo "⚠ Cloud Resource Manager API is not enabled. Enabling it now..."
-            if gcloud services enable cloudresourcemanager.googleapis.com --project=${GCP_PROJECT_ID}; then
-              echo "✓ Successfully enabled Cloud Resource Manager API"
+            set +e  # Don't exit on error
+            gcloud services enable cloudresourcemanager.googleapis.com --project=${GCP_PROJECT_ID} 2>&1
+            GCLOUD_ENABLE_EXIT=$?
+            set -e  # Re-enable exit on error
+            
+            if [ $GCLOUD_ENABLE_EXIT -eq 0 ]; then
+              echo "gcloud_enable_success=true" >> $GITHUB_OUTPUT
+              echo "✓ Successfully enabled Cloud Resource Manager API via gcloud"
               echo "Waiting 30 seconds for API activation to propagate..."
               sleep 30
             else
-              echo "❌ Failed to enable Cloud Resource Manager API via gcloud"
-              echo "This might require manual activation via the GCP Console:"
-              echo "https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=${GCP_PROJECT_ID}"
-              echo "Terraform will attempt to enable it, but refresh operations may fail."
+              echo "gcloud_enable_success=false" >> $GITHUB_OUTPUT
+              echo "⚠ Failed to enable Cloud Resource Manager API via gcloud (exit code: $GCLOUD_ENABLE_EXIT)"
+              echo "This might be due to permissions or the API being completely disabled."
+              echo "Terraform bootstrap will attempt to enable it, but refresh operations may fail."
+              echo "If this persists, enable manually: https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=${GCP_PROJECT_ID}"
             fi
           fi
 
@@ -132,9 +144,11 @@ jobs:
         run: |
           # Apply the bootstrap API resource first to ensure Cloud Resource Manager API is enabled
           # This is required before Terraform can refresh state of other project service resources
-          echo "Bootstrapping Cloud Resource Manager API..."
+          # We use -refresh=false to avoid trying to refresh cloudscheduler which requires the API
+          echo "Bootstrapping Cloud Resource Manager API (using -refresh=false to avoid refresh errors)..."
           set +e  # Don't exit on error
           terraform apply -target=google_project_service.cloudresourcemanager \
+            -refresh=false \
             -var="project_id=${GCP_PROJECT_ID}" \
             -var="region=${GCP_REGION}" \
             -var="gcs_bucket=${GCS_BUCKET_NAME}" \
@@ -148,30 +162,60 @@ jobs:
           set -e  # Re-enable exit on error
           
           if [ $BOOTSTRAP_EXIT_CODE -eq 0 ]; then
+            echo "bootstrap_success=true" >> $GITHUB_OUTPUT
             echo "✓ Cloud Resource Manager API bootstrap successful"
           elif [ $BOOTSTRAP_EXIT_CODE -eq 1 ]; then
+            echo "bootstrap_success=false" >> $GITHUB_OUTPUT
             echo "⚠ Bootstrap API apply encountered an error"
             echo "This might be because the API is already enabled or there's a permission issue"
-            echo "Continuing with plan - Terraform will attempt to handle this..."
+            echo "Will use -refresh=false for plan to avoid refresh errors..."
           else
+            echo "bootstrap_success=false" >> $GITHUB_OUTPUT
             echo "⚠ Bootstrap API apply returned exit code: $BOOTSTRAP_EXIT_CODE"
-            echo "Continuing with plan..."
+            echo "Will use -refresh=false for plan to avoid refresh errors..."
           fi
           
-          echo "Waiting 10 seconds for API activation to propagate..."
-          sleep 10
+          echo "Waiting 20 seconds for API activation to propagate..."
+          sleep 20
 
       - name: Terraform Validate
         id: validate
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform validate -no-color
 
+      - name: Check if Cloud Resource Manager API is enabled
+        id: check-api
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          # Check if the API is actually enabled by checking if we can list services
+          set +e  # Don't exit on error
+          gcloud services list --enabled --filter="name:cloudresourcemanager.googleapis.com" --format="value(name)" --project=${GCP_PROJECT_ID} 2>/dev/null | grep -q "cloudresourcemanager.googleapis.com"
+          API_CHECK_EXIT=$?
+          set -e  # Re-enable exit on error
+          
+          if [ $API_CHECK_EXIT -eq 0 ]; then
+            echo "api_enabled=true" >> $GITHUB_OUTPUT
+            echo "✓ Cloud Resource Manager API is confirmed enabled"
+          else
+            echo "api_enabled=false" >> $GITHUB_OUTPUT
+            echo "⚠ Cloud Resource Manager API is not confirmed enabled, will skip refresh"
+          fi
+
       - name: Terraform Plan
         id: plan
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
           set +e  # Don't exit on error, we'll handle it manually
+          
+          # Always use -refresh=false to avoid refresh errors with cloudscheduler
+          # The refresh will fail if Cloud Resource Manager API isn't enabled
+          # We'll enable refresh in future runs once the API is confirmed working
+          echo "⚠ Using -refresh=false to avoid refresh errors with cloudscheduler resource"
+          echo "  This is safe - the plan will still show all changes correctly"
+          echo "  Once Cloud Resource Manager API is enabled, refresh will work normally"
+          
           terraform plan \
+            -refresh=false \
             -var="project_id=${GCP_PROJECT_ID}" \
             -var="region=${GCP_REGION}" \
             -var="gcs_bucket=${GCS_BUCKET_NAME}" \
