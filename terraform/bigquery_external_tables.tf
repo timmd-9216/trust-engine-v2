@@ -42,9 +42,57 @@ resource "google_bigquery_table" "replies" {
   description = "External table for social media replies stored as Parquet in GCS"
 
   external_data_configuration {
-    autodetect    = true
+    autodetect    = false
     source_format = "PARQUET"
     source_uris   = ["gs://${var.gcs_bucket}/processed/replies/*"]
+
+    # Explicit schema matching the unified schema from json_to_parquet.py
+    schema = jsonencode([
+      # Ingestion metadata
+      { name = "ingestion_date", type = "DATE", mode = "NULLABLE" },
+      { name = "ingestion_timestamp", type = "TIMESTAMP", mode = "NULLABLE" },
+      { name = "source_file", type = "STRING", mode = "NULLABLE" },
+      # Post context
+      { name = "country", type = "STRING", mode = "NULLABLE" },
+      { name = "platform", type = "STRING", mode = "NULLABLE" },
+      { name = "candidate_id", type = "STRING", mode = "NULLABLE" },
+      { name = "parent_post_id", type = "STRING", mode = "NULLABLE" },
+      # Reply data
+      { name = "tweet_id", type = "STRING", mode = "NULLABLE" },
+      { name = "tweet_url", type = "STRING", mode = "NULLABLE" },
+      { name = "created_at", type = "STRING", mode = "NULLABLE" },
+      { name = "full_text", type = "STRING", mode = "NULLABLE" },
+      { name = "lang", type = "STRING", mode = "NULLABLE" },
+      # Author info
+      { name = "user_id", type = "STRING", mode = "NULLABLE" },
+      { name = "user_screen_name", type = "STRING", mode = "NULLABLE" },
+      { name = "user_name", type = "STRING", mode = "NULLABLE" },
+      { name = "user_followers_count", type = "INTEGER", mode = "NULLABLE" },
+      { name = "user_friends_count", type = "INTEGER", mode = "NULLABLE" },
+      { name = "user_verified", type = "BOOLEAN", mode = "NULLABLE" },
+      # Engagement metrics
+      { name = "reply_count", type = "INTEGER", mode = "NULLABLE" },
+      { name = "retweet_count", type = "INTEGER", mode = "NULLABLE" },
+      { name = "quote_count", type = "INTEGER", mode = "NULLABLE" },
+      { name = "favorite_count", type = "INTEGER", mode = "NULLABLE" },
+      # Tweet type flags
+      { name = "is_reply", type = "BOOLEAN", mode = "NULLABLE" },
+      { name = "is_retweet", type = "BOOLEAN", mode = "NULLABLE" },
+      { name = "is_quote_status", type = "BOOLEAN", mode = "NULLABLE" },
+      # Reply context
+      { name = "in_reply_to_status_id_str", type = "STRING", mode = "NULLABLE" },
+      { name = "in_reply_to_user_id_str", type = "STRING", mode = "NULLABLE" },
+      { name = "in_reply_to_screen_name", type = "STRING", mode = "NULLABLE" },
+      # Retweet context
+      { name = "retweeted_status_id_str", type = "STRING", mode = "NULLABLE" },
+      { name = "retweeted_status_screen_name", type = "STRING", mode = "NULLABLE" },
+      # Media
+      { name = "has_media", type = "BOOLEAN", mode = "NULLABLE" },
+      { name = "media_count", type = "INTEGER", mode = "NULLABLE" },
+      # Retry metadata
+      { name = "is_retry", type = "BOOLEAN", mode = "NULLABLE" },
+      { name = "retry_count", type = "INTEGER", mode = "NULLABLE" },
+    ])
 
     hive_partitioning_options {
       mode                     = "AUTO"
