@@ -122,14 +122,14 @@ resource "google_bigquery_table" "daily_engagement" {
         candidate_id,
         COUNT(*) as total_replies,
         COUNT(DISTINCT parent_post_id) as posts_with_replies,
-        COUNT(DISTINCT COALESCE(user_screen_name, username, '')) as unique_users,
-        SUM(COALESCE(favorite_count, like_count, 0)) as total_favorites,
+        COUNT(DISTINCT user_screen_name) as unique_users,
+        SUM(COALESCE(favorite_count, 0)) as total_favorites,
         SUM(COALESCE(retweet_count, 0)) as total_retweets,
         SUM(COALESCE(reply_count, 0)) as total_reply_count,
-        AVG(COALESCE(favorite_count, like_count, 0)) as avg_favorites_per_reply,
-        SUM(CASE WHEN COALESCE(is_retweet, false) THEN 1 ELSE 0 END) as retweet_replies,
-        SUM(CASE WHEN COALESCE(is_quote_status, false) THEN 1 ELSE 0 END) as quote_replies,
-        SUM(CASE WHEN COALESCE(has_media, false) THEN 1 ELSE 0 END) as replies_with_media
+        AVG(COALESCE(favorite_count, 0)) as avg_favorites_per_reply,
+        SUM(CASE WHEN is_retweet THEN 1 ELSE 0 END) as retweet_replies,
+        SUM(CASE WHEN is_quote_status THEN 1 ELSE 0 END) as quote_replies,
+        SUM(CASE WHEN has_media THEN 1 ELSE 0 END) as replies_with_media
       FROM `${var.project_id}.${var.bigquery_dataset}.replies`
       GROUP BY ingestion_date, country, platform, candidate_id
       ORDER BY ingestion_date DESC, candidate_id
@@ -158,10 +158,10 @@ resource "google_bigquery_table" "candidate_summary" {
         candidate_id,
         COUNT(*) as total_replies,
         COUNT(DISTINCT parent_post_id) as total_posts_analyzed,
-        COUNT(DISTINCT COALESCE(user_screen_name, username, '')) as unique_responders,
-        SUM(COALESCE(favorite_count, like_count, 0)) as total_favorites,
+        COUNT(DISTINCT user_screen_name) as unique_responders,
+        SUM(COALESCE(favorite_count, 0)) as total_favorites,
         SUM(COALESCE(retweet_count, 0)) as total_retweets,
-        AVG(COALESCE(favorite_count, like_count, 0)) as avg_favorites_per_reply,
+        AVG(COALESCE(favorite_count, 0)) as avg_favorites_per_reply,
         MIN(ingestion_date) as first_ingestion_date,
         MAX(ingestion_date) as last_ingestion_date,
         COUNT(DISTINCT ingestion_date) as days_with_data
