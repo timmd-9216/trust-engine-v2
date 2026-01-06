@@ -1,13 +1,23 @@
 """Services for scrapping-tools."""
 
 import json
+import logging
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 
 from google.cloud import firestore, storage
 
+try:
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+except ImportError:
+    pa = None
+    pq = None
+
 from trust_api.scrapping_tools.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 def get_firestore_client() -> firestore.Client:
@@ -588,6 +598,7 @@ def save_to_gcs(
     platform: str,
     candidate_id: str,
     post_id: str,
+    metadata: dict[str, Any] | None = None,
 ) -> str:
     """
     Save JSON data to GCS bucket with structure: country/platform/candidate_id/{post_id}.json
@@ -598,6 +609,7 @@ def save_to_gcs(
         platform: Platform name
         candidate_id: Candidate ID
         post_id: Post ID (used for filename)
+        metadata: Optional metadata to include in the saved JSON (e.g., retry information)
 
     Returns:
         GCS URI of the saved file
@@ -617,9 +629,15 @@ def save_to_gcs(
 
     blob_path = _get_gcs_blob_path(country, platform, candidate_id, post_id)
 
+    # Prepare data to save (add metadata if provided)
+    data_to_save = data.copy()
+    if metadata:
+        # Add metadata at the top level of the JSON
+        data_to_save["_metadata"] = metadata
+
     blob = bucket.blob(blob_path)
     blob.upload_from_string(
-        json.dumps(data, ensure_ascii=False, indent=2),
+        json.dumps(data_to_save, ensure_ascii=False, indent=2),
         content_type="application/json",
     )
 
@@ -780,7 +798,7 @@ def update_job_status(doc_id: str, new_status: str) -> None:
 
     Args:
         doc_id: The Firestore document ID of the job to update
-        new_status: The new status value ('pending', 'processing', 'done', 'failed')
+        new_status: The new status value ('pending', 'processing', 'done', 'failed', 'empty_result')
 
     Raises:
         ValueError: If doc_id is not provided
@@ -801,6 +819,42 @@ def update_job_status(doc_id: str, new_status: str) -> None:
             "updated_at": now,
         }
     )
+
+
+def increment_job_retry_count(doc_id: str) -> int:
+    """
+    Increment the retry_count field of a job document.
+    If retry_count doesn't exist, it's initialized to 1.
+
+    Args:
+        doc_id: The Firestore document ID of the job to update
+
+    Returns:
+        The new retry_count value
+
+    Raises:
+        ValueError: If doc_id is not provided
+    """
+    if not doc_id:
+        raise ValueError("doc_id is required to increment retry count")
+
+    client = get_firestore_client()
+    doc_ref = client.collection(settings.firestore_jobs_collection).document(doc_id)
+
+    # Get current document to check existing retry_count
+    doc = doc_ref.get()
+    if doc.exists:
+        current_data = doc.to_dict()
+        current_retry_count = current_data.get("retry_count", 0)
+        new_retry_count = current_retry_count + 1
+    else:
+        new_retry_count = 1
+
+    # Update retry_count and updated_at
+    now = datetime.now(timezone.utc)
+    doc_ref.update({"retry_count": new_retry_count, "updated_at": now})
+
+    return new_retry_count
 
 
 def submit_post_job(
@@ -1154,7 +1208,7 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                         )
                         results["errors"].append(error_msg)
                         results["failed"] += 1
-                        update_job_status(job_doc_id, "failed")
+                        update_job_status(job_doc_id, "empty_result")
                         # Log the empty result in execution logs
                         add_log_entry(
                             post_id=post_id,
@@ -1176,8 +1230,37 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                         )
                         continue
 
-                    # Save to GCS
-                    gcs_uri = save_to_gcs(result, country, platform, candidate_id, post_id)
+                    # Check if file already exists in GCS (indicates a retry)
+                    existing_file = read_from_gcs_if_exists(
+                        country, platform, candidate_id, post_id
+                    )
+                    is_retry = existing_file is not None
+                    retry_count = 0
+
+                    # Prepare metadata for retry information
+                    metadata = None
+                    if is_retry:
+                        # Increment retry_count in job document
+                        retry_count = increment_job_retry_count(job_doc_id)
+                        # Prepare metadata with retry information
+                        now = datetime.now(timezone.utc)
+                        metadata = {
+                            "is_retry": True,
+                            "retry_count": retry_count,
+                            "retry_timestamp": now.isoformat(),
+                            "previous_file_existed": True,
+                            "older_version": existing_file,  # Include the previous version
+                        }
+                        logger.info(
+                            f"Retrying job {job_id} (retry #{retry_count}). "
+                            f"Overwriting existing file in GCS for post_id={post_id}. "
+                            f"Previous version included in metadata."
+                        )
+
+                    # Save to GCS (with metadata if it's a retry)
+                    gcs_uri = save_to_gcs(
+                        result, country, platform, candidate_id, post_id, metadata
+                    )
                     results["saved_files"].append(gcs_uri)
 
                     # Update post status to done
@@ -1433,5 +1516,659 @@ def fix_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
         )
         if error_file_uri:
             results["error_log_file"] = error_file_uri
+
+    return results
+
+
+def _get_twitter_schema() -> Any:
+    """Get the unified schema for all platforms (Twitter/Instagram)."""
+    if not pa:
+        return None
+    return pa.schema(
+        [
+            # Ingestion metadata
+            ("ingestion_date", pa.date32()),
+            ("ingestion_timestamp", pa.timestamp("us", tz="UTC")),
+            ("source_file", pa.string()),
+            # Post context (from file path)
+            ("country", pa.string()),
+            ("platform", pa.string()),
+            ("candidate_id", pa.string()),
+            ("parent_post_id", pa.string()),
+            # Reply data
+            ("tweet_id", pa.string()),
+            ("tweet_url", pa.string()),
+            ("created_at", pa.string()),  # Keep as string, parse later if needed
+            ("full_text", pa.string()),
+            ("lang", pa.string()),
+            # Author info
+            ("user_id", pa.string()),
+            ("user_screen_name", pa.string()),
+            ("user_name", pa.string()),
+            ("user_followers_count", pa.int64()),
+            ("user_friends_count", pa.int64()),
+            ("user_verified", pa.bool_()),
+            # Engagement metrics
+            ("reply_count", pa.int64()),
+            ("retweet_count", pa.int64()),
+            ("quote_count", pa.int64()),
+            ("favorite_count", pa.int64()),
+            # Tweet type flags
+            ("is_reply", pa.bool_()),
+            ("is_retweet", pa.bool_()),
+            ("is_quote_status", pa.bool_()),
+            # Reply context
+            ("in_reply_to_status_id_str", pa.string()),
+            ("in_reply_to_user_id_str", pa.string()),
+            ("in_reply_to_screen_name", pa.string()),
+            # Retweet context
+            ("retweeted_status_id_str", pa.string()),
+            ("retweeted_status_screen_name", pa.string()),
+            # Media
+            ("has_media", pa.bool_()),
+            ("media_count", pa.int64()),
+            # Retry metadata (if present)
+            ("is_retry", pa.bool_()),
+            ("retry_count", pa.int64()),
+        ]
+    )
+
+
+def _parse_gcs_path_for_parquet(blob_name: str) -> dict[str, str]:
+    """
+    Parse GCS blob path to extract metadata.
+
+    Expected format: raw/{country}/{platform}/{candidate_id}/{post_id}.json
+    """
+    parts = blob_name.replace(".json", "").split("/")
+
+    # Handle both raw/ prefix and direct paths
+    if parts[0] == "raw":
+        parts = parts[1:]
+
+    if len(parts) >= 4:
+        return {
+            "country": parts[0],
+            "platform": parts[1],
+            "candidate_id": parts[2],
+            "parent_post_id": parts[3],
+        }
+    else:
+        return {
+            "country": parts[0] if len(parts) > 0 else "",
+            "platform": parts[1] if len(parts) > 1 else "",
+            "candidate_id": "",
+            "parent_post_id": parts[-1] if parts else "",
+        }
+
+
+def _is_retweet(item: dict[str, Any]) -> bool:
+    """Check if a tweet is a retweet."""
+    if item.get("retweeted_status_id_str") or item.get("retweeted_status_screen_name"):
+        return True
+    if str(item.get("full_text", "")).startswith("RT @"):
+        return True
+    if item.get("retweeted") is True and item.get("is_quote_status") is False:
+        return True
+    return False
+
+
+def _safe_int(value: Any, default: int = 0) -> int:
+    """Safely convert to int."""
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return default
+
+
+def _safe_str(value: Any, default: str = "") -> str:
+    """Safely convert to string."""
+    if value is None:
+        return default
+    return str(value)
+
+
+def _safe_bool(value: Any, default: bool = False) -> bool:
+    """Safely convert to bool."""
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    return bool(value)
+
+
+def _flatten_twitter_record(
+    item: dict[str, Any],
+    context: dict[str, str],
+    ingestion_ts: datetime,
+    source_file: str,
+    retry_metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Flatten a Twitter reply record into a flat dictionary."""
+    user = item.get("user", {}) or {}
+    media = item.get("entities", {}).get("media", []) or []
+
+    return {
+        # Ingestion metadata
+        "ingestion_date": ingestion_ts.date(),
+        "ingestion_timestamp": ingestion_ts,
+        "source_file": source_file,
+        # Post context
+        "country": context.get("country", ""),
+        "platform": context.get("platform", "twitter"),
+        "candidate_id": context.get("candidate_id", ""),
+        "parent_post_id": context.get("parent_post_id", ""),
+        # Reply data
+        "tweet_id": _safe_str(item.get("id_str") or item.get("tweet_id")),
+        "tweet_url": _safe_str(item.get("tweet_url")),
+        "created_at": _safe_str(item.get("created_at")),
+        "full_text": _safe_str(item.get("full_text") or item.get("text")),
+        "lang": _safe_str(item.get("lang")),
+        # Author info
+        "user_id": _safe_str(user.get("id_str") or item.get("user_id_str")),
+        "user_screen_name": _safe_str(user.get("screen_name") or item.get("user_screen_name")),
+        "user_name": _safe_str(user.get("name") or item.get("user_name")),
+        "user_followers_count": _safe_int(user.get("followers_count")),
+        "user_friends_count": _safe_int(user.get("friends_count")),
+        "user_verified": _safe_bool(user.get("verified")),
+        # Engagement metrics
+        "reply_count": _safe_int(item.get("reply_count")),
+        "retweet_count": _safe_int(item.get("retweet_count")),
+        "quote_count": _safe_int(item.get("quote_count")),
+        "favorite_count": _safe_int(item.get("favorite_count")),
+        # Tweet type flags
+        "is_reply": bool(item.get("in_reply_to_status_id_str")),
+        "is_retweet": _is_retweet(item),
+        "is_quote_status": _safe_bool(item.get("is_quote_status")),
+        # Reply context
+        "in_reply_to_status_id_str": _safe_str(item.get("in_reply_to_status_id_str")),
+        "in_reply_to_user_id_str": _safe_str(item.get("in_reply_to_user_id_str")),
+        "in_reply_to_screen_name": _safe_str(item.get("in_reply_to_screen_name")),
+        # Retweet context
+        "retweeted_status_id_str": _safe_str(item.get("retweeted_status_id_str")),
+        "retweeted_status_screen_name": _safe_str(item.get("retweeted_status_screen_name")),
+        # Media
+        "has_media": len(media) > 0,
+        "media_count": len(media),
+        # Retry metadata
+        "is_retry": retry_metadata.get("is_retry", False) if retry_metadata else False,
+        "retry_count": retry_metadata.get("retry_count", 0) if retry_metadata else 0,
+    }
+
+
+def _flatten_instagram_record(
+    item: dict[str, Any],
+    context: dict[str, str],
+    ingestion_ts: datetime,
+    source_file: str,
+    retry_metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Flatten an Instagram comment record into a flat dictionary."""
+    user = item.get("user", {}) or item.get("owner", {}) or {}
+
+    return {
+        # Ingestion metadata
+        "ingestion_date": ingestion_ts.date(),
+        "ingestion_timestamp": ingestion_ts,
+        "source_file": source_file,
+        # Post context
+        "country": context.get("country", ""),
+        "platform": context.get("platform", "instagram"),
+        "candidate_id": context.get("candidate_id", ""),
+        "parent_post_id": context.get("parent_post_id", ""),
+        # Comment data (using Twitter field names for consistency)
+        "tweet_id": _safe_str(item.get("id") or item.get("pk")),
+        "tweet_url": "",
+        "created_at": _safe_str(item.get("created_at") or item.get("taken_at")),
+        "full_text": _safe_str(item.get("text")),
+        "lang": "",
+        # Author info
+        "user_id": _safe_str(user.get("id") or user.get("pk")),
+        "user_screen_name": _safe_str(user.get("username")),
+        "user_name": _safe_str(user.get("full_name")),
+        "user_followers_count": 0,
+        "user_friends_count": 0,
+        "user_verified": _safe_bool(user.get("is_verified")),
+        # Engagement metrics
+        "reply_count": _safe_int(item.get("child_comment_count")),
+        "retweet_count": 0,
+        "quote_count": 0,
+        "favorite_count": _safe_int(item.get("like_count") or item.get("comment_like_count")),
+        # Tweet type flags
+        "is_reply": False,
+        "is_retweet": False,
+        "is_quote_status": False,
+        # Reply context
+        "in_reply_to_status_id_str": "",
+        "in_reply_to_user_id_str": "",
+        "in_reply_to_screen_name": "",
+        # Retweet context
+        "retweeted_status_id_str": "",
+        "retweeted_status_screen_name": "",
+        # Media
+        "has_media": False,
+        "media_count": 0,
+        # Retry metadata
+        "is_retry": retry_metadata.get("is_retry", False) if retry_metadata else False,
+        "retry_count": retry_metadata.get("retry_count", 0) if retry_metadata else 0,
+    }
+
+
+def _process_json_file_for_parquet(
+    data: dict[str, Any] | list[Any],
+    blob_name: str,
+    ingestion_ts: datetime,
+) -> tuple[list[dict[str, Any]], str]:
+    """Process a JSON file and return flattened records."""
+    context = _parse_gcs_path_for_parquet(blob_name)
+    platform = context.get("platform", "unknown")
+
+    # Extract retry metadata if present
+    retry_metadata = None
+    if isinstance(data, dict) and "_metadata" in data:
+        retry_metadata = data.get("_metadata")
+        data = {k: v for k, v in data.items() if k != "_metadata"}
+
+    # Handle different data structures
+    records_list: list[dict[str, Any]] = []
+
+    if isinstance(data, list):
+        records_list = data
+    elif isinstance(data, dict):
+        if "data" in data:
+            records_list = data["data"] if isinstance(data["data"], list) else [data["data"]]
+        else:
+            records_list = [data]
+
+    # Flatten records based on platform
+    flattened = []
+    for item in records_list:
+        if not isinstance(item, dict):
+            continue
+
+        if platform == "twitter":
+            flattened.append(
+                _flatten_twitter_record(item, context, ingestion_ts, blob_name, retry_metadata)
+            )
+        elif platform == "instagram":
+            flattened.append(
+                _flatten_instagram_record(item, context, ingestion_ts, blob_name, retry_metadata)
+            )
+        else:
+            # Generic fallback - use Twitter schema
+            flattened.append(
+                _flatten_twitter_record(item, context, ingestion_ts, blob_name, retry_metadata)
+            )
+
+    return flattened, platform
+
+
+def _get_parquet_last_modified(
+    bucket: storage.Bucket,
+    date_str: str,
+    platform: str,
+) -> datetime | None:
+    """Get the last modified timestamp of existing Parquet file, if it exists."""
+    blob_path = f"processed/replies/ingestion_date={date_str}/platform={platform}/data.parquet"
+    blob = bucket.blob(blob_path)
+
+    if not blob.exists():
+        return None
+
+    try:
+        # Reload blob metadata to get updated timestamp
+        blob.reload()
+        return blob.updated
+    except Exception as e:
+        logger.warning(f"Failed to get timestamp for Parquet file {blob_path}: {e}")
+        return None
+
+
+def _read_existing_parquet_from_gcs(
+    bucket: storage.Bucket,
+    date_str: str,
+    platform: str,
+) -> tuple[list[dict[str, Any]], datetime | None]:
+    """
+    Read existing Parquet file from GCS if it exists.
+
+    Returns:
+        Tuple of (records, last_modified_timestamp)
+    """
+    if not pa or not pq:
+        return [], None
+
+    blob_path = f"processed/replies/ingestion_date={date_str}/platform={platform}/data.parquet"
+    blob = bucket.blob(blob_path)
+
+    if not blob.exists():
+        return [], None
+
+    try:
+        # Reload to get latest metadata
+        blob.reload()
+        last_modified = blob.updated
+
+        # Download to memory
+        parquet_data = blob.download_as_bytes()
+        # Read Parquet from bytes
+        import io
+
+        parquet_file = io.BytesIO(parquet_data)
+        table = pq.read_table(parquet_file)
+        # Convert to list of dicts
+        return table.to_pylist(), last_modified
+    except Exception as e:
+        logger.warning(f"Failed to read existing Parquet file {blob_path}: {e}")
+        return [], None
+
+
+def _write_parquet_to_gcs(
+    records: list[dict[str, Any]],
+    bucket: storage.Bucket,
+    date_str: str,
+    platform: str,
+) -> str:
+    """Write records to Parquet file in GCS."""
+    if not pa or not pq:
+        raise ValueError("pyarrow is not installed. Install with: poetry add pyarrow")
+
+    if not records:
+        return ""
+
+    schema = _get_twitter_schema()
+    if not schema:
+        raise ValueError("pyarrow is not installed. Install with: poetry add pyarrow")
+
+    # Convert to PyArrow table
+    table = pa.Table.from_pylist(records, schema=schema)
+
+    # Write to memory buffer
+    import io
+
+    buffer = io.BytesIO()
+    pq.write_table(table, buffer, compression="snappy")
+    buffer.seek(0)
+
+    # Upload to GCS
+    blob_path = f"processed/replies/ingestion_date={date_str}/platform={platform}/data.parquet"
+    blob = bucket.blob(blob_path)
+    blob.upload_from_file(buffer, content_type="application/octet-stream")
+
+    return f"gs://{settings.gcs_bucket_name}/{blob_path}"
+
+
+def json_to_parquet_service(
+    country: str | None = None,
+    platform: str | None = None,
+    candidate_id: str | None = None,
+    skip_timestamp_filter: bool = False,
+) -> dict[str, Any]:
+    """
+    Convert JSON files from GCS raw layer to Parquet format with incremental loading.
+
+    This service:
+    1. Reads JSON files from GCS raw layer (raw/{country}/{platform}/...)
+    2. Flattens nested structures into tabular format
+    3. Groups by ingestion_date and platform
+    4. For each partition, reads existing Parquet if it exists and merges with new data
+    5. Writes updated Parquet files to GCS processed layer
+
+    Args:
+        country: Country name to filter (e.g., 'honduras'). If None, processes all countries.
+        platform: Platform name to filter (e.g., 'twitter', 'instagram'). If None, processes all platforms.
+        candidate_id: Candidate ID to filter. If None, processes all candidates.
+        skip_timestamp_filter: If True, processes all JSONs regardless of timestamp (relies on deduplication).
+                              If False, uses timestamp-based optimization to skip already-processed JSONs.
+
+    Returns:
+        Dictionary with processing results including records processed, files written, etc.
+    """
+    if not pa or not pq:
+        return {
+            "processed": 0,
+            "succeeded": 0,
+            "failed": 0,
+            "errors": ["pyarrow is not installed. Install with: poetry add pyarrow"],
+            "written_files": [],
+        }
+
+    if not settings.gcs_bucket_name:
+        return {
+            "processed": 0,
+            "succeeded": 0,
+            "failed": 0,
+            "errors": ["GCS_BUCKET_NAME is not configured"],
+            "written_files": [],
+        }
+
+    results = {
+        "processed": 0,
+        "succeeded": 0,
+        "failed": 0,
+        "errors": [],
+        "written_files": [],
+    }
+
+    try:
+        client = get_gcs_client()
+        bucket = client.bucket(settings.gcs_bucket_name)
+
+        # Build prefix for filtering
+        prefix = "raw"
+        if country:
+            prefix = f"{prefix}/{country}"
+            if platform:
+                prefix = f"{prefix}/{platform}"
+
+        # OPTIMIZATION: Incremental loading - only process JSONs newer than Parquet for each ingestion date partition
+        # Strategy: Compare JSON.updated with Parquet.updated (file timestamp)
+        # - Use Parquet file timestamp (blob.updated) as reference - simpler and more reliable
+        # - Only download JSON content if JSON.updated > Parquet.updated for the same partition
+        # - This avoids downloading JSONs that were already processed
+        # - Deduplication by (source_file, tweet_id) ensures no duplicates as final safety net
+
+        # Get Parquet file timestamps per partition (faster than reading all Parquet files)
+        parquet_file_timestamps: dict[tuple[str, str], datetime] = {}
+
+        if skip_timestamp_filter:
+            logger.info(
+                "Timestamp filter disabled - will process all JSONs (deduplication will handle duplicates)"
+            )
+        else:
+            logger.info(
+                "Timestamp filter enabled - will skip JSONs older than Parquet file timestamp (incremental loading)"
+            )
+
+        parquet_prefix = "processed/replies/ingestion_date="
+        parquet_blobs = bucket.list_blobs(prefix=parquet_prefix)
+
+        for parquet_blob in parquet_blobs:
+            if not parquet_blob.name.endswith(".parquet"):
+                continue
+            parts = parquet_blob.name.split("/")
+            if len(parts) >= 4:
+                date_part = parts[2].replace("ingestion_date=", "")
+                platform_part = parts[3].replace("platform=", "")
+
+                if platform and platform_part != platform:
+                    continue
+
+                try:
+                    # Use file timestamp (blob.updated) - simpler and more reliable for incremental loading
+                    parquet_blob.reload()  # Only metadata, not content
+                    if parquet_blob.updated:
+                        if parquet_blob.updated.tzinfo is None:
+                            parquet_file_timestamps[(date_part, platform_part)] = (
+                                parquet_blob.updated.replace(tzinfo=timezone.utc)
+                            )
+                        else:
+                            parquet_file_timestamps[(date_part, platform_part)] = (
+                                parquet_blob.updated
+                            )
+                except Exception as e:
+                    logger.warning(f"Could not get timestamp for {parquet_blob.name}: {e}")
+                    continue
+
+        logger.info(
+            f"Found {len(parquet_file_timestamps)} Parquet partitions: {list(parquet_file_timestamps.keys())}"
+        )
+
+        # Process JSONs: only download content for those newer than Parquet
+        json_files = []
+        skipped_count = 0
+        total_json_blobs = 0
+        blobs = bucket.list_blobs(prefix=prefix)
+
+        for blob in blobs:
+            if not blob.name.lower().endswith(".json"):
+                continue
+
+            total_json_blobs += 1
+            parts = blob.name.split("/")
+            path_parts = parts[1:] if parts[0] == "raw" else parts
+
+            if len(path_parts) < 4:
+                continue
+
+            if candidate_id and candidate_id not in parts:
+                continue
+
+            try:
+                # Get metadata only (blob.reload() reads headers, not content - lightweight)
+                blob.reload()
+                ingestion_ts = blob.updated or datetime.now(timezone.utc)
+                if ingestion_ts.tzinfo is None:
+                    ingestion_ts = ingestion_ts.replace(tzinfo=timezone.utc)
+
+                # Determine partition based on ingestion date
+                date_str = ingestion_ts.strftime("%Y-%m-%d")
+                platform_from_path = path_parts[1] if len(path_parts) > 1 else ""
+                partition_key = (date_str, platform_from_path)
+
+                # Incremental loading: Skip if JSON is older than or equal to Parquet file timestamp
+                # NOTE: This is an optimization - deduplication by (source_file, tweet_id) ensures correctness
+                if not skip_timestamp_filter and partition_key in parquet_file_timestamps:
+                    parquet_file_ts = parquet_file_timestamps[partition_key]
+                    # Add buffer (5 seconds) to handle timestamp precision issues and clock skew
+                    buffer = timedelta(seconds=5)
+                    if ingestion_ts <= (parquet_file_ts + buffer):
+                        logger.debug(
+                            f"Skipping {blob.name}: JSON updated {ingestion_ts} <= Parquet file timestamp "
+                            f"{parquet_file_ts} (with 5s buffer) for partition {partition_key}"
+                        )
+                        skipped_count += 1
+                        continue
+                    # JSON is newer than Parquet file → will process (incremental load)
+                    logger.info(
+                        f"Processing {blob.name}: JSON updated {ingestion_ts} > Parquet file timestamp {parquet_file_ts} "
+                        f"for partition {partition_key} (incremental load)"
+                    )
+                elif skip_timestamp_filter:
+                    logger.debug(
+                        f"Processing {blob.name} (timestamp filter disabled) for partition {partition_key}"
+                    )
+
+                # Download JSON content only if it needs processing
+                raw = blob.download_as_text(encoding="utf-8")
+                data = json.loads(raw)
+                json_files.append((blob.name, data, ingestion_ts))
+            except json.JSONDecodeError as e:
+                logger.warning(f"Invalid JSON in {blob.name}: {e}")
+                results["errors"].append(f"Invalid JSON in {blob.name}: {e}")
+                continue
+            except Exception as e:
+                logger.error(f"Error reading {blob.name}: {e}")
+                results["errors"].append(f"Error reading {blob.name}: {e}")
+                continue
+
+        logger.info(
+            f"Total JSON blobs found: {total_json_blobs}, "
+            f"Skipped: {skipped_count}, "
+            f"To process: {len(json_files)}"
+        )
+
+        if skipped_count > 0:
+            logger.info(
+                f"Skipped {skipped_count} JSON files (older than or equal to Parquet max ingestion timestamp)"
+            )
+
+        results["processed"] = len(json_files)
+
+        if not json_files:
+            return results
+
+        # Group records by ingestion date and platform
+        records_by_partition: dict[tuple[str, str], list[dict[str, Any]]] = {}
+
+        for blob_name, data, ingestion_ts in json_files:
+            try:
+                flattened, platform = _process_json_file_for_parquet(data, blob_name, ingestion_ts)
+
+                if not flattened:
+                    continue
+
+                # Partition key: (ingestion_date, platform)
+                date_str = ingestion_ts.strftime("%Y-%m-%d")
+                key = (date_str, platform)
+
+                if key not in records_by_partition:
+                    records_by_partition[key] = []
+                records_by_partition[key].extend(flattened)
+            except Exception as e:
+                logger.error(f"Error processing {blob_name}: {e}")
+                results["errors"].append(f"Error processing {blob_name}: {e}")
+                results["failed"] += 1
+                continue
+
+        # Write Parquet files with incremental loading
+        for (date_str, platform), new_records in records_by_partition.items():
+            try:
+                # Read existing Parquet if it exists (returns records and timestamp)
+                existing_records, _ = _read_existing_parquet_from_gcs(bucket, date_str, platform)
+
+                # Merge records: combine existing and new, deduplicate by source_file + tweet_id
+                if existing_records:
+                    # Create a set of existing record keys for deduplication
+                    existing_keys = {
+                        (r.get("source_file", ""), r.get("tweet_id", "")) for r in existing_records
+                    }
+
+                    # Add only new records that don't already exist
+                    new_count = 0
+                    for record in new_records:
+                        key = (record.get("source_file", ""), record.get("tweet_id", ""))
+                        if key not in existing_keys:
+                            existing_records.append(record)
+                            existing_keys.add(key)
+                            new_count += 1
+
+                    all_records = existing_records
+                    logger.info(
+                        f"Merged {new_count} new records into existing {len(existing_records) - new_count} "
+                        f"records for {date_str}/{platform}"
+                    )
+                else:
+                    all_records = new_records
+                    logger.info(
+                        f"Created new Parquet file with {len(new_records)} records for {date_str}/{platform}"
+                    )
+
+                # Write merged Parquet file
+                gcs_uri = _write_parquet_to_gcs(all_records, bucket, date_str, platform)
+                if gcs_uri:
+                    results["written_files"].append(gcs_uri)
+                    results["succeeded"] += 1
+                    logger.info(f"Wrote {len(all_records)} total records to {gcs_uri}")
+            except Exception as e:
+                logger.error(f"Error writing Parquet for {date_str}/{platform}: {e}")
+                results["errors"].append(f"Error writing Parquet for {date_str}/{platform}: {e}")
+                results["failed"] += 1
+
+    except Exception as e:
+        logger.error(f"Error in json_to_parquet_service: {e}")
+        results["errors"].append(f"Error in json_to_parquet_service: {e}")
 
     return results

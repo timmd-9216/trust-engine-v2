@@ -1,8 +1,9 @@
-# Cloud Scheduler para `/process-posts` y `/process-jobs` con Terraform
+# Cloud Scheduler para `/process-posts`, `/process-jobs` y `/json-to-parquet` con Terraform
 
-Este archivo Terraform crea dos Cloud Scheduler jobs:
+Este archivo Terraform crea tres Cloud Scheduler jobs:
 1. **process-posts-hourly**: Ejecuta `/process-posts` cada hora en el minuto 0
 2. **process-jobs-hourly**: Ejecuta `/process-jobs` cada hora en el minuto 30 (30 minutos después del primero)
+3. **json-to-parquet-daily**: Ejecuta `/json-to-parquet` diariamente a las 7:00 AM UTC
 
 ## Flujo de dos fases
 
@@ -17,6 +18,12 @@ El sistema funciona en dos fases separadas:
    - Se ejecuta cada hora en el minuto 30 (30 minutos después de la Fase 1)
    - Procesa todos los jobs pendientes en `pending_jobs`
    - Verifica el estado, descarga resultados y guarda en GCS
+
+3. **Fase 3 - Convertir a Parquet** (`/json-to-parquet`):
+   - Se ejecuta diariamente a las 7:00 AM UTC
+   - Convierte JSONs nuevos de la capa `raw/` a formato Parquet en `processed/replies/`
+   - Usa carga incremental optimizada (solo procesa JSONs nuevos)
+   - No requiere filtros - procesa todos los países y plataformas
 
 ## Prerrequisitos
 
@@ -72,6 +79,8 @@ terraform apply \
 | `job_name` | Nombre del job de Cloud Scheduler para process-posts | `process-posts-hourly` |
 | `process_jobs_schedule` | Expresión cron para process-jobs | `30 * * * *` (cada hora en minuto 30) |
 | `process_jobs_job_name` | Nombre del job de Cloud Scheduler para process-jobs | `process-jobs-hourly` |
+| `json_to_parquet_schedule` | Expresión cron para json-to-parquet | `0 7 * * *` (diario a las 7 AM UTC) |
+| `json_to_parquet_job_name` | Nombre del job de Cloud Scheduler para json-to-parquet | `json-to-parquet-daily` |
 | `time_zone` | Zona horaria para el schedule | `UTC` |
 
 ### 4. Usar archivo de variables (opcional)
@@ -106,7 +115,12 @@ terraform apply
 - `15 * * * *` - Cada hora en el minuto 15
 - `*/30 * * * *` - Cada 30 minutos
 
-**Nota:** Se recomienda mantener process-jobs al menos 30 minutos después de process-posts para dar tiempo a que los jobs se completen en Information Tracer.
+**Para json-to-parquet:**
+- `0 7 * * *` - Diariamente a las 7:00 AM UTC (default)
+- `0 8 * * *` - Diariamente a las 8:00 AM UTC
+- `0 7 * * 1` - Cada lunes a las 7:00 AM UTC
+
+**Nota:** Se recomienda mantener process-jobs al menos 30 minutos después de process-posts para dar tiempo a que los jobs se completen en Information Tracer. El job json-to-parquet se ejecuta diariamente y procesa todos los JSONs nuevos acumulados durante el día.
 
 Para más información sobre el formato cron, ver: [Cron job format and time zone](https://cloud.google.com/scheduler/docs/configuring/cron-job-schedules)
 
@@ -122,6 +136,11 @@ gcloud scheduler jobs describe process-posts-hourly \
 
 # Verificar process-jobs
 gcloud scheduler jobs describe process-jobs-hourly \
+  --project=trust-481601 \
+  --location=us-east1
+
+# Verificar json-to-parquet
+gcloud scheduler jobs describe json-to-parquet-daily \
   --project=trust-481601 \
   --location=us-east1
 ```
@@ -140,6 +159,11 @@ gcloud scheduler jobs run process-posts-hourly \
 gcloud scheduler jobs run process-jobs-hourly \
   --project=trust-481601 \
   --location=us-east1
+
+# Ejecutar json-to-parquet
+gcloud scheduler jobs run json-to-parquet-daily \
+  --project=trust-481601 \
+  --location=us-east1
 ```
 
 ## Outputs
@@ -155,6 +179,11 @@ Después de aplicar, Terraform mostrará:
 - `process_jobs_scheduler_job_name`: Nombre del job process-jobs
 - `process_jobs_scheduler_job_id`: ID completo del recurso process-jobs
 - `process_jobs_endpoint_url`: URL completa que será llamada para process-jobs
+
+**Para json-to-parquet:**
+- `json_to_parquet_scheduler_job_name`: Nombre del job json-to-parquet
+- `json_to_parquet_scheduler_job_id`: ID completo del recurso json-to-parquet
+- `json_to_parquet_endpoint_url`: URL completa que será llamada para json-to-parquet
 
 ## Eliminar el job
 

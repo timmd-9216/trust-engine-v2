@@ -6,7 +6,6 @@ on:
       - main
     paths:
       - 'src/**'
-      - 'terraform/**'
       - 'Dockerfile'
       - 'pyproject.toml'
       - 'poetry.lock'

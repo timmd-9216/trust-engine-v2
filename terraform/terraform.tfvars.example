@@ -1,0 +1,23 @@
+# Terraform Variables Example
+#
+# Copy this file to terraform.tfvars and fill in your values.
+# terraform.tfvars is gitignored for security.
+#
+# Usage:
+#   cp terraform.tfvars.example terraform.tfvars
+#   # Edit terraform.tfvars with your values
+#   terraform plan
+#   terraform apply
+
+project_id = "trust-481601"
+region     = "us-east1"
+gcs_bucket = "trust-prd"
+
+# Cloud Scheduler configuration
+enable_cloud_scheduler = true
+scrapping_tools_service_name = "scrapping-tools"
+service_account_email = "scheduler@trust-481601.iam.gserviceaccount.com"
+
+# Optional: Environment
+# environment = "prod"
+

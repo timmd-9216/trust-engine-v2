@@ -7,6 +7,7 @@ from trust_api.scrapping_tools.core.config import settings
 from trust_api.scrapping_tools.services import (
     fetch_post_information,
     fix_jobs_service,
+    json_to_parquet_service,
     process_pending_jobs_service,
     process_posts_service,
     query_pending_jobs,
@@ -61,6 +62,14 @@ class FixJobsResponse(BaseModel):
     empty_jobs: list[dict]  # List of jobs that are still empty after retry
     log_file: str | None = None  # GCS URI of the execution log file
     error_log_file: str | None = None  # GCS URI of the error log file (for empty results)
+
+
+class JsonToParquetResponse(BaseModel):
+    processed: int
+    succeeded: int
+    failed: int
+    errors: list[str]
+    written_files: list[str]  # List of GCS URIs of written Parquet files
 
 
 app = FastAPI(
@@ -256,4 +265,74 @@ async def fix_jobs_endpoint(max_jobs: int | None = None):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error fixing jobs: {str(e)}",
+        )
+
+
+@app.post("/json-to-parquet", response_model=JsonToParquetResponse)
+async def json_to_parquet_endpoint(
+    country: str | None = None,
+    platform: str | None = None,
+    candidate_id: str | None = None,
+    skip_timestamp_filter: bool = False,
+):
+    """
+    Convert JSON files from GCS raw layer to Parquet format with incremental loading.
+
+    This endpoint:
+    1. Reads JSON files from GCS raw layer (raw/{country}/{platform}/...)
+    2. Flattens nested structures into tabular format
+    3. Groups by ingestion_date and platform
+    4. For each partition, reads existing Parquet if it exists and merges with new data
+    5. Writes updated Parquet files to GCS processed layer
+
+    OPTIMIZATIONS FOR EFFICIENCY:
+
+    a) Timestamp-based filtering:
+       - Pre-fetches last modified timestamps of existing Parquet files
+       - Only downloads and processes JSONs that are newer than the corresponding Parquet
+       - Skips JSONs that were already converted (based on blob.updated timestamp)
+       - This avoids unnecessary network I/O and CPU processing
+
+    b) Incremental merging:
+       - Reads existing Parquet files only when needed (when new JSONs exist)
+       - Merges new records with existing ones in memory
+       - Deduplicates by (source_file, tweet_id) to avoid duplicates
+
+    c) Selective processing:
+       - Only processes JSONs matching the specified filters (country/platform/candidate_id)
+       - Uses GCS blob metadata (updated timestamp) without downloading content first
+       - Downloads JSON content only for files that need processing
+
+    This endpoint supports incremental loading - it will not overwrite existing Parquet files
+    for the same date/platform combination. Instead, it will merge new records with existing ones,
+    deduplicating by source_file and tweet_id.
+
+    This endpoint should be called after /process-jobs or /fix-jobs endpoints that generate JSONs.
+
+    Args:
+        country: Country name to filter (e.g., 'honduras'). If None, processes all countries.
+        platform: Platform name to filter (e.g., 'twitter', 'instagram'). If None, processes all platforms.
+        candidate_id: Candidate ID to filter. If None, processes all candidates.
+        skip_timestamp_filter: If True, processes all JSONs regardless of timestamp (relies on deduplication).
+                              If False, uses timestamp-based optimization to skip already-processed JSONs.
+                              Use this if new JSONs are not being processed.
+
+    Returns:
+        JsonToParquetResponse with processing results including records processed, files written, etc.
+
+    Raises:
+        HTTPException: If the processing fails or configuration is missing
+    """
+    try:
+        results = json_to_parquet_service(
+            country=country,
+            platform=platform,
+            candidate_id=candidate_id,
+            skip_timestamp_filter=skip_timestamp_filter,
+        )
+        return JsonToParquetResponse(**results)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error converting JSON to Parquet: {str(e)}",
         )

@@ -139,9 +139,118 @@ Al procesar posts con el endpoint `/process-posts`, el sistema determina cuánta
 
 **Nota:** Si ambos campos (`max_replies` y `replies_count`) son `null` o `<= 0`, el post se marca como `skipped` y no se procesa.
 
+## Campos de la colección `pending_jobs`
+
+La colección `pending_jobs` almacena los jobs de Information Tracer que están siendo procesados.
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `job_id` | string | ID del job en Information Tracer (hash_id/id_hash256) |
+| `post_doc_id` | string | ID del documento Firestore en la colección `posts` |
+| `post_id` | string | ID del post en la plataforma externa (Twitter, Facebook, etc.) |
+| `platform` | string | Plataforma (twitter, facebook, instagram, etc.) |
+| `country` | string | País |
+| `candidate_id` | string | ID del candidato |
+| `max_posts` | number | Máximo de respuestas a recolectar |
+| `sort_by` | string | Ordenamiento: `"time"` o `"engagement"` |
+| `status` | string | Estado: `pending`, `processing`, `done`, `failed`, `empty_result`, `verified` |
+| `retry_count` | number | Número de veces que se ha reintentado el job (se incrementa cuando se reprocesa un job ya procesado) |
+| `created_at` | timestamp | Fecha de creación del job |
+| `updated_at` | timestamp | Última actualización del job |
+
+### Diferencia entre `post_doc_id` y `post_id`
+
+Es importante entender la diferencia entre estos dos campos y a qué colección corresponde cada uno:
+
+#### `post_doc_id`
+- **Colección**: Este campo **solo existe** en la colección `pending_jobs` como referencia
+- **Referencia**: Apunta al **ID del documento** en la colección `posts`
+- **Tipo**: ID del documento Firestore
+- **Ejemplo**: `"Wm2WxCNSt6ErumnELg7y"`
+- **Propósito**: Identificador único del documento en la colección `posts` de Firestore. Se guarda en `pending_jobs` para poder actualizar el documento original del post cuando el job termine.
+- **Uso**: Se utiliza para actualizar el documento del post en la colección `posts` (por ejemplo, cambiar su `status` a `"done"` usando `update_post_status(post_doc_id, "done")`)
+- **Formato**: ID auto-generado por Firestore (cadena alfanumérica)
+
+#### `post_id`
+- **Colecciones**: Este campo existe en **ambas colecciones**:
+  - En la colección `posts`: como un campo del documento (ID del post en la plataforma)
+  - En la colección `pending_jobs`: como referencia al mismo ID del post
+- **Tipo**: ID del post en la plataforma externa
+- **Ejemplo**: `"1996509040751559080"`
+- **Propósito**: Identificador del post en la red social original (Twitter, Facebook, Instagram, etc.)
+- **Uso**: 
+  - Se utiliza para construir la query a Information Tracer: `"reply:{post_id}"`
+  - Se utiliza como nombre del archivo en GCS: `{country}/{platform}/{candidate_id}/{post_id}.json`
+- **Formato**: ID numérico o alfanumérico según la plataforma (Twitter usa IDs numéricos largos)
+
+**Ejemplo práctico:**
+
+```python
+# ===== COLECCIÓN 'posts' =====
+# Documento con ID: "Wm2WxCNSt6ErumnELg7y"
+# Campos del documento:
+#   - post_id: "1996509040751559080"  # ID del post en Twitter
+#   - platform: "twitter"
+#   - country: "argentina"
+#   - candidate_id: "candidate1"
+#   - status: "noreplies"
+#   - ...
+
+# ===== AL CREAR UN JOB EN 'pending_jobs' =====
+# Se guarda un nuevo documento en la colección 'pending_jobs' con:
+save_pending_job(
+    job_id="abc123...",
+    post_doc_id="Wm2WxCNSt6ErumnELg7y",  # Referencia al documento en 'posts'
+    post_id="1996509040751559080",       # Copia del post_id del documento en 'posts'
+    platform="twitter",
+    country="argentina",
+    candidate_id="candidate1",
+    ...
+)
+
+# Resultado: Nuevo documento en 'pending_jobs' con estos campos:
+#   - job_id: "abc123..."
+#   - post_doc_id: "Wm2WxCNSt6ErumnELg7y"  # Referencia a 'posts'
+#   - post_id: "1996509040751559080"       # Copia del post_id
+#   - platform: "twitter"
+#   - status: "pending"
+#   - ...
+
+# ===== CUANDO EL JOB TERMINA =====
+# 1. Se usa post_id (de 'pending_jobs') para construir la query: "reply:1996509040751559080"
+# 2. Se usa post_id para el nombre del archivo: "argentina/twitter/candidate1/1996509040751559080.json"
+# 3. Se usa post_doc_id para actualizar el documento en 'posts':
+#    update_post_status("Wm2WxCNSt6ErumnELg7y", "done")
+#    # Esto actualiza el documento "Wm2WxCNSt6ErumnELg7y" en la colección 'posts'
+
+### Reintentos y Versiones Anteriores
+
+Cuando un job se reprocesa (cambia de status "done" a "pending" y se procesa nuevamente), el sistema:
+
+1. **Incrementa `retry_count`**: El campo `retry_count` en el documento del job se incrementa automáticamente
+2. **Guarda metadata en el JSON**: El JSON guardado en GCS incluye un campo `_metadata` con información del reintento:
+   ```json
+   {
+     "_metadata": {
+       "is_retry": true,
+       "retry_count": 2,
+       "retry_timestamp": "2024-01-05T12:00:00Z",
+       "previous_file_existed": true,
+       "older_version": {
+         // Versión completa del JSON anterior
+       }
+     },
+     // ... datos actuales del resultado
+   }
+   ```
+3. **Sobrescribe el archivo**: El archivo en GCS se sobrescribe con la nueva versión, pero la versión anterior se preserva dentro de `_metadata.older_version`
+
+**Nota**: El campo `retry_count` solo se incrementa cuando se detecta que el archivo ya existe en GCS (indicando un reintento). Los jobs nuevos tienen `retry_count = 0` o el campo no existe.
+```
+
 ## Estados
 
-### Estados
+Para información detallada sobre todos los estados posibles y sus transiciones, consulta: [Estados de las Colecciones Firestore](../FIRESTORE_STATUS.md)
 
 ### Estados de los posts
 
@@ -158,16 +267,9 @@ Al procesar posts con el endpoint `/process-posts`, el sistema determina cuánta
 | `pending` | Job pendiente de procesar |
 | `processing` | Job en proceso de verificación con Information Tracer |
 | `done` | Job completado exitosamente, resultados guardados en GCS |
-| `failed` | Job falló al procesar |
-
-### Estados de los jobs
-
-| Estado | Descripción |
-|--------|-------------|
-| `pending` | Job pendiente de procesar |
-| `processing` | Job en proceso de verificación con Information Tracer |
-| `done` | Job completado exitosamente, resultados guardados en GCS |
-| `failed` | Job falló al procesar |
+| `failed` | Job falló al procesar (error de API, excepción, etc.) |
+| `empty_result` | Job completado pero el resultado está vacío |
+| `verified` | Job verificado como resultado vacío esperado (twitter con replies_count <= 2) |
 
 ## Actualizar status de un documento
 

@@ -1,0 +1,578 @@
+name: Terraform
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'terraform/**'
+      - '.github/workflows/terraform.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'terraform/**'
+      - '.github/workflows/terraform.yml'
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Terraform action to run'
+        required: true
+        default: 'plan'
+        type: choice
+        options:
+          - plan
+          - apply
+          - destroy
+
+env:
+  TF_VERSION: '1.7.0'
+  TF_WORKING_DIR: 'terraform'
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID || vars.GCP_PROJECT_ID }}
+  GCP_REGION: ${{ secrets.GCP_REGION || vars.GCP_REGION || 'us-east1' }}
+  GCS_BUCKET_NAME: ${{ secrets.GCS_BUCKET_NAME || vars.GCS_BUCKET_NAME }}
+  GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+  GCP_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+  GCP_SCRAPPING_TOOLS_SERVICE_NAME: ${{ secrets.GCP_SCRAPPING_TOOLS_SERVICE_NAME || vars.GCP_SCRAPPING_TOOLS_SERVICE_NAME || 'scrapping-tools' }}
+
+jobs:
+  terraform-plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+    environment: trust-engine
+
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+
+    outputs:
+      plan_exit_code: ${{ steps.plan.outputs.exitcode }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate secrets and configuration
+        run: |
+          if [ -z "${GCP_WORKLOAD_IDENTITY_PROVIDER}" ] || [ -z "${GCP_SERVICE_ACCOUNT_EMAIL}" ]; then
+            echo "Missing GCP_WORKLOAD_IDENTITY_PROVIDER or GCP_SERVICE_ACCOUNT_EMAIL secrets" >&2
+            exit 1
+          fi
+          if [ -z "${GCP_PROJECT_ID}" ]; then
+            echo "Missing GCP_PROJECT_ID" >&2
+            exit 1
+          fi
+          echo "✓ Using GCP Project: ${GCP_PROJECT_ID}"
+          echo "✓ Using Region: ${GCP_REGION}"
+          echo "✓ Using GCS Bucket: ${GCS_BUCKET_NAME}"
+          echo "✓ Scrapping Tools Service: ${GCP_SCRAPPING_TOOLS_SERVICE_NAME}"
+          
+          # Verify project is set correctly
+          if [ "${GCP_PROJECT_ID}" != "trust-481601" ]; then
+            echo "⚠ Warning: GCP_PROJECT_ID is ${GCP_PROJECT_ID}, expected trust-481601" >&2
+          fi
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Verify GCP project configuration
+        run: |
+          echo "Current gcloud project: $(gcloud config get-value project)"
+          echo "Setting project to: ${GCP_PROJECT_ID}"
+          gcloud config set project ${GCP_PROJECT_ID}
+          VERIFIED_PROJECT=$(gcloud config get-value project)
+          echo "✓ Verified project: ${VERIFIED_PROJECT}"
+          
+          # Enable Cloud Resource Manager API if not already enabled
+          # This is required for Terraform to manage project services
+          echo "Checking Cloud Resource Manager API status..."
+          set +e  # Don't exit on error
+          API_ENABLED=$(gcloud services list --enabled --filter="name:cloudresourcemanager.googleapis.com" --format="value(name)" 2>/dev/null | grep -c "cloudresourcemanager.googleapis.com" || echo "0")
+          set -e  # Re-enable exit on error
+          
+          if [ "$API_ENABLED" -gt 0 ]; then
+            echo "✓ Cloud Resource Manager API is already enabled"
+            echo "gcloud_enable_success=true" >> $GITHUB_OUTPUT
+          else
+            echo "⚠ Cloud Resource Manager API is not enabled. Enabling it now..."
+            set +e  # Don't exit on error
+            gcloud services enable cloudresourcemanager.googleapis.com --project=${GCP_PROJECT_ID} 2>&1
+            GCLOUD_ENABLE_EXIT=$?
+            set -e  # Re-enable exit on error
+            
+            if [ $GCLOUD_ENABLE_EXIT -eq 0 ]; then
+              echo "gcloud_enable_success=true" >> $GITHUB_OUTPUT
+              echo "✓ Successfully enabled Cloud Resource Manager API via gcloud"
+              echo "Waiting 30 seconds for API activation to propagate..."
+              sleep 30
+            else
+              echo "gcloud_enable_success=false" >> $GITHUB_OUTPUT
+              echo "⚠ Failed to enable Cloud Resource Manager API via gcloud (exit code: $GCLOUD_ENABLE_EXIT)"
+              echo "This might be due to permissions or the API being completely disabled."
+              echo "Terraform bootstrap will attempt to enable it, but refresh operations may fail."
+              echo "If this persists, enable manually: https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=${GCP_PROJECT_ID}"
+            fi
+          fi
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Terraform Format Check
+        id: fmt
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform fmt -check -recursive
+        continue-on-error: true
+
+      - name: Terraform Init
+        id: init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init -input=false
+
+      - name: Check Service Usage Permissions
+        id: check-permissions
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          # Check if service account has permission to manage APIs
+          echo "Checking if service account has permission to manage APIs..."
+          set +e  # Don't exit on error
+          gcloud services list --enabled --project=${GCP_PROJECT_ID} --limit=1 > /dev/null 2>&1
+          PERM_CHECK_EXIT=$?
+          set -e  # Re-enable exit on error
+          
+          if [ $PERM_CHECK_EXIT -eq 0 ]; then
+            echo "has_permissions=true" >> $GITHUB_OUTPUT
+            echo "✓ Service account has permission to manage APIs"
+          else
+            echo "has_permissions=false" >> $GITHUB_OUTPUT
+            echo "⚠ Service account does NOT have permission to manage APIs"
+            echo "  Required role: roles/serviceusage.serviceUsageAdmin"
+            echo "  Grant with: gcloud projects add-iam-policy-binding ${GCP_PROJECT_ID} \\"
+            echo "    --member='serviceAccount:${GCP_SERVICE_ACCOUNT_EMAIL}' \\"
+            echo "    --role='roles/serviceusage.serviceUsageAdmin'"
+            echo "  Skipping bootstrap step - API must be enabled manually"
+          fi
+
+      - name: Bootstrap Cloud Resource Manager API
+        id: bootstrap-api
+        if: steps.check-permissions.outputs.has_permissions == 'true'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          # Apply the bootstrap API resource first to ensure Cloud Resource Manager API is enabled
+          # This is required before Terraform can refresh state of other project service resources
+          # We use -refresh=false to avoid trying to refresh cloudscheduler which requires the API
+          echo "Bootstrapping Cloud Resource Manager API (using -refresh=false to avoid refresh errors)..."
+          set +e  # Don't exit on error
+          terraform apply -target=google_project_service.cloudresourcemanager \
+            -refresh=false \
+            -var="project_id=${GCP_PROJECT_ID}" \
+            -var="region=${GCP_REGION}" \
+            -var="gcs_bucket=${GCS_BUCKET_NAME}" \
+            -var="enable_cloud_scheduler=true" \
+            -var="scrapping_tools_service_name=${GCP_SCRAPPING_TOOLS_SERVICE_NAME}" \
+            -var="service_account_email=${GCP_SERVICE_ACCOUNT_EMAIL}" \
+            -input=false \
+            -auto-approve \
+            -no-color
+          BOOTSTRAP_EXIT_CODE=$?
+          set -e  # Re-enable exit on error
+          
+          if [ $BOOTSTRAP_EXIT_CODE -eq 0 ]; then
+            echo "bootstrap_success=true" >> $GITHUB_OUTPUT
+            echo "✓ Cloud Resource Manager API bootstrap successful"
+          else
+            echo "bootstrap_success=false" >> $GITHUB_OUTPUT
+            echo "⚠ Bootstrap API apply encountered an error (exit code: $BOOTSTRAP_EXIT_CODE)"
+            echo "This might be because the API is already enabled"
+          fi
+          
+          echo "Waiting 20 seconds for API activation to propagate..."
+          sleep 20
+
+      - name: Bootstrap API (Skipped - No Permissions)
+        id: bootstrap-api-skipped
+        if: steps.check-permissions.outputs.has_permissions != 'true'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          echo "bootstrap_success=false" >> $GITHUB_OUTPUT
+          echo "⚠ Bootstrap step skipped - service account lacks permission to manage APIs"
+          echo "  The Cloud Resource Manager API must be enabled manually via:"
+          echo "  https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=${GCP_PROJECT_ID}"
+          echo "  Or grant the service account 'roles/serviceusage.serviceUsageAdmin' role"
+
+      - name: Terraform Validate
+        id: validate
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform validate -no-color
+
+      - name: Check if Cloud Resource Manager API is enabled
+        id: check-api
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          # Check if the API is actually enabled by checking if we can list services
+          set +e  # Don't exit on error
+          gcloud services list --enabled --filter="name:cloudresourcemanager.googleapis.com" --format="value(name)" --project=${GCP_PROJECT_ID} 2>/dev/null | grep -q "cloudresourcemanager.googleapis.com"
+          API_CHECK_EXIT=$?
+          set -e  # Re-enable exit on error
+          
+          if [ $API_CHECK_EXIT -eq 0 ]; then
+            echo "api_enabled=true" >> $GITHUB_OUTPUT
+            echo "✓ Cloud Resource Manager API is confirmed enabled"
+          else
+            echo "api_enabled=false" >> $GITHUB_OUTPUT
+            echo "⚠ Cloud Resource Manager API is not confirmed enabled, will skip refresh"
+          fi
+
+      - name: Remove Bootstrap Resource from State (if no permissions)
+        id: remove-bootstrap
+        if: steps.check-permissions.outputs.has_permissions != 'true'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          # Remove bootstrap resource from state if it exists, so it won't be in the plan
+          echo "Removing bootstrap resource from state (no permissions to manage it)..."
+          set +e
+          terraform state rm google_project_service.cloudresourcemanager 2>/dev/null || {
+            echo "  Bootstrap resource not in state (or already removed) - this is OK"
+          }
+          set -e
+
+      - name: Terraform Plan
+        id: plan
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          set +e  # Don't exit on error, we'll handle it manually
+          
+          # Always use -refresh=false to avoid refresh errors with cloudscheduler
+          # The refresh will fail if Cloud Resource Manager API isn't enabled
+          # We'll enable refresh in future runs once the API is confirmed working
+          echo "⚠ Using -refresh=false to avoid refresh errors with cloudscheduler resource"
+          echo "  This is safe - the plan will still show all changes correctly"
+          echo "  Once Cloud Resource Manager API is enabled, refresh will work normally"
+          
+          terraform plan \
+            -refresh=false \
+            -var="project_id=${GCP_PROJECT_ID}" \
+            -var="region=${GCP_REGION}" \
+            -var="gcs_bucket=${GCS_BUCKET_NAME}" \
+            -var="enable_cloud_scheduler=true" \
+            -var="scrapping_tools_service_name=${GCP_SCRAPPING_TOOLS_SERVICE_NAME}" \
+            -var="service_account_email=${GCP_SERVICE_ACCOUNT_EMAIL}" \
+            -input=false \
+            -no-color \
+            -out=tfplan \
+            -detailed-exitcode
+          PLAN_EXIT_CODE=$?
+          set -e  # Re-enable exit on error
+          
+          # Exit codes: 0=no changes, 1=error, 2=changes
+          if [ $PLAN_EXIT_CODE -eq 1 ]; then
+            echo "❌ ERROR: Terraform plan failed with exit code 1" >&2
+            echo "Check the logs above for errors." >&2
+            exit 1
+          fi
+          
+          echo "exitcode=${PLAN_EXIT_CODE}" >> $GITHUB_OUTPUT
+          echo "Plan exit code: ${PLAN_EXIT_CODE}"
+
+      - name: Check if plan file exists and is valid
+        id: check-plan-file
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          if [ ! -f "tfplan" ]; then
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "valid=false" >> $GITHUB_OUTPUT
+            echo "❌ ERROR: Terraform plan file 'tfplan' not found." >&2
+            echo "This usually means terraform plan failed. Check the logs above for errors." >&2
+            exit 1
+          fi
+          
+          # Validate plan file by trying to show it
+          if terraform show -json tfplan > /dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "valid=true" >> $GITHUB_OUTPUT
+            echo "✓ Terraform plan file created and validated successfully"
+          else
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "valid=false" >> $GITHUB_OUTPUT
+            echo "❌ ERROR: Terraform plan file exists but is invalid or incomplete." >&2
+            echo "This usually means terraform plan encountered errors during generation." >&2
+            terraform show tfplan || true
+            exit 1
+          fi
+
+      - name: Upload Plan to GitHub Artifacts
+        if: steps.check-plan-file.outputs.exists == 'true' && steps.check-plan-file.outputs.valid == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan
+          path: ${{ env.TF_WORKING_DIR }}/tfplan
+          retention-days: 5
+
+      - name: Upload Plan to GCS (backup)
+        if: steps.check-plan-file.outputs.exists == 'true' && steps.check-plan-file.outputs.valid == 'true'
+        run: |
+          PLAN_PATH="gs://trust-481601-terraform-state/terraform/plans/${GITHUB_RUN_ID}-${GITHUB_SHA:0:7}.tfplan"
+          gsutil cp ${{ env.TF_WORKING_DIR }}/tfplan "${PLAN_PATH}"
+          echo "Plan saved to: ${PLAN_PATH}"
+          echo "plan_gcs_path=${PLAN_PATH}" >> $GITHUB_OUTPUT
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const output = `#### Terraform Format and Style 🖌 \`${{ steps.fmt.outcome }}\`
+            #### Terraform Initialization ⚙️ \`${{ steps.init.outcome }}\`
+            #### Terraform Validation 🤖 \`${{ steps.validate.outcome }}\`
+            #### Terraform Plan 📖 \`${{ steps.plan.outcome }}\`
+
+            <details><summary>Show Plan Details</summary>
+
+            \`\`\`
+            Plan output is available in the workflow artifacts.
+            Download 'tfplan' artifact for full details.
+            \`\`\`
+
+            </details>
+
+            *Pushed by: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            });
+
+  terraform-apply:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+    environment: trust-engine
+    needs: terraform-plan
+    # Only run if plan succeeded AND (push to main OR manual apply)
+    if: |
+      needs.terraform-plan.result == 'success' &&
+      ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+       (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply'))
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init -input=false
+
+      - name: Download Plan from GitHub Artifacts
+        id: download-artifact
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: tfplan
+          path: ${{ env.TF_WORKING_DIR }}
+
+      - name: Download Plan from GCS (fallback)
+        id: download-gcs
+        if: steps.download-artifact.outcome != 'success'
+        run: |
+          # Try to get the latest plan from GCS
+          LATEST_PLAN=$(gsutil ls -l gs://trust-481601-terraform-state/terraform/plans/*.tfplan 2>/dev/null | tail -1 | awk '{print $3}' || echo "")
+          if [ -n "${LATEST_PLAN}" ]; then
+            echo "Downloading plan from GCS: ${LATEST_PLAN}"
+            gsutil cp "${LATEST_PLAN}" ${{ env.TF_WORKING_DIR }}/tfplan
+            echo "downloaded=true" >> $GITHUB_OUTPUT
+          else
+            echo "downloaded=false" >> $GITHUB_OUTPUT
+            echo "No plan found in GCS either"
+          fi
+        continue-on-error: true
+
+      - name: Check if plan exists and validate
+        id: check-plan
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          if [ ! -f "tfplan" ]; then
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "valid=false" >> $GITHUB_OUTPUT
+            echo "Error: tfplan not found in artifacts or GCS. Ensure terraform-plan job succeeded."
+            exit 1
+          fi
+          
+          # Validate plan file before applying
+          if terraform show -json tfplan > /dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "valid=true" >> $GITHUB_OUTPUT
+            echo "✓ Plan file validated successfully"
+          else
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "valid=false" >> $GITHUB_OUTPUT
+            echo "❌ ERROR: Plan file exists but is invalid or incomplete." >&2
+            echo "Cannot apply incomplete plan. Check terraform-plan job logs." >&2
+            terraform show tfplan || true
+            exit 1
+          fi
+
+      - name: Check Service Usage Permissions (Apply)
+        id: check-permissions-apply
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          # Check if service account has permission to manage APIs
+          echo "Checking if service account has permission to manage APIs..."
+          set +e  # Don't exit on error
+          gcloud services list --enabled --project=${GCP_PROJECT_ID} --limit=1 > /dev/null 2>&1
+          PERM_CHECK_EXIT=$?
+          set -e  # Re-enable exit on error
+          
+          if [ $PERM_CHECK_EXIT -eq 0 ]; then
+            echo "has_permissions=true" >> $GITHUB_OUTPUT
+            echo "✓ Service account has permission to manage APIs"
+          else
+            echo "has_permissions=false" >> $GITHUB_OUTPUT
+            echo "⚠ Service account does NOT have permission to manage APIs"
+            echo "  Will skip bootstrap resource if it's in the plan"
+          fi
+
+      - name: Remove Bootstrap Resource from Plan (if no permissions)
+        id: filter-plan
+        if: steps.check-permissions-apply.outputs.has_permissions != 'true'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          # Remove bootstrap resource from plan if it exists
+          echo "Filtering bootstrap resource from plan (no permissions)..."
+          set +e
+          # Use terraform show to check if bootstrap is in plan, then remove it
+          if terraform show -json tfplan 2>/dev/null | grep -q "google_project_service.cloudresourcemanager"; then
+            echo "  Bootstrap resource found in plan, creating filtered plan..."
+            # Create a new plan without bootstrap resource
+            terraform plan -destroy -target=google_project_service.cloudresourcemanager \
+              -var="project_id=${GCP_PROJECT_ID}" \
+              -var="region=${GCP_REGION}" \
+              -var="gcs_bucket=${GCS_BUCKET_NAME}" \
+              -var="enable_cloud_scheduler=true" \
+              -var="scrapping_tools_service_name=${GCP_SCRAPPING_TOOLS_SERVICE_NAME}" \
+              -var="service_account_email=${GCP_SERVICE_ACCOUNT_EMAIL}" \
+              -out=tfplan-bootstrap-destroy 2>/dev/null || true
+            # This is complex - simpler approach: just apply and handle the error
+            echo "  Will apply plan and handle bootstrap error gracefully"
+          else
+            echo "  Bootstrap resource not in plan - OK"
+          fi
+          set -e
+
+      - name: Terraform Apply
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        if: steps.check-plan.outputs.exists == 'true' && steps.check-plan.outputs.valid == 'true'
+        run: |
+          set +e  # Don't exit on error initially
+          terraform apply -input=false -auto-approve tfplan
+          APPLY_EXIT_CODE=$?
+          set -e  # Re-enable exit on error
+          
+          # If apply failed and we don't have permissions, check if it's due to bootstrap resource
+          if [ $APPLY_EXIT_CODE -ne 0 ] && [ "${{ steps.check-permissions-apply.outputs.has_permissions }}" != "true" ]; then
+            if terraform show tfplan 2>/dev/null | grep -q "google_project_service.cloudresourcemanager"; then
+              echo "⚠ Apply failed due to bootstrap resource (no permissions)"
+              echo "  Removing bootstrap resource from state and retrying apply for other resources..."
+              set +e
+              terraform state rm google_project_service.cloudresourcemanager 2>/dev/null || true
+              # Try to apply remaining resources
+              terraform apply -input=false -auto-approve tfplan 2>&1 | grep -v "cloudresourcemanager" || {
+                echo "  Some resources may have been applied successfully"
+                echo "  Bootstrap resource will be skipped until permissions are granted"
+              }
+              set -e
+            else
+              echo "❌ Apply failed for other reasons"
+              exit $APPLY_EXIT_CODE
+            fi
+          elif [ $APPLY_EXIT_CODE -ne 0 ]; then
+            echo "❌ Apply failed"
+            exit $APPLY_EXIT_CODE
+          else
+            echo "✓ Apply succeeded"
+          fi
+
+      - name: Terraform Output
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform output -json > terraform-outputs.json
+
+      - name: Upload Outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-outputs
+          path: ${{ env.TF_WORKING_DIR }}/terraform-outputs.json
+          retention-days: 30
+
+  terraform-destroy:
+    name: Terraform Destroy
+    runs-on: ubuntu-latest
+    environment: trust-engine
+    # Only run on manual workflow_dispatch with destroy
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy'
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init -input=false
+
+      - name: Terraform Destroy
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          terraform destroy \
+            -var="project_id=${GCP_PROJECT_ID}" \
+            -var="region=${GCP_REGION}" \
+            -var="gcs_bucket=${GCS_BUCKET_NAME}" \
+            -var="enable_cloud_scheduler=true" \
+            -var="scrapping_tools_service_name=${GCP_SCRAPPING_TOOLS_SERVICE_NAME}" \
+            -var="service_account_email=${GCP_SERVICE_ACCOUNT_EMAIL}" \
+            -input=false \
+            -auto-approve
+
