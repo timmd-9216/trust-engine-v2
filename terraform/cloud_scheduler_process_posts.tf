@@ -1,13 +1,6 @@
-variable "project_id" {
-  description = "GCP project ID"
-  type        = string
-}
-
-variable "region" {
-  description = "GCP region for Cloud Scheduler"
-  type        = string
-  default     = "us-east1"
-}
+# Cloud Scheduler for Processing Posts
+#
+# Variables project_id and region are defined in variables.tf
 
 variable "scrapping_tools_service_name" {
   description = "Name of the Cloud Run service for scrapping-tools"
@@ -55,10 +48,7 @@ variable "process_jobs_schedule" {
   default     = "30 * * * *"
 }
 
-provider "google" {
-  project = var.project_id
-  region  = var.region
-}
+# Provider is configured in versions.tf
 
 # Enable Cloud Scheduler API
 resource "google_project_service" "cloudscheduler" {
@@ -86,7 +76,7 @@ resource "google_cloud_scheduler_job" "process_posts" {
   attempt_deadline = "320s"
 
   http_target {
-    uri         = "${data.google_cloud_run_service.scrapping_tools.status.url}/process-posts?max_posts=${var.max_posts}"
+    uri         = "${data.google_cloud_run_service.scrapping_tools.status[0].url}/process-posts?max_posts=${var.max_posts}"
     http_method = "POST"
 
     oidc_token {
@@ -112,7 +102,7 @@ output "scheduler_job_id" {
 
 output "endpoint_url" {
   description = "Full endpoint URL that will be called"
-  value       = "${data.google_cloud_run_service.scrapping_tools.status.url}/process-posts?max_posts=${var.max_posts}"
+  value       = "${data.google_cloud_run_service.scrapping_tools.status[0].url}/process-posts?max_posts=${var.max_posts}"
 }
 
 # Second scheduler for processing pending jobs
@@ -126,7 +116,7 @@ resource "google_cloud_scheduler_job" "process_jobs" {
   attempt_deadline = "320s"
 
   http_target {
-    uri         = "${data.google_cloud_run_service.scrapping_tools.status.url}/process-jobs"
+    uri         = "${data.google_cloud_run_service.scrapping_tools.status[0].url}/process-jobs"
     http_method = "POST"
 
     oidc_token {
@@ -152,6 +142,6 @@ output "process_jobs_scheduler_job_id" {
 
 output "process_jobs_endpoint_url" {
   description = "Full endpoint URL that will be called for process-jobs"
-  value       = "${data.google_cloud_run_service.scrapping_tools.status.url}/process-jobs"
+  value       = "${data.google_cloud_run_service.scrapping_tools.status[0].url}/process-jobs"
 }
 

@@ -78,65 +78,65 @@ resource "google_workflows_workflow" "trust_api" {
       steps:
         - init:
             assign:
-              - bucket: ${event["data"]["bucket"]}
-              - object: ${event["data"]["name"]}
-              - prefix: ${sys.get_env("SOURCE_PREFIX")}
-              - source_bucket_env: ${sys.get_env("SOURCE_BUCKET_NAME")}
+              - bucket: $${event["data"]["bucket"]}
+              - object: $${event["data"]["name"]}
+              - prefix: $${sys.get_env("SOURCE_PREFIX")}
+              - source_bucket_env: $${sys.get_env("SOURCE_BUCKET_NAME")}
         - validate_bucket:
             switch:
-              - condition: ${bucket != source_bucket_env}
+              - condition: $${bucket != source_bucket_env}
                 next: skip_wrong_bucket
         - check_prefix:
             switch:
-              - condition: ${prefix != "" and not object.startsWith(prefix)}
+              - condition: $${prefix != "" and not object.startsWith(prefix)}
                 next: skip_prefix
         - check_extension:
             switch:
-              - condition: ${not object.lower().endsWith(".csv")}
+              - condition: $${not object.lower().endsWith(".csv")}
                 next: skip_non_csv
         - call_trust_api:
             call: http.post
             args:
-              url: ${sys.get_env("TRUST_API_URL")}
+              url: $${sys.get_env("TRUST_API_URL")}
               auth:
                 type: OIDC
               headers:
                 Content-Type: application/json
               body:
-                gcs_uri: ${"gs://" + bucket + "/" + object}
+                gcs_uri: $${"gs://" + bucket + "/" + object}
             result: trust_api_response
         - serialize_response:
             assign:
-              - output_content: ${json.encode_to_string(trust_api_response.body)}
-              - output_name: ${object + ".json"}
+              - output_content: $${json.encode_to_string(trust_api_response.body)}
+              - output_name: $${object + ".json"}
         - write_output:
             call: googleapis.storage.v1.objects.insert
             args:
-              bucket: ${sys.get_env("OUTPUT_BUCKET")}
-              name: ${output_name}
+              bucket: $${sys.get_env("OUTPUT_BUCKET")}
+              name: $${output_name}
               media:
                 mimeType: application/json
-                data: ${output_content}
+                data: $${output_content}
             result: storage_result
         - done:
             return:
-              source: ${"gs://" + bucket + "/" + object}
-              output: ${"gs://" + sys.get_env("OUTPUT_BUCKET") + "/" + output_name}
+              source: $${"gs://" + bucket + "/" + object}
+              output: $${"gs://" + sys.get_env("OUTPUT_BUCKET") + "/" + output_name}
         - skip_non_csv:
             return:
               skipped: true
               reason: "Non-CSV object"
-              object: ${object}
+              object: $${object}
         - skip_prefix:
             return:
               skipped: true
               reason: "Prefix mismatch"
-              object: ${object}
+              object: $${object}
         - skip_wrong_bucket:
             return:
               skipped: true
               reason: "Bucket mismatch"
-              object: ${object}
+              object: $${object}
     YAML
 }
 
@@ -145,17 +145,17 @@ resource "google_eventarc_trigger" "trust_api" {
   location = var.region
   project  = var.project_id
 
-  event_filters {
+  matching_criteria {
     attribute = "type"
     value     = "google.cloud.storage.object.v1.finalized"
   }
 
-  event_filters {
+  matching_criteria {
     attribute = "bucket"
     value     = var.source_bucket
   }
 
-  dynamic "event_filters" {
+  dynamic "matching_criteria" {
     for_each = var.source_prefix != "" ? [1] : []
     content {
       attribute = "objectNamePrefix"

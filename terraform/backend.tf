@@ -16,7 +16,7 @@
 
 terraform {
   backend "gcs" {
-    bucket = "trust-engine-terraform-state"
+    bucket = "trust-481601-terraform-state"
     prefix = "terraform/state"
   }
 }
