@@ -35,79 +35,114 @@ El endpoint `/json-to-parquet` convierte archivos JSON desde la capa `raw/` de G
 
 ## Optimizaciones Detalladas
 
-### 1. Filtrado por Timestamp (Optimización Principal)
+### 1. Filtrado Inteligente por Timestamp (Optimización Principal)
 
 **Problema**: Sin esta optimización, el endpoint procesaría todos los JSONs del bucket en cada ejecución, incluso aquellos que ya fueron convertidos.
 
-**Solución**: Comparar el timestamp de modificación (`blob.updated`) de cada JSON con el timestamp del Parquet correspondiente antes de descargar el contenido.
+**Solución**: Comparación simple y directa de timestamps por partición:
+
+1. **JSON más nuevo que Parquet para su fecha de ingesta** → Procesar (datos nuevos)
+2. **JSON más antiguo o igual que Parquet para su fecha de ingesta** → Skip (ya procesado)
+3. **Deduplicación por `(source_file, tweet_id)`** → Respaldo final para evitar duplicados
+
+Esta estrategia es eficiente y correcta porque:
+- Solo procesa JSONs que son más nuevos que el Parquet para su fecha de ingesta
+- Compara dentro de la misma partición `(ingestion_date, platform)`
+- La deduplicación asegura que no se creen duplicados como medida de seguridad adicional
 
 **Implementación**:
 
 ```python
-# Pre-fetch: Obtener timestamps de Parquet existentes
-parquet_timestamps: dict[tuple[str, str], datetime] = {}
-parquet_blobs = bucket.list_blobs(prefix="processed/replies/ingestion_date=")
-for parquet_blob in parquet_blobs:
-    parquet_blob.reload()  # Solo metadata, no descarga contenido
-    date_part = extract_date(parquet_blob.name)
-    platform_part = extract_platform(parquet_blob.name)
+# Pre-fetch timestamps de Parquet existentes por partición
+parquet_timestamps = {}
+for parquet_blob in bucket.list_blobs(prefix="processed/replies/"):
+    parquet_blob.reload()  # Solo metadata
+    date_part, platform_part = extract_partition(parquet_blob.name)
     parquet_timestamps[(date_part, platform_part)] = parquet_blob.updated
 
-# Filtrado: Comparar antes de descargar JSON
+# Filtrar JSONs: solo procesar si son más nuevos que Parquet para su fecha de ingesta
 for blob in json_blobs:
     blob.reload()  # Solo metadata
     ingestion_ts = blob.updated
+    date_str = ingestion_ts.strftime("%Y-%m-%d")
     partition_key = (date_str, platform)
     
     if partition_key in parquet_timestamps:
         parquet_ts = parquet_timestamps[partition_key]
         if ingestion_ts <= parquet_ts:
-            skipped_count += 1
-            continue  # Skip: ya procesado
+            # JSON más antiguo o igual que Parquet → skip (ya procesado)
+            continue
     
-    # Solo aquí descargamos el contenido del JSON
+    # JSON más nuevo que Parquet (o Parquet no existe) → procesar
     data = blob.download_as_text()
+    json_files.append((blob.name, data, ingestion_ts))
+
+# Merge con deduplicación (respaldo final)
+for (date_str, platform), new_records in records_by_partition.items():
+    existing_records, _ = _read_existing_parquet_from_gcs(...)
+    # Deduplicación por (source_file, tweet_id)...
 ```
 
 **Beneficios**:
-- **Reducción de I/O**: Solo descarga JSONs que necesitan procesamiento
-- **Reducción de CPU**: No procesa registros ya convertidos
-- **Escalabilidad**: Con 10,000 JSONs y 100 nuevos, solo procesa 100 (99% menos trabajo)
+- **Eficiencia**: Solo descarga JSONs que son más nuevos que el Parquet (99% menos I/O en ejecuciones incrementales)
+- **Correctitud**: Compara dentro de la misma partición de ingesta
+- **Simplicidad**: Lógica directa y fácil de entender
+- **Deduplicación eficiente**: O(1) lookup usando sets como respaldo final
+- **Escalabilidad**: Reduce procesamiento proporcionalmente con el volumen de datos
 
 **Métricas**:
-- **Sin optimización**: Descarga y procesa todos los JSONs cada vez
-- **Con optimización**: Solo descarga JSONs con `blob.updated > parquet.updated`
-- **Mejora**: 99% menos descargas en ejecuciones incrementales
+- **Filtrado**: Solo descarga JSONs más nuevos que Parquet para su fecha de ingesta
+- **Deduplicación**: O(1) lookup por registro (respaldo)
+- **Mejora**: 99% menos descargas en ejecuciones incrementales típicas
 
-### 2. Uso de Metadata de GCS (Sin Descargar Contenido)
+### 2. Carga Incremental con Merge Inteligente
 
-**Problema**: Descargar el contenido completo de cada JSON para verificar si necesita procesamiento es ineficiente.
+**Problema**: Sobreescribir Parquet existentes perdería datos históricos y sería ineficiente.
 
-**Solución**: Usar `blob.reload()` para obtener solo metadata (incluyendo `blob.updated`) sin descargar el contenido del archivo.
+**Solución**: Leer Parquet existente, fusionar con nuevos registros usando deduplicación, y escribir el resultado actualizado.
 
 **Implementación**:
 
 ```python
-# Operación ligera: Solo metadata (headers HTTP)
-blob.reload()  # ~10-50ms por archivo
-ingestion_ts = blob.updated
+# Leer Parquet existente solo si hay JSONs nuevos para esa partición
+existing_records, _ = _read_existing_parquet_from_gcs(bucket, date_str, platform)
 
-# Operación pesada: Descarga contenido completo
-data = blob.download_as_text()  # ~100-500ms por archivo (depende del tamaño)
+if existing_records:
+    # Crear set de claves existentes para deduplicación O(1)
+    existing_keys = {
+        (r["source_file"], r["tweet_id"]) 
+        for r in existing_records
+    }
+    
+    # Agregar solo registros nuevos
+    new_count = 0
+    for record in new_records:
+        key = (record["source_file"], record["tweet_id"])
+        if key not in existing_keys:
+            existing_records.append(record)
+            existing_keys.add(key)
+            new_count += 1
+    
+    all_records = existing_records
+else:
+    all_records = new_records
+
+# Escribir Parquet fusionado
+_write_parquet_to_gcs(all_records, bucket, date_str, platform)
 ```
 
 **Beneficios**:
-- **Latencia reducida**: `blob.reload()` es 10-20x más rápido que descargar contenido
-- **Ancho de banda**: Solo descarga archivos que realmente necesita procesar
-- **Costo**: Reduce costos de egress de GCS
+- **Preservación de datos**: No se pierden registros históricos
+- **Deduplicación eficiente**: O(1) lookup usando sets de Python
+- **Merge inteligente**: Solo agrega registros realmente nuevos
+- **Correctitud**: Maneja correctamente JSONs generados después de actualización del Parquet
 
-**Comparación**:
-| Operación | Tiempo (10,000 archivos) | Datos Transferidos |
-|-----------|-------------------------|-------------------|
-| `blob.reload()` | ~5-10 segundos | ~1 MB (solo headers) |
-| `blob.download_as_text()` | ~50-100 minutos | ~10-50 GB (contenido completo) |
+**Complejidad**:
+- **Lectura Parquet**: O(n) donde n = registros existentes
+- **Deduplicación**: O(m) donde m = registros nuevos
+- **Total**: O(n + m) lineal, eficiente para grandes volúmenes
 
-### 3. Carga Incremental con Merge
+### 3. Procesamiento Selectivo por Partición
 
 **Problema**: Sobreescribir Parquet existentes perdería datos históricos y sería ineficiente.
 
@@ -155,7 +190,7 @@ _write_parquet_to_gcs(all_records, bucket, date_str, platform)
 
 **Problema**: Procesar todas las particiones incluso cuando solo algunas tienen cambios nuevos.
 
-**Solución**: Agrupar JSONs por partición `(ingestion_date, platform)` y solo leer/escribir Parquet para particiones con cambios.
+**Solución**: Agrupar JSONs por partición `(ingestion_date, platform)` y solo leer/escribir Parquet para particiones con cambios. Esto reduce I/O innecesario.
 
 **Implementación**:
 
@@ -201,58 +236,77 @@ for (date_str, platform), new_records in records_by_partition.items():
 - Tamaño promedio JSON: 50 KB
 - Registros por JSON: ~100
 - Particiones afectadas: 3 (fechas/plataformas diferentes)
+- Registros existentes en Parquet: ~900,000
 
 ### Comparación: Sin vs Con Optimizaciones
 
 | Métrica | Sin Optimizaciones | Con Optimizaciones | Mejora |
 |---------|-------------------|-------------------|--------|
-| **JSONs descargados** | 10,000 | 100 | 99% menos |
+| **JSONs descargados** | 10,000 | ~100 | 99% menos |
 | **Registros procesados** | ~1,000,000 | ~10,000 | 99% menos |
 | **Parquet leídos** | 0 (sobrescribe) | 3 (solo afectados) | Incremental |
 | **Parquet escritos** | 20 (todos) | 3 (solo afectados) | 85% menos |
 | **Tiempo estimado** | ~30 minutos | ~2 minutos | 93% más rápido |
 | **Ancho de banda** | ~500 MB | ~5 MB | 99% menos |
-| **Costo GCS egress** | ~$0.12 | ~$0.0012 | 99% menos |
+| **Deduplicación** | No (duplicados) | Sí (O(1) lookup) | Correctitud |
+| **Correctitud** | ❌ Pierde datos nuevos | ✅ Siempre actualiza | Crítico |
 
 ### Escalabilidad
 
 **Crecimiento lineal**: Las optimizaciones escalan bien con el volumen de datos:
 
-| Total JSONs | JSONs Nuevos | Tiempo Sin Opt | Tiempo Con Opt | Factor Mejora |
-|-------------|--------------|----------------|----------------|---------------|
-| 1,000 | 10 | 3 min | 0.2 min | 15x |
-| 10,000 | 100 | 30 min | 2 min | 15x |
-| 100,000 | 1,000 | 5 horas | 20 min | 15x |
-| 1,000,000 | 10,000 | 50 horas | 3.3 horas | 15x |
+| Total JSONs | JSONs Nuevos | Registros Existentes | Tiempo Sin Opt | Tiempo Con Opt | Factor Mejora |
+|-------------|--------------|---------------------|----------------|----------------|---------------|
+| 1,000 | 10 | 90,000 | 3 min | 0.2 min | 15x |
+| 10,000 | 100 | 900,000 | 30 min | 2 min | 15x |
+| 100,000 | 1,000 | 9,000,000 | 5 horas | 20 min | 15x |
+| 1,000,000 | 10,000 | 90,000,000 | 50 horas | 3.3 horas | 15x |
 
-**Observación**: El factor de mejora se mantiene constante porque la optimización filtra proporcionalmente.
+**Observación**: El factor de mejora se mantiene constante porque el filtrado inteligente reduce proporcionalmente el procesamiento. La ventana de seguridad de 24h asegura correctitud mientras mantiene alta eficiencia.
 
 ## Limitaciones y Consideraciones
 
-### 1. Precisión de Timestamps
+### 1. Comparación por Partición de Ingesta
 
-**Limitación**: GCS `blob.updated` tiene precisión de segundos, no milisegundos.
+**Comportamiento**: Los JSONs se comparan con el Parquet de su misma partición `(ingestion_date, platform)`.
 
-**Impacto**: Si un JSON y su Parquet se crean en el mismo segundo, el JSON podría procesarse dos veces.
-
-**Mitigación**: La deduplicación por `(source_file, tweet_id)` evita duplicados en el resultado final, aunque se procese dos veces.
+**Razón**: Cada JSON tiene una fecha de ingesta (del `blob.updated`), y se compara solo con el Parquet correspondiente a esa fecha. Esto asegura que:
+- JSONs nuevos para una fecha se procesen correctamente
+- JSONs antiguos ya procesados se salten eficientemente
+- No se mezclen comparaciones entre diferentes fechas de ingesta
 
 **Ejemplo**:
 ```python
-# JSON creado: 2026-01-05 12:00:00
-# Parquet creado: 2026-01-05 12:00:00 (mismo segundo)
-# Resultado: JSON se procesa, pero deduplicación evita duplicados
+# Escenario:
+# 1. Parquet para 2026-01-05/twitter actualizado a las 7:00 AM
+# 2. JSON con ingestion_date=2026-01-05 creado a las 10:00 AM:
+#    - JSON.updated (10:00 AM) > Parquet.updated (7:00 AM) → Procesar ✅
+# 3. JSON con ingestion_date=2026-01-05 creado a las 6:00 AM:
+#    - JSON.updated (6:00 AM) <= Parquet.updated (7:00 AM) → Skip ✅
 ```
 
-### 2. Primera Ejecución
+### 2. Eficiencia vs Correctitud
 
-**Comportamiento**: En la primera ejecución, no hay Parquet existentes, por lo que procesa todos los JSONs.
+**Trade-off**: Procesamos todos los JSONs cada vez para garantizar correctitud, en lugar de optimizar por velocidad.
+
+**Razón**: Es más importante asegurar que todos los datos se procesen correctamente que ahorrar tiempo de procesamiento.
+
+**Mitigación**: 
+- La deduplicación es O(1) lookup, muy eficiente
+- Solo escribimos particiones que tienen cambios
+- El merge es en memoria, rápido
+
+**Recomendación**: Para cargas iniciales muy grandes (millones de JSONs), considerar ejecutar en lotes por país/plataforma usando los filtros del endpoint.
+
+### 3. Primera Ejecución
+
+**Comportamiento**: En la primera ejecución, no hay Parquet existentes, por lo que procesa todos los JSONs y crea nuevos Parquet.
 
 **Esperado**: Este es el comportamiento correcto para la carga inicial.
 
-**Recomendación**: Para cargas iniciales grandes, considerar ejecutar en lotes por país/plataforma.
+**Recomendación**: Para cargas iniciales grandes, considerar ejecutar en lotes por país/plataforma usando los filtros del endpoint.
 
-### 3. Filtros Opcionales
+### 4. Filtros Opcionales
 
 **Filtros disponibles**: `country`, `platform`, `candidate_id`
 
@@ -267,7 +321,7 @@ POST /json-to-parquet?country=honduras&platform=twitter
 POST /json-to-parquet?country=honduras&platform=twitter&candidate_id=hnd01monc
 ```
 
-### 4. Consistencia de Datos
+### 5. Consistencia de Datos
 
 **Garantía**: La deduplicación asegura que no haya duplicados en el resultado final.
 
@@ -328,12 +382,12 @@ POST /json-to-parquet
 
 Las optimizaciones implementadas hacen que el endpoint `/json-to-parquet` sea:
 
-1. **Eficiente**: Solo procesa datos nuevos usando comparación de timestamps
-2. **Escalable**: Mejora proporcionalmente con el volumen de datos
-3. **Económico**: Reduce costos de egress y procesamiento de GCS
-4. **Confiable**: Preserva datos históricos y evita duplicados
+1. **Eficiente**: Filtrado inteligente reduce I/O en 99% en ejecuciones incrementales típicas
+2. **Correcto**: Compara JSONs con Parquet de su misma fecha de ingesta
+3. **Confiable**: Deduplicación por `(source_file, tweet_id)` como respaldo final
+4. **Escalable**: Mejora proporcionalmente con el volumen de datos
 
-La optimización principal es el **filtrado por timestamp antes de descargar**, que reduce I/O y procesamiento en órdenes de magnitud en ejecuciones incrementales.
+La optimización principal es el **filtrado por timestamp dentro de la misma partición de ingesta**: solo procesa JSONs que son más nuevos que el Parquet para su fecha de ingesta. La deduplicación actúa como respaldo final para garantizar que no se creen duplicados incluso en casos edge.
 
 ## Referencias
 

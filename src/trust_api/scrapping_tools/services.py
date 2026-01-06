@@ -1960,9 +1960,13 @@ def json_to_parquet_service(
             if platform:
                 prefix = f"{prefix}/{platform}"
 
-        # First, get last modified timestamps for existing Parquet files per partition
-        # This allows us to skip JSONs that were already processed
-        # OPTIMIZATION: Pre-fetch Parquet timestamps to avoid reading JSONs unnecessarily
+        # OPTIMIZATION: Only process JSONs newer than Parquet for each ingestion date partition
+        # Strategy: Compare JSON.updated with Parquet.updated for same (ingestion_date, platform)
+        # - Only download JSON content if JSON.updated > Parquet.updated
+        # - This avoids downloading JSONs that were already processed
+        # - Deduplication by (source_file, tweet_id) ensures no duplicates as final safety net
+
+        # Get Parquet timestamps per partition
         parquet_timestamps: dict[tuple[str, str], datetime] = {}
         parquet_prefix = "processed/replies/ingestion_date="
         parquet_blobs = bucket.list_blobs(prefix=parquet_prefix)
@@ -1970,26 +1974,23 @@ def json_to_parquet_service(
         for parquet_blob in parquet_blobs:
             if not parquet_blob.name.endswith(".parquet"):
                 continue
-            # Extract date and platform from path
-            # Format: processed/replies/ingestion_date=YYYY-MM-DD/platform=XXX/data.parquet
             parts = parquet_blob.name.split("/")
             if len(parts) >= 4:
                 date_part = parts[2].replace("ingestion_date=", "")
                 platform_part = parts[3].replace("platform=", "")
 
-                # Apply platform filter if specified
                 if platform and platform_part != platform:
                     continue
 
                 try:
-                    parquet_blob.reload()
+                    parquet_blob.reload()  # Only metadata, not content
                     if parquet_blob.updated:
                         parquet_timestamps[(date_part, platform_part)] = parquet_blob.updated
                 except Exception as e:
                     logger.debug(f"Could not get timestamp for {parquet_blob.name}: {e}")
                     continue
 
-        # Read JSON files from GCS with incremental optimization
+        # Process JSONs: only download content for those newer than Parquet
         json_files = []
         skipped_count = 0
         blobs = bucket.list_blobs(prefix=prefix)
@@ -1998,42 +1999,38 @@ def json_to_parquet_service(
             if not blob.name.lower().endswith(".json"):
                 continue
 
-            # Only process files in the correct structure: raw/{country}/{platform}/{candidate_id}/{post_id}.json
             parts = blob.name.split("/")
             path_parts = parts[1:] if parts[0] == "raw" else parts
 
-            # Must have at least 4 parts: country, platform, candidate_id, post_id
             if len(path_parts) < 4:
                 continue
 
-            # Apply candidate filter if specified
             if candidate_id and candidate_id not in parts:
                 continue
 
             try:
-                # Get blob metadata (includes updated timestamp) without downloading content
+                # Get metadata only (blob.reload() reads headers, not content - lightweight)
                 blob.reload()
                 ingestion_ts = blob.updated or datetime.now(timezone.utc)
                 if ingestion_ts.tzinfo is None:
                     ingestion_ts = ingestion_ts.replace(tzinfo=timezone.utc)
 
-                # OPTIMIZATION: Skip JSONs that are older than the existing Parquet file
-                # This avoids reading and processing files that were already converted
+                # Determine partition based on ingestion date
                 date_str = ingestion_ts.strftime("%Y-%m-%d")
                 platform_from_path = path_parts[1] if len(path_parts) > 1 else ""
                 partition_key = (date_str, platform_from_path)
 
+                # Skip if JSON is older than or equal to Parquet for this partition
                 if partition_key in parquet_timestamps:
                     parquet_ts = parquet_timestamps[partition_key]
-                    # Only process if JSON is newer than Parquet (or equal, to handle same-second updates)
                     if ingestion_ts <= parquet_ts:
                         skipped_count += 1
                         continue
+                    # JSON is newer than Parquet → will process
 
-                # Download and parse JSON only for files that need processing
+                # Download JSON content only if it needs processing
                 raw = blob.download_as_text(encoding="utf-8")
                 data = json.loads(raw)
-
                 json_files.append((blob.name, data, ingestion_ts))
             except json.JSONDecodeError as e:
                 logger.warning(f"Invalid JSON in {blob.name}: {e}")
@@ -2046,7 +2043,7 @@ def json_to_parquet_service(
 
         if skipped_count > 0:
             logger.info(
-                f"Skipped {skipped_count} JSON files already processed (incremental optimization)"
+                f"Skipped {skipped_count} JSON files (already processed for their ingestion date)"
             )
 
         results["processed"] = len(json_files)
