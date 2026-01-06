@@ -9,19 +9,22 @@ This directory contains Terraform configurations for the Trust Engine infrastruc
 | `versions.tf` | Terraform and provider versions |
 | `backend.tf` | GCS backend for remote state |
 | `variables.tf` | Shared input variables |
+| `bootstrap_apis.tf` | Bootstrap API enablement (Cloud Resource Manager) |
 | `bigquery_external_tables.tf` | BigQuery dataset and external tables for analytics |
 | `cloud_scheduler_process_posts.tf` | Cloud Scheduler jobs for automated processing |
 | `workflow_nlp_process.tf` | Workflows and Eventarc for NLP processing |
 
 ## Prerequisites
 
-1. **GCP Project** with the following APIs enabled:
-   - Cloud Resource Manager API
-   - BigQuery API
-   - Cloud Scheduler API
-   - Workflows API
-   - Eventarc API
-   - Cloud Run API
+1. **GCP Project** - The following APIs will be enabled automatically by Terraform:
+   - Cloud Resource Manager API (enabled first via `bootstrap_apis.tf`)
+   - BigQuery API (enabled automatically when creating BigQuery resources)
+   - Cloud Scheduler API (enabled automatically when `enable_cloud_scheduler = true`)
+   - Workflows API (enabled automatically when creating workflows)
+   - Eventarc API (enabled automatically when creating triggers)
+   - Cloud Run API (enabled automatically when referencing Cloud Run services)
+
+   **Note**: If Cloud Resource Manager API is completely disabled, you may need to enable it manually first via the [GCP Console](https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview) before running Terraform.
 
 2. **Terraform state bucket** (one-time setup):
    ```bash

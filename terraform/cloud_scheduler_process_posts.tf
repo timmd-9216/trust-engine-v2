@@ -74,12 +74,15 @@ variable "json_to_parquet_schedule" {
 # Provider is configured in versions.tf
 
 # Enable Cloud Scheduler API
+# Depends on Cloud Resource Manager API (enabled in bootstrap_apis.tf)
 resource "google_project_service" "cloudscheduler" {
   count = var.enable_cloud_scheduler ? 1 : 0
 
   project            = var.project_id
   service            = "cloudscheduler.googleapis.com"
   disable_on_destroy = false
+
+  depends_on = [google_project_service.cloudresourcemanager]
 }
 
 # Get Cloud Run service URL
