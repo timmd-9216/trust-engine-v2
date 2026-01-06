@@ -1242,10 +1242,12 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                             "retry_count": retry_count,
                             "retry_timestamp": now.isoformat(),
                             "previous_file_existed": True,
+                            "older_version": existing_file,  # Include the previous version
                         }
                         logger.info(
                             f"Retrying job {job_id} (retry #{retry_count}). "
-                            f"Overwriting existing file in GCS for post_id={post_id}"
+                            f"Overwriting existing file in GCS for post_id={post_id}. "
+                            f"Previous version included in metadata."
                         )
 
                     # Save to GCS (with metadata if it's a retry)

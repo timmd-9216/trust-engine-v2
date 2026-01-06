@@ -154,6 +154,7 @@ La colección `pending_jobs` almacena los jobs de Information Tracer que están 
 | `max_posts` | number | Máximo de respuestas a recolectar |
 | `sort_by` | string | Ordenamiento: `"time"` o `"engagement"` |
 | `status` | string | Estado: `pending`, `processing`, `done`, `failed`, `empty_result`, `verified` |
+| `retry_count` | number | Número de veces que se ha reintentado el job (se incrementa cuando se reprocesa un job ya procesado) |
 | `created_at` | timestamp | Fecha de creación del job |
 | `updated_at` | timestamp | Última actualización del job |
 
@@ -221,6 +222,30 @@ save_pending_job(
 # 3. Se usa post_doc_id para actualizar el documento en 'posts':
 #    update_post_status("Wm2WxCNSt6ErumnELg7y", "done")
 #    # Esto actualiza el documento "Wm2WxCNSt6ErumnELg7y" en la colección 'posts'
+
+### Reintentos y Versiones Anteriores
+
+Cuando un job se reprocesa (cambia de status "done" a "pending" y se procesa nuevamente), el sistema:
+
+1. **Incrementa `retry_count`**: El campo `retry_count` en el documento del job se incrementa automáticamente
+2. **Guarda metadata en el JSON**: El JSON guardado en GCS incluye un campo `_metadata` con información del reintento:
+   ```json
+   {
+     "_metadata": {
+       "is_retry": true,
+       "retry_count": 2,
+       "retry_timestamp": "2024-01-05T12:00:00Z",
+       "previous_file_existed": true,
+       "older_version": {
+         // Versión completa del JSON anterior
+       }
+     },
+     // ... datos actuales del resultado
+   }
+   ```
+3. **Sobrescribe el archivo**: El archivo en GCS se sobrescribe con la nueva versión, pero la versión anterior se preserva dentro de `_metadata.older_version`
+
+**Nota**: El campo `retry_count` solo se incrementa cuando se detecta que el archivo ya existe en GCS (indicando un reintento). Los jobs nuevos tienen `retry_count = 0` o el campo no existe.
 ```
 
 ## Estados
