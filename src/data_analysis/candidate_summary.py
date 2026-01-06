@@ -110,6 +110,7 @@ def _build_reports_paths(out_base: str, country: str, platform: str) -> Dict[str
         "report1": os.path.join(reports_dir, "report1.csv"),
         "report2": os.path.join(reports_dir, "candidate_summary.csv"),
         "report_instagram": os.path.join(reports_dir, "candidate_summary_instagram.csv"),
+        "report_instagram_empty": os.path.join(reports_dir, "instagram_empty_files.csv"),
         "report_youtube": os.path.join(reports_dir, "candidate_summary_youtube.csv"),
         "report1_users": os.path.join(reports_dir, "report1_users.csv"),
     }
@@ -136,6 +137,41 @@ def _extract_items(json_obj: Any) -> List[Dict[str, Any]]:
             return [x for x in json_obj["results"] if isinstance(x, dict)]
         return [json_obj]
     return []
+
+
+# --- Empty JSON payload helpers ---
+
+def _is_empty_json_payload(data: Any) -> bool:
+    """Return True when a JSON file is effectively empty (e.g., [] or {"data": []})."""
+    if data is None:
+        return True
+    if isinstance(data, list):
+        return len(data) == 0
+    if isinstance(data, dict):
+        # common wrappers
+        if "data" in data and isinstance(data.get("data"), list):
+            return len(data.get("data") or []) == 0
+        if "results" in data and isinstance(data.get("results"), list):
+            return len(data.get("results") or []) == 0
+        # empty object
+        return len(data.keys()) == 0
+    return False
+
+
+def _empty_json_blob_rows(records: List[Dict[str, Any]], candidate_id: str, candidate_name: str) -> List[Dict[str, Any]]:
+    """Build rows for empty JSON files within a candidate folder."""
+    rows: List[Dict[str, Any]] = []
+    for r in records:
+        blob_name = str(r.get("blob") or "")
+        data = r.get("data")
+        if _is_empty_json_payload(data):
+            rows.append({
+                "candidate": candidate_id,
+                "candidate_name": candidate_name,
+                "blob": blob_name,
+                "file": os.path.basename(blob_name),
+            })
+    return rows
 
 
 # --- Username helpers for YAML/candidate matching ---
@@ -978,6 +1014,7 @@ def main() -> int:
                 ]
 
                 rows: List[Dict[str, Any]] = []
+                empty_rows: List[Dict[str, Any]] = []
                 for c in cfg_candidates:
                     if not isinstance(c, dict):
                         continue
@@ -1021,6 +1058,7 @@ def main() -> int:
                                 print(f"Wrote {blob_name} -> {local_path}")
                         continue
 
+                    empty_rows.extend(_empty_json_blob_rows(records, candidate_id_str, candidate_name))
                     sub_metrics = compute_instagram_metrics_from_records(records)
                     own_posts_retrieved = int(sub_metrics.get("files", 0))
 
@@ -1060,6 +1098,9 @@ def main() -> int:
                     paths = _build_reports_paths(out_base, country_lower, platform_lower)
                     write_csv(paths["report_instagram"], rows_sorted, ig_columns)
                     print(f"Wrote CSV: {paths['report_instagram']}")
+                    empty_cols = ["candidate", "candidate_name", "blob", "file"]
+                    write_csv(paths["report_instagram_empty"], empty_rows, empty_cols)
+                    print(f"Wrote CSV: {paths['report_instagram_empty']}")
 
                 return 0
             # --- YouTube candidate summary ---
