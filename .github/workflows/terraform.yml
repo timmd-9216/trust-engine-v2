@@ -33,6 +33,7 @@ env:
   GCS_BUCKET_NAME: ${{ secrets.GCS_BUCKET_NAME || vars.GCS_BUCKET_NAME }}
   GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
   GCP_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+  GCP_SCRAPPING_TOOLS_SERVICE_NAME: ${{ secrets.GCP_SCRAPPING_TOOLS_SERVICE_NAME || vars.GCP_SCRAPPING_TOOLS_SERVICE_NAME || 'scrapping-tools' }}
 
 jobs:
   terraform-plan:
@@ -102,6 +103,9 @@ jobs:
             -var="project_id=${GCP_PROJECT_ID}" \
             -var="region=${GCP_REGION}" \
             -var="gcs_bucket=${GCS_BUCKET_NAME}" \
+            -var="enable_cloud_scheduler=true" \
+            -var="scrapping_tools_service_name=${GCP_SCRAPPING_TOOLS_SERVICE_NAME}" \
+            -var="service_account_email=${GCP_SERVICE_ACCOUNT_EMAIL}" \
             -input=false \
             -no-color \
             -out=tfplan \
@@ -301,6 +305,9 @@ jobs:
             -var="project_id=${GCP_PROJECT_ID}" \
             -var="region=${GCP_REGION}" \
             -var="gcs_bucket=${GCS_BUCKET_NAME}" \
+            -var="enable_cloud_scheduler=true" \
+            -var="scrapping_tools_service_name=${GCP_SCRAPPING_TOOLS_SERVICE_NAME}" \
+            -var="service_account_email=${GCP_SERVICE_ACCOUNT_EMAIL}" \
             -input=false \
             -auto-approve
 
