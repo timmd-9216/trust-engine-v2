@@ -146,10 +146,11 @@ jobs:
     runs-on: ubuntu-latest
     environment: trust-engine
     needs: terraform-plan
-    # Only run on main branch push or manual workflow_dispatch with apply
+    # Only run if plan succeeded AND (push to main OR manual apply)
     if: |
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply')
+      needs.terraform-plan.result == 'success' &&
+      ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+       (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply'))
 
     permissions:
       contents: read
