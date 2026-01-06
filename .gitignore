@@ -1,3 +1,6 @@
+#dev files
+scripts/old/*
+
 # IDE files
 .vscode/
 .gcloud/
