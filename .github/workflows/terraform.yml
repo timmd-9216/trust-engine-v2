@@ -90,13 +90,23 @@ jobs:
           VERIFIED_PROJECT=$(gcloud config get-value project)
           echo "✓ Verified project: ${VERIFIED_PROJECT}"
           
-          # Verify Cloud Resource Manager API is enabled
+          # Enable Cloud Resource Manager API if not already enabled
+          # This is required for Terraform to manage project services
           echo "Checking Cloud Resource Manager API status..."
           if gcloud services list --enabled --filter="name:cloudresourcemanager.googleapis.com" --format="value(name)" | grep -q "cloudresourcemanager.googleapis.com"; then
-            echo "✓ Cloud Resource Manager API is enabled"
+            echo "✓ Cloud Resource Manager API is already enabled"
           else
-            echo "⚠ Cloud Resource Manager API is not enabled. Terraform will attempt to enable it."
-            echo "If this fails, enable it manually: https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=${GCP_PROJECT_ID}"
+            echo "⚠ Cloud Resource Manager API is not enabled. Enabling it now..."
+            if gcloud services enable cloudresourcemanager.googleapis.com --project=${GCP_PROJECT_ID}; then
+              echo "✓ Successfully enabled Cloud Resource Manager API"
+              echo "Waiting 30 seconds for API activation to propagate..."
+              sleep 30
+            else
+              echo "❌ Failed to enable Cloud Resource Manager API via gcloud"
+              echo "This might require manual activation via the GCP Console:"
+              echo "https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=${GCP_PROJECT_ID}"
+              echo "Terraform will attempt to enable it, but refresh operations may fail."
+            fi
           fi
 
       - name: Set up Terraform
@@ -115,6 +125,41 @@ jobs:
         id: init
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform init -input=false
+
+      - name: Bootstrap Cloud Resource Manager API
+        id: bootstrap-api
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          # Apply the bootstrap API resource first to ensure Cloud Resource Manager API is enabled
+          # This is required before Terraform can refresh state of other project service resources
+          echo "Bootstrapping Cloud Resource Manager API..."
+          set +e  # Don't exit on error
+          terraform apply -target=google_project_service.cloudresourcemanager \
+            -var="project_id=${GCP_PROJECT_ID}" \
+            -var="region=${GCP_REGION}" \
+            -var="gcs_bucket=${GCS_BUCKET_NAME}" \
+            -var="enable_cloud_scheduler=true" \
+            -var="scrapping_tools_service_name=${GCP_SCRAPPING_TOOLS_SERVICE_NAME}" \
+            -var="service_account_email=${GCP_SERVICE_ACCOUNT_EMAIL}" \
+            -input=false \
+            -auto-approve \
+            -no-color
+          BOOTSTRAP_EXIT_CODE=$?
+          set -e  # Re-enable exit on error
+          
+          if [ $BOOTSTRAP_EXIT_CODE -eq 0 ]; then
+            echo "✓ Cloud Resource Manager API bootstrap successful"
+          elif [ $BOOTSTRAP_EXIT_CODE -eq 1 ]; then
+            echo "⚠ Bootstrap API apply encountered an error"
+            echo "This might be because the API is already enabled or there's a permission issue"
+            echo "Continuing with plan - Terraform will attempt to handle this..."
+          else
+            echo "⚠ Bootstrap API apply returned exit code: $BOOTSTRAP_EXIT_CODE"
+            echo "Continuing with plan..."
+          fi
+          
+          echo "Waiting 10 seconds for API activation to propagate..."
+          sleep 10
 
       - name: Terraform Validate
         id: validate
