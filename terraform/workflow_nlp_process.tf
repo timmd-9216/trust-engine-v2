@@ -1,13 +1,6 @@
-variable "project_id" {
-  description = "GCP project ID"
-  type        = string
-}
-
-variable "region" {
-  description = "GCP region for Workflows/Eventarc"
-  type        = string
-  default     = "us-east1"
-}
+# GCS-triggered Workflow for NLP Processing
+#
+# Variables project_id and region are defined in variables.tf
 
 variable "source_bucket" {
   description = "Bucket to watch for new objects"
@@ -36,10 +29,7 @@ variable "workflow_name" {
   default     = "trust-api-workflow"
 }
 
-provider "google" {
-  project = var.project_id
-  region  = var.region
-}
+# Provider is configured in versions.tf
 
 resource "google_service_account" "workflow" {
   account_id   = "${var.workflow_name}-sa"

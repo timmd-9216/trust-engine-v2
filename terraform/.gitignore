@@ -1,0 +1,31 @@
+# Terraform state files (stored in GCS backend, not locally)
+*.tfstate
+*.tfstate.*
+
+# Crash log files
+crash.log
+crash.*.log
+
+# Exclude all .tfvars files (contain secrets)
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+
+# Ignore override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Ignore CLI configuration files
+.terraformrc
+terraform.rc
+
+# Terraform directory
+.terraform/
+.terraform.lock.hcl
+
+# Plan files
+*.tfplan
+tfplan
+

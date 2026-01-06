@@ -3,20 +3,20 @@
 # This Terraform configuration creates BigQuery external tables
 # that read Parquet files from GCS for analytics.
 #
+# Prerequisites:
+#   - GCS bucket with processed Parquet files
+#   - Run json_to_parquet.py to generate Parquet files first
+#
 # Usage:
 #   cd terraform
 #   terraform init
-#   terraform apply -var="project_id=trust-481601" -var="gcs_bucket=your-bucket"
+#   terraform plan
+#   terraform apply
 
 variable "bigquery_dataset" {
   description = "BigQuery dataset name for analytics tables"
   type        = string
   default     = "trust_analytics"
-}
-
-variable "gcs_bucket" {
-  description = "GCS bucket containing the processed Parquet files"
-  type        = string
 }
 
 # Create BigQuery dataset
