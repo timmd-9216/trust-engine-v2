@@ -9,6 +9,8 @@
 # https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview
 
 # Enable Cloud Resource Manager API first (required for managing other APIs)
+# Note: This API must be enabled manually via GCP Console if completely disabled:
+# https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=trust-481601
 resource "google_project_service" "cloudresourcemanager" {
   project            = var.project_id
   service            = "cloudresourcemanager.googleapis.com"
@@ -18,6 +20,11 @@ resource "google_project_service" "cloudresourcemanager" {
   timeouts {
     create = "10m"
     update = "10m"
+  }
+
+  # Ignore changes if API is already enabled (prevents errors on refresh)
+  lifecycle {
+    ignore_changes = []
   }
 }
 
