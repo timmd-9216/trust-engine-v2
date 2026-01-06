@@ -5,7 +5,7 @@ Este documento describe la arquitectura del Data Lake para analytics del Trust E
 ## Estructura del Bucket GCS
 
 ```
-gs://trust-engine-data/
+gs://trust-prd/
 │
 ├── raw/                              # Capa RAW - JSONs originales
 │   └── {country}/
@@ -135,14 +135,14 @@ El campo `platform` (twitter/instagram) también particiona los datos, permitien
 ```bash
 # Procesar todos los JSONs de Honduras/Twitter
 poetry run python scripts/json_to_parquet.py \
-  --bucket trust-engine-data \
+  --bucket trust-prd \
   --country honduras \
   --platform twitter \
   --upload
 
 # Filtrar por candidato
 poetry run python scripts/json_to_parquet.py \
-  --bucket trust-engine-data \
+  --bucket trust-prd \
   --country honduras \
   --platform twitter \
   --candidate-id hnd01monc \
@@ -150,7 +150,7 @@ poetry run python scripts/json_to_parquet.py \
 
 # Dry run (ver qué se procesaría)
 poetry run python scripts/json_to_parquet.py \
-  --bucket trust-engine-data \
+  --bucket trust-prd \
   --prefix raw/honduras/twitter \
   --dry-run
 ```
@@ -164,7 +164,7 @@ cd terraform
 terraform init
 terraform apply \
   -var="project_id=trust-481601" \
-  -var="gcs_bucket=trust-engine-data" \
+  -var="gcs_bucket=trust-prd" \
   -var="region=us-east1"
 ```
 
@@ -182,8 +182,8 @@ WITH PARTITION COLUMNS (
 )
 OPTIONS (
   format = 'PARQUET',
-  uris = ['gs://trust-engine-data/processed/replies/*'],
-  hive_partition_uri_prefix = 'gs://trust-engine-data/processed/replies/'
+  uris = ['gs://trust-prd/processed/replies/*'],
+  hive_partition_uri_prefix = 'gs://trust-prd/processed/replies/'
 );
 ```
 
@@ -289,7 +289,7 @@ def transform_to_parquet(event, context):
     
     subprocess.run([
         "python", "scripts/json_to_parquet.py",
-        "--bucket", "trust-engine-data",
+        "--bucket", "trust-prd",
         "--country", "honduras",
         "--upload"
     ], check=True)
