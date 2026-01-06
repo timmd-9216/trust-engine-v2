@@ -2,6 +2,78 @@
 
 Este documento describe la arquitectura del Data Lake para analytics del Trust Engine.
 
+## Guía Paso a Paso
+
+### Setup Inicial (Una sola vez)
+
+#### Paso 1: Crear las tablas de BigQuery
+
+```bash
+cd terraform
+terraform init
+terraform apply \
+  -var="project_id=trust-481601" \
+  -var="region=us-east1" \
+  -var="gcs_bucket=trust-prd"
+```
+
+Esto crea:
+- Dataset: `trust_analytics`
+- External Table: `replies` (apunta a `gs://trust-prd/processed/replies/*`)
+- Vistas: `twitter_replies`, `instagram_replies`, `daily_engagement`, `candidate_summary`
+
+### Proceso Recurrente (Cuando hay nuevos datos)
+
+#### Paso 2: Transformar JSONs a Parquet
+
+Transforma los JSONs originales de Information Tracer a formato Parquet optimizado:
+
+```bash
+# Procesar todos los JSONs de un país/plataforma y subir a GCS
+poetry run python scripts/json_to_parquet.py \
+  --bucket trust-prd \
+  --country honduras \
+  --platform twitter \
+  --upload
+
+# O si ya generaste los Parquet localmente, solo subirlos:
+poetry run python scripts/upload_parquet_to_gcs.py \
+  --source-dir ./data/processed \
+  --bucket trust-prd
+```
+
+**Resultado**: Archivos Parquet guardados en `gs://trust-prd/processed/replies/`
+
+#### Paso 3: Consultar en BigQuery
+
+Las tablas se actualizan automáticamente. No necesitas ejecutar nada más. Simplemente consulta:
+
+```sql
+-- Ver datos nuevos inmediatamente
+SELECT * 
+FROM `trust-481601.trust_analytics.replies`
+WHERE ingestion_date = CURRENT_DATE()
+LIMIT 100;
+```
+
+### Resumen del Flujo
+
+```
+1. JSONs en GCS (raw/)
+   ↓
+2. Ejecutar json_to_parquet.py --upload
+   ↓
+3. Parquet en GCS (processed/replies/)
+   ↓
+4. BigQuery External Table lee automáticamente (sin acción necesaria)
+   ↓
+5. Queries SQL en BigQuery
+```
+
+**Nota**: El Paso 1 (crear tablas) se hace una sola vez. Los Pasos 2-3 se repiten cada vez que quieras procesar nuevos datos.
+
+---
+
 ## Estructura del Bucket GCS
 
 ```

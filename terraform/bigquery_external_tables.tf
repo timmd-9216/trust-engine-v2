@@ -123,15 +123,14 @@ resource "google_bigquery_table" "daily_engagement" {
         COUNT(*) as total_replies,
         COUNT(DISTINCT parent_post_id) as posts_with_replies,
         COUNT(DISTINCT user_screen_name) as unique_users,
-        SUM(favorite_count) as total_favorites,
-        SUM(retweet_count) as total_retweets,
-        SUM(reply_count) as total_reply_count,
-        AVG(favorite_count) as avg_favorites_per_reply,
+        SUM(COALESCE(favorite_count, 0)) as total_favorites,
+        SUM(COALESCE(retweet_count, 0)) as total_retweets,
+        SUM(COALESCE(reply_count, 0)) as total_reply_count,
+        AVG(COALESCE(favorite_count, 0)) as avg_favorites_per_reply,
         SUM(CASE WHEN is_retweet THEN 1 ELSE 0 END) as retweet_replies,
         SUM(CASE WHEN is_quote_status THEN 1 ELSE 0 END) as quote_replies,
         SUM(CASE WHEN has_media THEN 1 ELSE 0 END) as replies_with_media
       FROM `${var.project_id}.${var.bigquery_dataset}.replies`
-      WHERE platform = 'twitter'
       GROUP BY ingestion_date, country, platform, candidate_id
       ORDER BY ingestion_date DESC, candidate_id
     SQL
@@ -160,9 +159,9 @@ resource "google_bigquery_table" "candidate_summary" {
         COUNT(*) as total_replies,
         COUNT(DISTINCT parent_post_id) as total_posts_analyzed,
         COUNT(DISTINCT user_screen_name) as unique_responders,
-        SUM(favorite_count) as total_favorites,
-        SUM(retweet_count) as total_retweets,
-        AVG(favorite_count) as avg_favorites_per_reply,
+        SUM(COALESCE(favorite_count, 0)) as total_favorites,
+        SUM(COALESCE(retweet_count, 0)) as total_retweets,
+        AVG(COALESCE(favorite_count, 0)) as avg_favorites_per_reply,
         MIN(ingestion_date) as first_ingestion_date,
         MAX(ingestion_date) as last_ingestion_date,
         COUNT(DISTINCT ingestion_date) as days_with_data

@@ -110,18 +110,38 @@ INSTAGRAM_SCHEMA = pa.schema(
         ("platform", pa.string()),
         ("candidate_id", pa.string()),
         ("parent_post_id", pa.string()),
-        # Comment data
-        ("comment_id", pa.string()),
+        # Comment data (using Twitter field names for consistency)
+        ("tweet_id", pa.string()),  # Maps to comment_id for Instagram
+        ("tweet_url", pa.string()),  # Empty for Instagram
         ("created_at", pa.string()),
-        ("text", pa.string()),
-        # Author info
+        ("full_text", pa.string()),  # Maps to text for Instagram
+        ("lang", pa.string()),  # Empty for Instagram
+        # Author info (using Twitter field names for consistency)
         ("user_id", pa.string()),
-        ("username", pa.string()),
-        ("full_name", pa.string()),
-        ("is_verified", pa.bool_()),
-        # Engagement
-        ("like_count", pa.int64()),
+        ("user_screen_name", pa.string()),  # Maps to username for Instagram
+        ("user_name", pa.string()),  # Maps to full_name for Instagram
+        ("user_followers_count", pa.int64()),  # Empty for Instagram
+        ("user_friends_count", pa.int64()),  # Empty for Instagram
+        ("user_verified", pa.bool_()),  # Maps to is_verified for Instagram
+        # Engagement metrics (using Twitter field names)
         ("reply_count", pa.int64()),
+        ("retweet_count", pa.int64()),  # Empty for Instagram
+        ("quote_count", pa.int64()),  # Empty for Instagram
+        ("favorite_count", pa.int64()),  # Maps to like_count for Instagram
+        # Tweet type flags
+        ("is_reply", pa.bool_()),  # Empty for Instagram
+        ("is_retweet", pa.bool_()),  # Empty for Instagram
+        ("is_quote_status", pa.bool_()),  # Empty for Instagram
+        # Reply context (empty for Instagram)
+        ("in_reply_to_status_id_str", pa.string()),
+        ("in_reply_to_user_id_str", pa.string()),
+        ("in_reply_to_screen_name", pa.string()),
+        # Retweet context (empty for Instagram)
+        ("retweeted_status_id_str", pa.string()),
+        ("retweeted_status_screen_name", pa.string()),
+        # Media
+        ("has_media", pa.bool_()),  # Empty for Instagram
+        ("media_count", pa.int64()),  # Empty for Instagram
         # Retry metadata
         ("is_retry", pa.bool_()),
         ("retry_count", pa.int64()),
@@ -267,7 +287,10 @@ def flatten_instagram_record(
     source_file: str,
     retry_metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Flatten an Instagram comment record into a flat dictionary."""
+    """Flatten an Instagram comment record into a flat dictionary.
+
+    Uses the same field names as Twitter for schema consistency.
+    """
     user = item.get("user", {}) or item.get("owner", {}) or {}
 
     return {
@@ -280,18 +303,40 @@ def flatten_instagram_record(
         "platform": context.get("platform", "instagram"),
         "candidate_id": context.get("candidate_id", ""),
         "parent_post_id": context.get("parent_post_id", ""),
-        # Comment data
-        "comment_id": safe_str(item.get("id") or item.get("pk")),
+        # Comment data (using Twitter field names for consistency)
+        "tweet_id": safe_str(item.get("id") or item.get("pk")),  # Maps from comment_id
+        "tweet_url": "",  # Instagram doesn't have tweet URLs
         "created_at": safe_str(item.get("created_at") or item.get("taken_at")),
-        "text": safe_str(item.get("text")),
-        # Author info
+        "full_text": safe_str(item.get("text")),  # Maps from text
+        "lang": "",  # Instagram doesn't provide language
+        # Author info (using Twitter field names for consistency)
         "user_id": safe_str(user.get("id") or user.get("pk")),
-        "username": safe_str(user.get("username")),
-        "full_name": safe_str(user.get("full_name")),
-        "is_verified": safe_bool(user.get("is_verified")),
-        # Engagement
-        "like_count": safe_int(item.get("like_count") or item.get("comment_like_count")),
+        "user_screen_name": safe_str(user.get("username")),  # Maps from username
+        "user_name": safe_str(user.get("full_name")),  # Maps from full_name
+        "user_followers_count": 0,  # Instagram doesn't provide this in comments
+        "user_friends_count": 0,  # Instagram doesn't provide this
+        "user_verified": safe_bool(user.get("is_verified")),
+        # Engagement metrics (using Twitter field names)
         "reply_count": safe_int(item.get("child_comment_count")),
+        "retweet_count": 0,  # Instagram doesn't have retweets
+        "quote_count": 0,  # Instagram doesn't have quotes
+        "favorite_count": safe_int(
+            item.get("like_count") or item.get("comment_like_count")
+        ),  # Maps from like_count
+        # Tweet type flags
+        "is_reply": False,  # Instagram comments are always replies
+        "is_retweet": False,  # Instagram doesn't have retweets
+        "is_quote_status": False,  # Instagram doesn't have quotes
+        # Reply context (empty for Instagram)
+        "in_reply_to_status_id_str": "",
+        "in_reply_to_user_id_str": "",
+        "in_reply_to_screen_name": "",
+        # Retweet context (empty for Instagram)
+        "retweeted_status_id_str": "",
+        "retweeted_status_screen_name": "",
+        # Media
+        "has_media": False,  # Could be enhanced to check for media in comments
+        "media_count": 0,
         # Retry metadata
         "is_retry": retry_metadata.get("is_retry", False) if retry_metadata else False,
         "retry_count": retry_metadata.get("retry_count", 0) if retry_metadata else 0,
@@ -551,8 +596,8 @@ def main():
     written_files = []
 
     for (platform, date_str), records in records_by_partition.items():
-        # Select schema based on platform
-        schema = TWITTER_SCHEMA if platform == "twitter" else INSTAGRAM_SCHEMA
+        # Use unified schema for all platforms (Instagram now uses same field names as Twitter)
+        schema = TWITTER_SCHEMA
 
         # Create partition directory
         partition_dir = (
