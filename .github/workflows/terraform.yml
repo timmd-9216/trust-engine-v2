@@ -102,7 +102,9 @@ jobs:
             -input=false \
             -no-color \
             -out=tfplan \
-            -detailed-exitcode || echo "exitcode=$?" >> $GITHUB_OUTPUT
+            -detailed-exitcode || PLAN_EXIT_CODE=$?
+          # Capture exit code (0=no changes, 1=error, 2=changes)
+          echo "exitcode=${PLAN_EXIT_CODE:-$?}" >> $GITHUB_OUTPUT
         continue-on-error: true
 
       - name: Check if plan file exists
@@ -111,8 +113,16 @@ jobs:
         run: |
           if [ -f "tfplan" ]; then
             echo "exists=true" >> $GITHUB_OUTPUT
+            echo "✓ Terraform plan file created successfully"
           else
             echo "exists=false" >> $GITHUB_OUTPUT
+            echo "❌ ERROR: Terraform plan file 'tfplan' not found." >&2
+            echo "This usually means terraform plan failed. Check the logs above for errors." >&2
+            echo "Common causes:" >&2
+            echo "  - Missing required variables (check GitHub secrets/vars)" >&2
+            echo "  - Terraform validation errors" >&2
+            echo "  - Authentication/permission issues" >&2
+            exit 1
           fi
 
       - name: Upload Plan to GitHub Artifacts
