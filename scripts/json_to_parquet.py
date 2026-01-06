@@ -6,21 +6,27 @@ This script:
 1. Reads JSON files from GCS (raw layer)
 2. Flattens nested structures into tabular format
 3. Adds ingestion metadata
-4. Saves as Parquet partitioned by ingestion_date
+4. Saves as Parquet partitioned by ingestion_date and platform
 5. Optionally uploads to GCS processed layer
+
+IMPORTANT: Only processes files in the correct structure:
+    raw/{country}/{platform}/{candidate_id}/{post_id}.json
+
+Files directly in raw/{country}/{platform}/ (without candidate_id subdirectory)
+are automatically skipped.
 
 Usage:
     # Process all JSONs and save Parquet locally
-    poetry run python scripts/json_to_parquet.py --bucket trust-engine-data --prefix raw/honduras/twitter
+    poetry run python scripts/json_to_parquet.py --bucket trust-prd --country honduras --platform twitter
 
     # Process and upload to GCS processed layer
-    poetry run python scripts/json_to_parquet.py --bucket trust-engine-data --prefix raw/honduras/twitter --upload
+    poetry run python scripts/json_to_parquet.py --bucket trust-prd --country honduras --platform twitter --upload
 
     # Dry run (no writes)
-    poetry run python scripts/json_to_parquet.py --bucket trust-engine-data --prefix raw/honduras/twitter --dry-run
+    poetry run python scripts/json_to_parquet.py --bucket trust-prd --country honduras --platform twitter --dry-run
 
     # Filter by candidate
-    poetry run python scripts/json_to_parquet.py --bucket trust-engine-data --country honduras --platform twitter --candidate-id hnd01monc
+    poetry run python scripts/json_to_parquet.py --bucket trust-prd --country honduras --platform twitter --candidate-id hnd01monc
 """
 
 import argparse
@@ -152,8 +158,11 @@ INSTAGRAM_SCHEMA = pa.schema(
 def parse_gcs_path(blob_name: str) -> dict[str, str]:
     """
     Parse GCS blob path to extract metadata.
+
     Expected format: raw/{country}/{platform}/{candidate_id}/{post_id}.json
-    or: {country}/{platform}/{candidate_id}/{post_id}.json
+
+    Only processes files with candidate_id as a subdirectory.
+    Files directly in raw/{country}/{platform}/ are ignored.
     """
     parts = blob_name.replace(".json", "").split("/")
 
@@ -162,23 +171,18 @@ def parse_gcs_path(blob_name: str) -> dict[str, str]:
         parts = parts[1:]
 
     if len(parts) >= 4:
+        # Correct format: country, platform, candidate_id, post_id
         return {
             "country": parts[0],
             "platform": parts[1],
             "candidate_id": parts[2],
             "parent_post_id": parts[3],
         }
-    elif len(parts) == 3:
-        return {
-            "country": parts[0],
-            "platform": parts[1],
-            "candidate_id": "",
-            "parent_post_id": parts[2],
-        }
     else:
+        # Invalid structure - should not happen if filtering is correct
         return {
-            "country": "",
-            "platform": "",
+            "country": parts[0] if len(parts) > 0 else "",
+            "platform": parts[1] if len(parts) > 1 else "",
             "candidate_id": "",
             "parent_post_id": parts[-1] if parts else "",
         }
@@ -420,10 +424,23 @@ def read_json_from_gcs(
         if not blob.name.lower().endswith(".json"):
             continue
 
+        # Only process files in the correct structure: raw/{country}/{platform}/{candidate_id}/{post_id}.json
+        # Skip files directly in raw/{country}/{platform}/ (without candidate_id subdirectory)
+        parts = blob.name.split("/")
+
+        # Remove 'raw' prefix if present for counting
+        path_parts = parts[1:] if parts[0] == "raw" else parts
+
+        # Must have at least 4 parts: country, platform, candidate_id, post_id
+        if len(path_parts) < 4:
+            print(
+                f"  SKIP: File not in correct structure (missing candidate_id directory): {blob.name}"
+            )
+            continue
+
         # Apply candidate filter if specified
         if candidate_filter:
-            parts = blob.name.split("/")
-            # Check if candidate_id is in the path
+            # Check if candidate_id is in the path (should be at index 2 after removing 'raw')
             if candidate_filter not in parts:
                 continue
 

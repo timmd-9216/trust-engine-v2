@@ -42,7 +42,12 @@ poetry run python scripts/upload_parquet_to_gcs.py \
   --bucket trust-prd
 ```
 
-**Resultado**: Archivos Parquet guardados en `gs://trust-prd/processed/replies/`
+**Resultado**: Archivos Parquet guardados en `gs://trust-prd/processed/replies/` con estructura:
+```
+processed/replies/ingestion_date={date}/platform={platform}/data.parquet
+```
+
+**Nota**: El orden de particiones (`ingestion_date` primero, luego `platform`) es crítico y debe mantenerse consistente. Ver sección [Particionamiento](#particionamiento) para más detalles.
 
 #### Paso 3: Consultar en BigQuery
 
@@ -111,6 +116,12 @@ gs://trust-prd/
 - Preserva historial con `_metadata.older_version` en reintentos
 - Formato: JSON
 
+**⚠️ Estructura Requerida**: Los archivos **deben** estar organizados con `candidate_id` como subdirectorio:
+- ✅ **Correcto**: `raw/honduras/instagram/hnd01monc/post123.json`
+- ❌ **Incorrecto**: `raw/honduras/instagram/post123.json` (sin subdirectorio de candidato)
+
+El script `json_to_parquet.py` automáticamente **ignora** archivos que no tengan la estructura correcta.
+
 **Campos principales (Twitter)**:
 ```json
 {
@@ -172,6 +183,50 @@ gs://trust-prd/
 
 ## Particionamiento
 
+### Estructura de Particiones
+
+Los datos Parquet están particionados usando **Hive Partitioning** con el siguiente orden:
+
+```
+processed/replies/ingestion_date={YYYY-MM-DD}/platform={platform}/data.parquet
+```
+
+**Orden de particiones**:
+1. `ingestion_date` (primero)
+2. `platform` (segundo)
+
+**Ejemplo**:
+```
+gs://trust-prd/processed/replies/
+├── ingestion_date=2025-12-30/
+│   ├── platform=twitter/
+│   │   └── data.parquet
+│   └── platform=instagram/
+│       └── data.parquet
+└── ingestion_date=2025-12-31/
+    ├── platform=twitter/
+    │   └── data.parquet
+    └── platform=instagram/
+        └── data.parquet
+```
+
+### ¿Por qué este orden?
+
+El orden `ingestion_date` primero, luego `platform` es **crítico** para BigQuery:
+
+1. **Consistencia con BigQuery**: BigQuery requiere que el orden de particiones sea consistente en todos los archivos. Si detecta diferentes órdenes, falla con el error:
+   ```
+   Partition keys should be invariant from table creation across all partitions
+   ```
+
+2. **Eficiencia de queries temporales**: La mayoría de queries filtran por rango de fechas:
+   ```sql
+   WHERE ingestion_date BETWEEN '2026-01-01' AND '2026-01-31'
+   ```
+   Con `ingestion_date` primero, BigQuery puede hacer **partition pruning** más eficiente.
+
+3. **Compatibilidad con Hive Partitioning**: El orden debe coincidir exactamente con la estructura de directorios en GCS.
+
 ### ¿Por qué particionar por `ingestion_date`?
 
 1. **Eficiencia de queries**: BigQuery solo escanea las particiones necesarias
@@ -180,11 +235,38 @@ gs://trust-prd/
 4. **Incremental**: Agregar datos nuevos sin tocar históricos
 5. **Costo**: Reduce bytes escaneados → menor costo
 
-### Partición por platform
+### Partición por `platform`
 
 El campo `platform` (twitter/instagram) también particiona los datos, permitiendo:
 - Queries rápidos por plataforma
-- Schemas diferentes por plataforma si es necesario
+- Schemas unificados (mismos nombres de campos para ambas plataformas)
+- Filtrado eficiente cuando se combina con `ingestion_date`
+
+### Importante: Orden de Particiones
+
+⚠️ **CRÍTICO**: El orden de particiones (`ingestion_date` primero, luego `platform`) **debe ser consistente** en:
+- La estructura de directorios en GCS
+- La definición de la tabla externa en BigQuery
+- El script `json_to_parquet.py` que genera los archivos
+
+Si cambias el orden en un lugar, debes cambiarlo en todos los lugares. De lo contrario, BigQuery fallará al crear o consultar la tabla externa.
+
+### Troubleshooting
+
+Si ves el error:
+```
+Partition keys should be invariant from table creation across all partitions
+```
+
+**Causas posibles**:
+1. Archivos Parquet con diferentes órdenes de particiones en el bucket
+2. La tabla externa fue creada con un orden diferente al de los archivos actuales
+3. Mezcla de archivos antiguos y nuevos con diferentes estructuras
+
+**Solución**:
+1. Eliminar todos los archivos Parquet antiguos del bucket
+2. Regenerar todos los archivos con `json_to_parquet.py` usando el orden correcto
+3. Eliminar y recrear la tabla externa en BigQuery
 
 ## Pipeline de Transformación
 
@@ -203,6 +285,9 @@ El campo `platform` (twitter/instagram) también particiona los datos, permitien
 ```
 
 ### Script de transformación
+
+**Nota**: Solo procesa archivos con estructura `raw/{country}/{platform}/{candidate_id}/{post_id}.json`.
+Archivos directamente en `raw/{country}/{platform}/` son ignorados automáticamente.
 
 ```bash
 # Procesar todos los JSONs de Honduras/Twitter
@@ -223,7 +308,8 @@ poetry run python scripts/json_to_parquet.py \
 # Dry run (ver qué se procesaría)
 poetry run python scripts/json_to_parquet.py \
   --bucket trust-prd \
-  --prefix raw/honduras/twitter \
+  --country honduras \
+  --platform twitter \
   --dry-run
 ```
 

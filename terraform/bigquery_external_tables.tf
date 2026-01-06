@@ -181,6 +181,7 @@ resource "google_bigquery_table" "daily_engagement" {
         SUM(CASE WHEN is_quote_status THEN 1 ELSE 0 END) as quote_replies,
         SUM(CASE WHEN has_media THEN 1 ELSE 0 END) as replies_with_media
       FROM `${var.project_id}.${var.bigquery_dataset}.replies`
+      WHERE candidate_id IS NOT NULL AND candidate_id != ''
       GROUP BY ingestion_date, country, platform, candidate_id
       ORDER BY ingestion_date DESC, candidate_id
     SQL
@@ -216,6 +217,7 @@ resource "google_bigquery_table" "candidate_summary" {
         MAX(ingestion_date) as last_ingestion_date,
         COUNT(DISTINCT ingestion_date) as days_with_data
       FROM `${var.project_id}.${var.bigquery_dataset}.replies`
+      WHERE candidate_id IS NOT NULL AND candidate_id != ''
       GROUP BY country, platform, candidate_id
       ORDER BY country, platform, candidate_id
     SQL
