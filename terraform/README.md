@@ -25,8 +25,8 @@ This directory contains Terraform configurations for the Trust Engine infrastruc
 
 2. **Terraform state bucket** (one-time setup):
    ```bash
-   gsutil mb -l us-east1 gs://trust-engine-terraform-state
-   gsutil versioning set on gs://trust-engine-terraform-state
+   gsutil mb -l us-east1 gs://trust-481601-terraform-state
+   gsutil versioning set on gs://trust-481601-terraform-state
    ```
 
 3. **Service account** with necessary permissions:
@@ -113,16 +113,16 @@ gcloud projects add-iam-policy-binding trust-481601 \
   --role="roles/workflows.admin"
 
 # For state bucket
-gsutil iam ch \
+  gsutil iam ch \
   serviceAccount:ci-deployer@trust-481601.iam.gserviceaccount.com:objectAdmin \
-  gs://trust-engine-terraform-state
+  gs://trust-481601-terraform-state
 ```
 
 ## State Management
 
 Terraform state is stored remotely in GCS:
 
-- **Bucket**: `gs://trust-engine-terraform-state`
+- **Bucket**: `gs://trust-481601-terraform-state`
 - **Prefix**: `terraform/state`
 - **Locking**: Automatic with GCS
 
