@@ -153,7 +153,7 @@ La colección `pending_jobs` almacena los jobs de Information Tracer que están 
 | `candidate_id` | string | ID del candidato |
 | `max_posts` | number | Máximo de respuestas a recolectar |
 | `sort_by` | string | Ordenamiento: `"time"` o `"engagement"` |
-| `status` | string | Estado: `pending`, `processing`, `done`, `failed`, `empty_result` |
+| `status` | string | Estado: `pending`, `processing`, `done`, `failed`, `empty_result`, `verified` |
 | `created_at` | timestamp | Fecha de creación del job |
 | `updated_at` | timestamp | Última actualización del job |
 
@@ -244,6 +244,7 @@ Para información detallada sobre todos los estados posibles y sus transiciones,
 | `done` | Job completado exitosamente, resultados guardados en GCS |
 | `failed` | Job falló al procesar (error de API, excepción, etc.) |
 | `empty_result` | Job completado pero el resultado está vacío |
+| `verified` | Job verificado como resultado vacío esperado (twitter con replies_count <= 2) |
 
 ## Actualizar status de un documento
 

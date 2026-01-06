@@ -2,22 +2,19 @@
 """Read JSON files from a folder (prefix) in a GCS bucket."""
 
 import argparse
+import csv
 import json
 import os
-import sys
-import subprocess
-
-import csv
 import re
+import subprocess
+import sys
+from collections import Counter
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from google.cloud import storage
-from collections import Counter
-from typing import Optional
 
 from .read_data import read_google_sheet
-
-from pathlib import Path
-from typing import Any, Dict, List, Tuple
 
 # --- YAML config support ---
 try:
@@ -57,7 +54,6 @@ def _try_load_country_config(country: Optional[str], config_dir: str) -> Optiona
     return data
 
 
-
 def _candidate_name_map_from_config(cfg: Optional[Dict[str, Any]]) -> Dict[str, str]:
     """Build candidate_id -> name mapping from loaded YAML config."""
     if not cfg:
@@ -77,6 +73,7 @@ def _candidate_name_map_from_config(cfg: Optional[Dict[str, Any]]) -> Dict[str, 
 
 
 # --- Output organization helpers ---
+
 
 def _resolve_country_lower(args_country: Optional[str], cfg: Optional[Dict[str, Any]]) -> str:
     if cfg and isinstance(cfg.get("country"), str) and cfg.get("country").strip():
@@ -119,7 +116,6 @@ def _write_candidate_summary_csv(candidates_dir: str, row: Dict[str, Any]) -> No
     # Intentionally disabled: do not create one-line per-candidate CSVs.
     # Keep candidates/ folders empty.
     return
-
 
 
 def _extract_items(json_obj: Any) -> List[Dict[str, Any]]:
@@ -218,7 +214,9 @@ def read_json_by_candidate_folder(bucket_name: str, base_prefix: str):
     grouped = {}
     for blob in iter_json_blobs(bucket, normalized_base):
         # Example blob.name: raw/honduras/twitter/09sosa/part-000.json
-        remainder = blob.name[len(normalized_base) :] if blob.name.startswith(normalized_base) else ""
+        remainder = (
+            blob.name[len(normalized_base) :] if blob.name.startswith(normalized_base) else ""
+        )
         if not remainder or "/" not in remainder:
             # JSON directly under base prefix (or unexpected): skip
             continue
@@ -228,7 +226,9 @@ def read_json_by_candidate_folder(bucket_name: str, base_prefix: str):
             continue
 
         payload = blob.download_as_text()
-        grouped.setdefault(candidate_id, []).append({"blob": blob.name, "data": json.loads(payload)})
+        grouped.setdefault(candidate_id, []).append(
+            {"blob": blob.name, "data": json.loads(payload)}
+        )
 
     return grouped
 
@@ -269,7 +269,11 @@ def compute_metrics_from_records(records):
             else:
                 metrics["tweets"] += 1
 
-            if item.get("in_reply_to_status_id_str") or item.get("in_reply_to_user_id_str") or item.get("in_reply_to_screen_name"):
+            if (
+                item.get("in_reply_to_status_id_str")
+                or item.get("in_reply_to_user_id_str")
+                or item.get("in_reply_to_screen_name")
+            ):
                 metrics["replies"] += 1
 
             if item.get("is_quote_status") is True:
@@ -301,6 +305,7 @@ def compute_metrics_from_records(records):
 
 
 # --- Instagram metrics ---
+
 
 def compute_instagram_metrics_from_records(records: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Compute metrics for Instagram comment/reply items in candidate subfolder JSONs."""
@@ -336,7 +341,9 @@ def compute_instagram_metrics_from_records(records: List[Dict[str, Any]]) -> Dic
     return metrics
 
 
-def compute_instagram_home_metrics_from_records(records: List[Dict[str, Any]], instagram_username: str) -> Dict[str, Any]:
+def compute_instagram_home_metrics_from_records(
+    records: List[Dict[str, Any]], instagram_username: str
+) -> Dict[str, Any]:
     """Compute own-post metrics from Instagram home JSON records (dict with data list)."""
     out: Dict[str, Any] = {
         "own_posts_raw": 0,
@@ -368,6 +375,7 @@ def compute_instagram_home_metrics_from_records(records: List[Dict[str, Any]], i
 
 # --- YouTube metrics ---
 
+
 def _parse_iso8601_duration_seconds(duration: Any) -> int:
     """Parse a subset of ISO8601 durations like PT49M50S, PT1M31S, PT40S, PT1H2M3S."""
     s = str(duration or "").strip()
@@ -382,8 +390,11 @@ def _parse_iso8601_duration_seconds(duration: Any) -> int:
     return h * 3600 + mn * 60 + sec
 
 
-def compute_youtube_metrics_from_records(records: List[Dict[str, Any]], youtube_channel_id: str) -> Dict[str, Any]:
+def compute_youtube_metrics_from_records(
+    records: List[Dict[str, Any]], youtube_channel_id: str
+) -> Dict[str, Any]:
     """Compute metrics for YouTube videos in candidate subfolder JSONs."""
+
     def safe_int(val: Any) -> int:
         try:
             if val is None or val == "":
@@ -469,6 +480,7 @@ def _sanitize_text(s: Any, max_len: int = 80) -> str:
         return text[: max_len - 1] + "…"
     return text
 
+
 def pick_example_tweet_url(records) -> str:
     for record in records:
         items = _extract_items(record["data"])
@@ -540,7 +552,11 @@ def compute_user_breakdown(records, *, candidate: str, source: str) -> List[Dict
             else:
                 b["tweets"] += 1
 
-            if item.get("in_reply_to_status_id_str") or item.get("in_reply_to_user_id_str") or item.get("in_reply_to_screen_name"):
+            if (
+                item.get("in_reply_to_status_id_str")
+                or item.get("in_reply_to_user_id_str")
+                or item.get("in_reply_to_screen_name")
+            ):
                 b["replies"] += 1
 
             if item.get("is_quote_status") is True:
@@ -727,7 +743,9 @@ def print_description_breakdown(candidate: str, desc_counts: Dict[str, Any]):
         clean_desc = desc.replace("\n", " ").replace("\r", " ")
         clean_name = str(top_name).replace("\n", " ").replace("\r", " ")
 
-        print(f"[{count:>4}] ({pct:5.1f}%) lang={top_lang:<8} name={clean_name[:40]:<40} desc={clean_desc[:120]}")
+        print(
+            f"[{count:>4}] ({pct:5.1f}%) lang={top_lang:<8} name={clean_name[:40]:<40} desc={clean_desc[:120]}"
+        )
 
 
 def read_json_files_directly_under_prefix(bucket_name: str, base_prefix: str):
@@ -741,7 +759,9 @@ def read_json_files_directly_under_prefix(bucket_name: str, base_prefix: str):
 
     records = []
     for blob in iter_json_blobs(bucket, normalized_base):
-        remainder = blob.name[len(normalized_base):] if blob.name.startswith(normalized_base) else ""
+        remainder = (
+            blob.name[len(normalized_base) :] if blob.name.startswith(normalized_base) else ""
+        )
         if not remainder or "/" in remainder:
             continue
         payload = blob.download_as_text()
@@ -813,7 +833,9 @@ def main() -> int:
     args = parser.parse_args()
 
     if not args.blob and (not (args.country and args.platform) and not args.prefix):
-        parser.error("--prefix is required unless --country and --platform are provided, or --blob is provided")
+        parser.error(
+            "--prefix is required unless --country and --platform are provided, or --blob is provided"
+        )
 
     # Multi-platform convenience: --platform all or comma-separated list
     if args.country and args.platform and not args.blob and not args.prefix:
@@ -900,24 +922,36 @@ def main() -> int:
 
             rows = []
             for item in items:
-                is_reply = 1 if (item.get("in_reply_to_status_id_str") or item.get("in_reply_to_user_id_str") or item.get("in_reply_to_screen_name")) else 0
+                is_reply = (
+                    1
+                    if (
+                        item.get("in_reply_to_status_id_str")
+                        or item.get("in_reply_to_user_id_str")
+                        or item.get("in_reply_to_screen_name")
+                    )
+                    else 0
+                )
                 is_quote = 1 if item.get("is_quote_status") is True else 0
                 is_retweet = 1 if is_retweet_item(item) else 0
-                text_short = _sanitize_text(item.get("full_text") or item.get("text") or "", max_len=180)
-                rows.append({
-                    "tweet_url": str(item.get("tweet_url") or ""),
-                    "created_at": str(item.get("created_at") or ""),
-                    "text_short": text_short,
-                    "reply_count": safe_int(item.get("reply_count", 0)),
-                    "retweet_count": safe_int(item.get("retweet_count", 0)),
-                    "quote_count": safe_int(item.get("quote_count", 0)),
-                    "favorite_count": safe_int(item.get("favorite_count", 0)),
-                    "lang": str(item.get("lang") or ""),
-                    "is_reply": is_reply,
-                    "is_retweet": is_retweet,
-                    "is_quote": is_quote,
-                    "has_media": has_media_item(item),
-                })
+                text_short = _sanitize_text(
+                    item.get("full_text") or item.get("text") or "", max_len=180
+                )
+                rows.append(
+                    {
+                        "tweet_url": str(item.get("tweet_url") or ""),
+                        "created_at": str(item.get("created_at") or ""),
+                        "text_short": text_short,
+                        "reply_count": safe_int(item.get("reply_count", 0)),
+                        "retweet_count": safe_int(item.get("retweet_count", 0)),
+                        "quote_count": safe_int(item.get("quote_count", 0)),
+                        "favorite_count": safe_int(item.get("favorite_count", 0)),
+                        "lang": str(item.get("lang") or ""),
+                        "is_reply": is_reply,
+                        "is_retweet": is_retweet,
+                        "is_quote": is_quote,
+                        "has_media": has_media_item(item),
+                    }
+                )
 
             detail_cols = [
                 "tweet_url",
@@ -957,10 +991,14 @@ def main() -> int:
             # --- Instagram candidate summary ---
             if platform_lower == "instagram":
                 if not (cfg and isinstance(cfg_candidates, list) and len(cfg_candidates) > 0):
-                    raise RuntimeError("Instagram reporting requires YAML candidates (config/<country>.yaml)")
+                    raise RuntimeError(
+                        "Instagram reporting requires YAML candidates (config/<country>.yaml)"
+                    )
 
                 base_prefix = f"raw/{args.country}/{args.platform}/"
-                direct_home_records = read_json_files_directly_under_prefix(args.bucket, base_prefix)
+                direct_home_records = read_json_files_directly_under_prefix(
+                    args.bucket, base_prefix
+                )
 
                 ig_columns = [
                     "candidate",
@@ -996,7 +1034,9 @@ def main() -> int:
                             blob_name = record["blob"]
                             data = record["data"]
                             filename = os.path.basename(blob_name)
-                            candidate_out_dir = os.path.join(write_dir, country_lower, platform_lower, candidate_id_str)
+                            candidate_out_dir = os.path.join(
+                                write_dir, country_lower, platform_lower, candidate_id_str
+                            )
                             os.makedirs(candidate_out_dir, exist_ok=True)
                             local_path = os.path.join(candidate_out_dir, filename)
                             with open(local_path, "w", encoding="utf-8") as file_handle:
@@ -1005,11 +1045,14 @@ def main() -> int:
 
                         # Also write matching home JSON(s) into direct/
                         home_records = [
-                            r for r in direct_home_records
+                            r
+                            for r in direct_home_records
                             if candidate_id_str in os.path.basename(str(r.get("blob") or ""))
                         ]
                         if home_records:
-                            direct_out_dir = os.path.join(write_dir, country_lower, platform_lower, "direct")
+                            direct_out_dir = os.path.join(
+                                write_dir, country_lower, platform_lower, "direct"
+                            )
                             os.makedirs(direct_out_dir, exist_ok=True)
                             for hr in home_records:
                                 blob_name = hr["blob"]
@@ -1025,10 +1068,13 @@ def main() -> int:
                     own_posts_retrieved = int(sub_metrics.get("files", 0))
 
                     home_records = [
-                        r for r in direct_home_records
+                        r
+                        for r in direct_home_records
                         if candidate_id_str in os.path.basename(str(r.get("blob") or ""))
                     ]
-                    home_metrics = compute_instagram_home_metrics_from_records(home_records, instagram_username)
+                    home_metrics = compute_instagram_home_metrics_from_records(
+                        home_records, instagram_username
+                    )
 
                     row = {
                         "candidate": candidate_id_str,
@@ -1065,7 +1111,9 @@ def main() -> int:
             # --- YouTube candidate summary ---
             if platform_lower == "youtube":
                 if not (cfg and isinstance(cfg_candidates, list) and len(cfg_candidates) > 0):
-                    raise RuntimeError("YouTube reporting requires YAML candidates (config/<country>.yaml)")
+                    raise RuntimeError(
+                        "YouTube reporting requires YAML candidates (config/<country>.yaml)"
+                    )
 
                 yt_columns = [
                     "candidate",
@@ -1100,7 +1148,9 @@ def main() -> int:
                             blob_name = record["blob"]
                             data = record["data"]
                             filename = os.path.basename(blob_name)
-                            candidate_out_dir = os.path.join(write_dir, country_lower, platform_lower, candidate_id_str)
+                            candidate_out_dir = os.path.join(
+                                write_dir, country_lower, platform_lower, candidate_id_str
+                            )
                             os.makedirs(candidate_out_dir, exist_ok=True)
                             local_path = os.path.join(candidate_out_dir, filename)
                             with open(local_path, "w", encoding="utf-8") as file_handle:
@@ -1160,7 +1210,9 @@ def main() -> int:
 
                 # Direct (home) JSONs under raw/<country>/<platform>/ (e.g., own posts)
                 base_prefix = f"raw/{args.country}/{args.platform}/"
-                direct_home_records = read_json_files_directly_under_prefix(args.bucket, base_prefix)
+                direct_home_records = read_json_files_directly_under_prefix(
+                    args.bucket, base_prefix
+                )
 
                 rows = []
                 for c in cfg_candidates:
@@ -1180,7 +1232,9 @@ def main() -> int:
                             blob_name = record["blob"]
                             data = record["data"]
                             filename = os.path.basename(blob_name)
-                            candidate_out_dir = os.path.join(write_dir, country_lower, platform_lower, candidate_id_str)
+                            candidate_out_dir = os.path.join(
+                                write_dir, country_lower, platform_lower, candidate_id_str
+                            )
                             os.makedirs(candidate_out_dir, exist_ok=True)
                             local_path = os.path.join(candidate_out_dir, filename)
                             with open(local_path, "w", encoding="utf-8") as file_handle:
@@ -1188,11 +1242,14 @@ def main() -> int:
                             print(f"Wrote {blob_name} -> {local_path}")
                         # Also write matching home JSON(s) (direct files) into a direct/ folder
                         home_records = [
-                            r for r in direct_home_records
+                            r
+                            for r in direct_home_records
                             if candidate_id_str in os.path.basename(str(r.get("blob") or ""))
                         ]
                         if home_records:
-                            direct_out_dir = os.path.join(write_dir, country_lower, platform_lower, "direct")
+                            direct_out_dir = os.path.join(
+                                write_dir, country_lower, platform_lower, "direct"
+                            )
                             os.makedirs(direct_out_dir, exist_ok=True)
                             for hr in home_records:
                                 blob_name = hr["blob"]
@@ -1207,11 +1264,20 @@ def main() -> int:
 
                         # Home items: sum items from direct JSON(s) whose filename contains this candidate_id
                         home_records = [
-                            r for r in direct_home_records
+                            r
+                            for r in direct_home_records
                             if candidate_id_str in os.path.basename(str(r.get("blob") or ""))
                         ]
-                        own_posts_raw = compute_metrics_from_records(home_records).get("items", 0) if home_records else 0
-                        own_posts = _count_items_by_username(home_records, twitter_username) if home_records else 0
+                        own_posts_raw = (
+                            compute_metrics_from_records(home_records).get("items", 0)
+                            if home_records
+                            else 0
+                        )
+                        own_posts = (
+                            _count_items_by_username(home_records, twitter_username)
+                            if home_records
+                            else 0
+                        )
 
                         own_posts_retrieved = summary.get("files", 0)
                         summary_no_files = dict(summary)
@@ -1232,8 +1298,12 @@ def main() -> int:
 
                 # After all candidates processed, print exactly one summary table for Twitter (YAML mode)
                 if not write_dir:
-                    rows_sorted = sorted(rows, key=lambda r: order_index.get(r.get("candidate"), 10**9))
-                    print_metrics_table(f"CANDIDATE SUMMARY ({country_lower} / twitter)", rows_sorted)
+                    rows_sorted = sorted(
+                        rows, key=lambda r: order_index.get(r.get("candidate"), 10**9)
+                    )
+                    print_metrics_table(
+                        f"CANDIDATE SUMMARY ({country_lower} / twitter)", rows_sorted
+                    )
                     # CSV output if requested
                     if args.out_csv:
                         out_base = str(args.out_csv)
@@ -1241,10 +1311,22 @@ def main() -> int:
                             out_base = os.path.dirname(out_base) or "."
                         paths = _build_reports_paths(out_base, country_lower, platform_lower)
                         cols = [
-                            "candidate","candidate_name","twitter_username",
-                            "own_posts_raw","own_posts","own_posts_retrieved",
-                            "items","tweets","replies","retweets","quotes","media_items",
-                            "sum_reply_count","sum_retweet_count","sum_quote_count","sum_favorite_count",
+                            "candidate",
+                            "candidate_name",
+                            "twitter_username",
+                            "own_posts_raw",
+                            "own_posts",
+                            "own_posts_retrieved",
+                            "items",
+                            "tweets",
+                            "replies",
+                            "retweets",
+                            "quotes",
+                            "media_items",
+                            "sum_reply_count",
+                            "sum_retweet_count",
+                            "sum_quote_count",
+                            "sum_favorite_count",
                         ]
                         write_csv(paths["report2"], rows_sorted, cols)
                         print(f"Wrote CSV: {paths['report2']}")
@@ -1272,7 +1354,9 @@ def main() -> int:
                         "sum_favorite_count": 0,
                     }
                     base_prefix = f"raw/{args.country}/{args.platform}/"
-                    direct_home_records = read_json_files_directly_under_prefix(args.bucket, base_prefix)
+                    direct_home_records = read_json_files_directly_under_prefix(
+                        args.bucket, base_prefix
+                    )
                     rows = []
                     for candidate_id in df[id_col].dropna().unique():
                         candidate_id_str = str(candidate_id).strip()
@@ -1285,7 +1369,9 @@ def main() -> int:
                                 blob_name = record["blob"]
                                 data = record["data"]
                                 filename = os.path.basename(blob_name)
-                                candidate_out_dir = os.path.join(write_dir, country_lower, platform_lower, candidate_id_str)
+                                candidate_out_dir = os.path.join(
+                                    write_dir, country_lower, platform_lower, candidate_id_str
+                                )
                                 os.makedirs(candidate_out_dir, exist_ok=True)
                                 local_path = os.path.join(candidate_out_dir, filename)
                                 with open(local_path, "w", encoding="utf-8") as file_handle:
@@ -1295,10 +1381,15 @@ def main() -> int:
                             summary = compute_metrics_from_records(records)
 
                             home_records = [
-                                r for r in direct_home_records
+                                r
+                                for r in direct_home_records
                                 if candidate_id_str in os.path.basename(str(r.get("blob") or ""))
                             ]
-                            home_items = compute_metrics_from_records(home_records).get("items", 0) if home_records else 0
+                            home_items = (
+                                compute_metrics_from_records(home_records).get("items", 0)
+                                if home_records
+                                else 0
+                            )
 
                             own_posts_raw = home_items
                             own_posts = 0
@@ -1320,17 +1411,31 @@ def main() -> int:
 
                     if not write_dir:
                         rows_sorted = sorted(rows, key=lambda r: r["items"], reverse=True)
-                        print_metrics_table(f"CANDIDATE SUMMARY ({country_lower} / {platform_lower})", rows_sorted)
+                        print_metrics_table(
+                            f"CANDIDATE SUMMARY ({country_lower} / {platform_lower})", rows_sorted
+                        )
                         if args.out_csv:
                             out_base = str(args.out_csv)
                             if out_base.endswith(".csv"):
                                 out_base = os.path.dirname(out_base) or "."
                             paths = _build_reports_paths(out_base, country_lower, platform_lower)
                             cols = [
-                                "candidate","candidate_name","twitter_username",
-                                "own_posts_raw","own_posts","own_posts_retrieved",
-                                "items","tweets","replies","retweets","quotes","media_items",
-                                "sum_reply_count","sum_retweet_count","sum_quote_count","sum_favorite_count",
+                                "candidate",
+                                "candidate_name",
+                                "twitter_username",
+                                "own_posts_raw",
+                                "own_posts",
+                                "own_posts_retrieved",
+                                "items",
+                                "tweets",
+                                "replies",
+                                "retweets",
+                                "quotes",
+                                "media_items",
+                                "sum_reply_count",
+                                "sum_retweet_count",
+                                "sum_quote_count",
+                                "sum_favorite_count",
                             ]
                             write_csv(paths["report2"], rows_sorted, cols)
                             print(f"Wrote CSV: {paths['report2']}")
@@ -1382,7 +1487,11 @@ def main() -> int:
                 grouped_records = read_json_by_candidate_folder(args.bucket, args.prefix)
                 # If YAML config exists, restrict to candidate_ids defined in YAML (ground truth)
                 if cfg and isinstance(cfg.get("candidates"), list):
-                    yaml_ids = [str(c.get("candidate_id")).strip() for c in cfg.get("candidates") if isinstance(c, dict) and c.get("candidate_id")]
+                    yaml_ids = [
+                        str(c.get("candidate_id")).strip()
+                        for c in cfg.get("candidates")
+                        if isinstance(c, dict) and c.get("candidate_id")
+                    ]
                     grouped_records = {cid: grouped_records.get(cid, []) for cid in yaml_ids}
 
                 if write_dir:
@@ -1402,7 +1511,9 @@ def main() -> int:
                             blob_name = record["blob"]
                             data = record["data"]
                             filename = os.path.basename(blob_name)
-                            out_dir = os.path.join(write_dir, country_lower, platform_lower, str(candidate_id))
+                            out_dir = os.path.join(
+                                write_dir, country_lower, platform_lower, str(candidate_id)
+                            )
                             os.makedirs(out_dir, exist_ok=True)
                             local_path = os.path.join(out_dir, filename)
                             with open(local_path, "w", encoding="utf-8") as file_handle:
@@ -1432,7 +1543,9 @@ def main() -> int:
                         }
                         row.update(summary_no_files)
                         rows_report1.append(row)
-                    rows_report1_sorted = sorted(rows_report1, key=lambda r: r["items"], reverse=True)
+                    rows_report1_sorted = sorted(
+                        rows_report1, key=lambda r: r["items"], reverse=True
+                    )
                     print_metrics_table("REPORT 1: Direct files (own posts)", rows_report1_sorted)
                     # Description breakdown: print for candidates with >1 unique description
                     for row in rows_report1_sorted:
@@ -1465,14 +1578,30 @@ def main() -> int:
                         }
                         row.update(summary_no_files)
                         rows_report2.append(row)
-                    rows_report2_sorted = sorted(rows_report2, key=lambda r: r["items"], reverse=True)
-                    print_metrics_table("REPORT 2: Subfolders (posts + replies)", rows_report2_sorted)
+                    rows_report2_sorted = sorted(
+                        rows_report2, key=lambda r: r["items"], reverse=True
+                    )
+                    print_metrics_table(
+                        "REPORT 2: Subfolders (posts + replies)", rows_report2_sorted
+                    )
                     if args.out_csv:
                         columns = [
-                            "candidate","candidate_name","twitter_username",
-                            "own_posts_raw","own_posts","own_posts_retrieved",
-                            "items","tweets","replies","retweets","quotes","media_items",
-                            "sum_reply_count","sum_retweet_count","sum_quote_count","sum_favorite_count",
+                            "candidate",
+                            "candidate_name",
+                            "twitter_username",
+                            "own_posts_raw",
+                            "own_posts",
+                            "own_posts_retrieved",
+                            "items",
+                            "tweets",
+                            "replies",
+                            "retweets",
+                            "quotes",
+                            "media_items",
+                            "sum_reply_count",
+                            "sum_retweet_count",
+                            "sum_quote_count",
+                            "sum_favorite_count",
                         ]
                         user_columns = [
                             "source",
@@ -1513,7 +1642,9 @@ def main() -> int:
                         for row in rows_report1_sorted:
                             candidate = row["candidate"]
                             records = direct_candidates.get(candidate, [])
-                            urows = compute_user_breakdown(records, candidate=candidate, source=row.get("source", ""))
+                            urows = compute_user_breakdown(
+                                records, candidate=candidate, source=row.get("source", "")
+                            )
                             for ur in urows:
                                 ur["right_user"] = ""
                                 user_rows1.append(ur)
@@ -1525,7 +1656,9 @@ def main() -> int:
                     print("No JSON files found.")
                     return 0
 
-                print(f"Found {len(records)} JSON files in gs://{args.bucket}/{_normalize_prefix(args.prefix)}")
+                print(
+                    f"Found {len(records)} JSON files in gs://{args.bucket}/{_normalize_prefix(args.prefix)}"
+                )
 
                 if write_dir:
                     for record in records:

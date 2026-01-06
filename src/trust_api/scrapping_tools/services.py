@@ -1,6 +1,7 @@
 """Services for scrapping-tools."""
 
 import json
+import logging
 import time
 from datetime import datetime, timezone
 from typing import Any, Literal
@@ -8,6 +9,8 @@ from typing import Any, Literal
 from google.cloud import firestore, storage
 
 from trust_api.scrapping_tools.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 def get_firestore_client() -> firestore.Client:
@@ -588,6 +591,7 @@ def save_to_gcs(
     platform: str,
     candidate_id: str,
     post_id: str,
+    metadata: dict[str, Any] | None = None,
 ) -> str:
     """
     Save JSON data to GCS bucket with structure: country/platform/candidate_id/{post_id}.json
@@ -598,6 +602,7 @@ def save_to_gcs(
         platform: Platform name
         candidate_id: Candidate ID
         post_id: Post ID (used for filename)
+        metadata: Optional metadata to include in the saved JSON (e.g., retry information)
 
     Returns:
         GCS URI of the saved file
@@ -617,9 +622,15 @@ def save_to_gcs(
 
     blob_path = _get_gcs_blob_path(country, platform, candidate_id, post_id)
 
+    # Prepare data to save (add metadata if provided)
+    data_to_save = data.copy()
+    if metadata:
+        # Add metadata at the top level of the JSON
+        data_to_save["_metadata"] = metadata
+
     blob = bucket.blob(blob_path)
     blob.upload_from_string(
-        json.dumps(data, ensure_ascii=False, indent=2),
+        json.dumps(data_to_save, ensure_ascii=False, indent=2),
         content_type="application/json",
     )
 
@@ -801,6 +812,42 @@ def update_job_status(doc_id: str, new_status: str) -> None:
             "updated_at": now,
         }
     )
+
+
+def increment_job_retry_count(doc_id: str) -> int:
+    """
+    Increment the retry_count field of a job document.
+    If retry_count doesn't exist, it's initialized to 1.
+
+    Args:
+        doc_id: The Firestore document ID of the job to update
+
+    Returns:
+        The new retry_count value
+
+    Raises:
+        ValueError: If doc_id is not provided
+    """
+    if not doc_id:
+        raise ValueError("doc_id is required to increment retry count")
+
+    client = get_firestore_client()
+    doc_ref = client.collection(settings.firestore_jobs_collection).document(doc_id)
+
+    # Get current document to check existing retry_count
+    doc = doc_ref.get()
+    if doc.exists:
+        current_data = doc.to_dict()
+        current_retry_count = current_data.get("retry_count", 0)
+        new_retry_count = current_retry_count + 1
+    else:
+        new_retry_count = 1
+
+    # Update retry_count and updated_at
+    now = datetime.now(timezone.utc)
+    doc_ref.update({"retry_count": new_retry_count, "updated_at": now})
+
+    return new_retry_count
 
 
 def submit_post_job(
@@ -1176,8 +1223,35 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                         )
                         continue
 
-                    # Save to GCS
-                    gcs_uri = save_to_gcs(result, country, platform, candidate_id, post_id)
+                    # Check if file already exists in GCS (indicates a retry)
+                    existing_file = read_from_gcs_if_exists(
+                        country, platform, candidate_id, post_id
+                    )
+                    is_retry = existing_file is not None
+                    retry_count = 0
+
+                    # Prepare metadata for retry information
+                    metadata = None
+                    if is_retry:
+                        # Increment retry_count in job document
+                        retry_count = increment_job_retry_count(job_doc_id)
+                        # Prepare metadata with retry information
+                        now = datetime.now(timezone.utc)
+                        metadata = {
+                            "is_retry": True,
+                            "retry_count": retry_count,
+                            "retry_timestamp": now.isoformat(),
+                            "previous_file_existed": True,
+                        }
+                        logger.info(
+                            f"Retrying job {job_id} (retry #{retry_count}). "
+                            f"Overwriting existing file in GCS for post_id={post_id}"
+                        )
+
+                    # Save to GCS (with metadata if it's a retry)
+                    gcs_uri = save_to_gcs(
+                        result, country, platform, candidate_id, post_id, metadata
+                    )
                     results["saved_files"].append(gcs_uri)
 
                     # Update post status to done

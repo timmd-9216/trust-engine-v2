@@ -61,6 +61,7 @@ La colección `pending_jobs` almacena los jobs de Information Tracer que están 
 | `done` | Job completado exitosamente | Se asigna cuando el job se completa exitosamente, los resultados se obtienen de Information Tracer, se validan como no vacíos y se guardan correctamente en GCS. |
 | `failed` | Job falló al procesar | Se asigna cuando: (1) Information Tracer API reporta que el job falló, (2) no se pueden obtener los resultados (result es None), o (3) ocurre una excepción durante el procesamiento. |
 | `empty_result` | Job completado pero resultado vacío | Se asigna cuando el job se completa exitosamente según Information Tracer (status="finished"), pero el resultado obtenido está vacío (lista vacía o diccionario vacío). Este es un caso especial que se distingue de "failed" porque el job técnicamente terminó, pero no hay datos útiles. |
+| `verified` | Job verificado como resultado vacío esperado | Se asigna cuando un job tiene status `empty_result`, la plataforma es `twitter`, y el `replies_count` del post asociado es <= 2. Indica que el resultado vacío es esperado porque el post tiene pocas o ninguna respuesta. |
 
 ### Flujo de Estados
 
@@ -69,6 +70,7 @@ pending → processing → done          (si el job se completa exitosamente)
 pending → processing → failed        (si Information Tracer reporta fallo)
 pending → processing → empty_result  (si el resultado está vacío)
 pending → processing → pending       (si el job tiene timeout, se reintenta)
+empty_result → verified              (si platform='twitter' y replies_count <= 2)
 ```
 
 ### Diferencias entre `failed` y `empty_result`
@@ -100,6 +102,9 @@ failed_jobs = client.collection("pending_jobs").where("status", "==", "failed").
 # Consultar jobs con resultado vacío
 empty_jobs = client.collection("pending_jobs").where("status", "==", "empty_result").stream()
 
+# Consultar jobs verificados
+verified_jobs = client.collection("pending_jobs").where("status", "==", "verified").stream()
+
 # Actualizar status a done
 doc_ref = client.collection("pending_jobs").document("DOCUMENT_ID")
 doc_ref.update({
@@ -128,6 +133,7 @@ doc_ref.update({
 | `processing` | `failed` | Information Tracer reporta fallo, error al obtener resultados, o excepción |
 | `processing` | `empty_result` | Job completado pero resultado vacío |
 | `processing` | `pending` | Job con timeout o status desconocido (se reintenta) |
+| `empty_result` | `verified` | Platform es 'twitter' y replies_count del post <= 2 (resultado vacío esperado) |
 
 ---
 
