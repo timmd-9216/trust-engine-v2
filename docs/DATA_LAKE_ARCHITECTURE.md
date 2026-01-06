@@ -129,7 +129,7 @@ gs://trust-prd/
 
 ### 2. Processed Layer (Parquet)
 
-**Ubicación**: `gs://{bucket}/processed/replies/platform={platform}/ingestion_date={date}/data.parquet`
+**Ubicación**: `gs://{bucket}/processed/replies/ingestion_date={date}/platform={platform}/data.parquet`
 
 - Datos transformados y optimizados
 - Schema definido y tipado

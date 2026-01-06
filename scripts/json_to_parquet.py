@@ -560,7 +560,8 @@ def main():
         print("No files to process")
         return
 
-    # Group records by platform and ingestion date
+    # Group records by ingestion date and platform
+    # Partition order: ingestion_date first, then platform (matches BigQuery expectations)
     records_by_partition: dict[tuple[str, str], list[dict[str, Any]]] = {}
 
     print("Processing JSON files...")
@@ -570,9 +571,9 @@ def main():
         if not flattened:
             continue
 
-        # Partition key: (platform, ingestion_date)
+        # Partition key: (ingestion_date, platform) - ingestion_date first for BigQuery
         date_str = ingestion_ts.strftime("%Y-%m-%d")
-        key = (platform, date_str)
+        key = (date_str, platform)
 
         if key not in records_by_partition:
             records_by_partition[key] = []
@@ -583,8 +584,8 @@ def main():
     print(f"\nTotal records: {total_records}")
     print(f"Partitions: {len(records_by_partition)}")
 
-    for (platform, date_str), records in sorted(records_by_partition.items()):
-        print(f"  {platform}/ingestion_date={date_str}: {len(records)} records")
+    for (date_str, platform), records in sorted(records_by_partition.items()):
+        print(f"  ingestion_date={date_str}/platform={platform}: {len(records)} records")
 
     if args.dry_run:
         print("\n[DRY RUN] No files written")
@@ -595,13 +596,13 @@ def main():
     output_dir = Path(args.output_dir)
     written_files = []
 
-    for (platform, date_str), records in records_by_partition.items():
+    for (date_str, platform), records in records_by_partition.items():
         # Use unified schema for all platforms (Instagram now uses same field names as Twitter)
         schema = TWITTER_SCHEMA
 
-        # Create partition directory
+        # Create partition directory: ingestion_date first, then platform
         partition_dir = (
-            output_dir / "replies" / f"platform={platform}" / f"ingestion_date={date_str}"
+            output_dir / "replies" / f"ingestion_date={date_str}" / f"platform={platform}"
         )
         partition_dir.mkdir(parents=True, exist_ok=True)
 
@@ -610,14 +611,14 @@ def main():
         count = records_to_parquet(records, schema, str(parquet_path))
 
         print(f"  Wrote {count} records to {parquet_path}")
-        written_files.append((str(parquet_path), platform, date_str))
+        written_files.append((str(parquet_path), date_str, platform))
 
     # Upload to GCS if requested
     if args.upload:
         print("\nUploading to GCS...")
-        for local_path, platform, date_str in written_files:
+        for local_path, date_str, platform in written_files:
             blob_path = (
-                f"processed/replies/platform={platform}/ingestion_date={date_str}/data.parquet"
+                f"processed/replies/ingestion_date={date_str}/platform={platform}/data.parquet"
             )
             uri = upload_to_gcs(local_path, args.bucket, blob_path)
             print(f"  Uploaded: {uri}")
@@ -631,8 +632,8 @@ def main():
     print(f"""
 CREATE EXTERNAL TABLE `your_project.your_dataset.replies`
 WITH PARTITION COLUMNS (
-  platform STRING,
-  ingestion_date DATE
+  ingestion_date DATE,
+  platform STRING
 )
 OPTIONS (
   format = 'PARQUET',
