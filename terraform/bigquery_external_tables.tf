@@ -240,6 +240,106 @@ output "replies_table" {
   description = "Full reference to the replies external table"
 }
 
+output "keywordpost_table" {
+  value       = "${var.project_id}.${var.bigquery_dataset}.${google_bigquery_table.keywordpost.table_id}"
+  description = "Full reference to the keywordpost external table"
+}
+
+output "keywordpost_replies_table" {
+  value       = "${var.project_id}.${var.bigquery_dataset}.${google_bigquery_table.keywordpost_replies.table_id}"
+  description = "Full reference to the keywordpost_replies external table"
+}
+
+# External table for YouTube keyword posts (videos)
+resource "google_bigquery_table" "keywordpost" {
+  dataset_id = google_bigquery_dataset.analytics.dataset_id
+  project    = var.project_id
+  table_id   = "keywordpost"
+
+  description = "External table for YouTube keyword posts (videos) stored as Parquet in GCS"
+
+  external_data_configuration {
+    autodetect    = false
+    source_format = "PARQUET"
+    # Match keyword post files (videos) - exclude replies files by using specific pattern
+    # Pattern matches: yt_keywordpost_*.parquet but not *replies*.parquet
+    source_uris   = [
+      "gs://${var.gcs_bucket}/processed/keywordpost/youtube/yt_keywordpost_*.parquet"
+    ]
+
+    # Schema matching the YouTube keyword post Parquet files
+    schema = jsonencode([
+      { name = "id", type = "STRING", mode = "NULLABLE" },
+      { name = "url", type = "STRING", mode = "NULLABLE" },
+      { name = "channel_id", type = "STRING", mode = "NULLABLE" },
+      { name = "title", type = "STRING", mode = "NULLABLE" },
+      { name = "description", type = "STRING", mode = "NULLABLE" },
+      { name = "channel_title", type = "STRING", mode = "NULLABLE" },
+      { name = "published_at", type = "TIMESTAMP", mode = "NULLABLE" },
+      { name = "thumbnail_url", type = "STRING", mode = "NULLABLE" },
+      { name = "tags", type = "STRING", mode = "REPEATED" },
+      { name = "duration", type = "STRING", mode = "NULLABLE" },
+      { name = "view_count", type = "INTEGER", mode = "NULLABLE" },
+      { name = "like_count", type = "INTEGER", mode = "NULLABLE" },
+      { name = "comment_count", type = "INTEGER", mode = "NULLABLE" },
+      { name = "language", type = "STRING", mode = "NULLABLE" },
+      { name = "posttype", type = "STRING", mode = "NULLABLE" },
+      { name = "country", type = "STRING", mode = "NULLABLE" },
+      { name = "candidate_id", type = "STRING", mode = "NULLABLE" },
+    ])
+  }
+
+  labels = {
+    data_source = "information_tracer"
+    layer       = "processed"
+  }
+
+  deletion_protection = false
+}
+
+# External table for YouTube keyword post replies (comments)
+resource "google_bigquery_table" "keywordpost_replies" {
+  dataset_id = google_bigquery_dataset.analytics.dataset_id
+  project    = var.project_id
+  table_id   = "keywordpost_replies"
+
+  description = "External table for YouTube keyword post replies (comments) stored as Parquet in GCS"
+
+  external_data_configuration {
+    autodetect    = false
+    source_format = "PARQUET"
+    source_uris   = ["gs://${var.gcs_bucket}/processed/keywordpost/*/*replies*.parquet"]
+
+    # Schema matching the YouTube keyword post replies Parquet files
+    schema = jsonencode([
+      { name = "video_id", type = "STRING", mode = "NULLABLE" },
+      { name = "video_title", type = "STRING", mode = "NULLABLE" },
+      { name = "video_description", type = "STRING", mode = "NULLABLE" },
+      { name = "video_url", type = "STRING", mode = "NULLABLE" },
+      { name = "channel_id", type = "STRING", mode = "NULLABLE" },
+      { name = "channel_title", type = "STRING", mode = "NULLABLE" },
+      { name = "video_published_at", type = "TIMESTAMP", mode = "NULLABLE" },
+      { name = "thumbnail_url", type = "STRING", mode = "NULLABLE" },
+      { name = "comment_id", type = "STRING", mode = "NULLABLE" },
+      { name = "author", type = "STRING", mode = "NULLABLE" },
+      { name = "text", type = "STRING", mode = "NULLABLE" },
+      { name = "like_count", type = "INTEGER", mode = "NULLABLE" },
+      { name = "published_at", type = "TIMESTAMP", mode = "NULLABLE" },
+      { name = "reply_count", type = "INTEGER", mode = "NULLABLE" },
+      { name = "posttype", type = "STRING", mode = "NULLABLE" },
+      { name = "country", type = "STRING", mode = "NULLABLE" },
+      { name = "candidate_id", type = "STRING", mode = "NULLABLE" },
+    ])
+  }
+
+  labels = {
+    data_source = "information_tracer"
+    layer       = "processed"
+  }
+
+  deletion_protection = false
+}
+
 output "example_queries" {
   value = <<-EOT
     
@@ -257,6 +357,18 @@ output "example_queries" {
     -- Filter by ingestion date (uses partition pruning - fast!)
     SELECT * FROM `${var.project_id}.${var.bigquery_dataset}.replies`
     WHERE ingestion_date = '2026-01-05';
+    
+    -- Query keyword posts (videos)
+    SELECT * FROM `${var.project_id}.${var.bigquery_dataset}.keywordpost`
+    WHERE country = 'honduras'
+    ORDER BY published_at DESC
+    LIMIT 100;
+    
+    -- Query keyword post replies (comments)
+    SELECT * FROM `${var.project_id}.${var.bigquery_dataset}.keywordpost_replies`
+    WHERE country = 'honduras'
+    ORDER BY published_at DESC
+    LIMIT 100;
     
   EOT
   description = "Example BigQuery queries"
