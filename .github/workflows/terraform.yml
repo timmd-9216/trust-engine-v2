@@ -166,13 +166,16 @@ jobs:
             echo "✓ Cloud Resource Manager API bootstrap successful"
           elif [ $BOOTSTRAP_EXIT_CODE -eq 1 ]; then
             echo "bootstrap_success=false" >> $GITHUB_OUTPUT
-            echo "⚠ Bootstrap API apply encountered an error"
-            echo "This might be because the API is already enabled or there's a permission issue"
-            echo "Will use -refresh=false for plan to avoid refresh errors..."
+            echo "⚠ Bootstrap API apply encountered an error (exit code: $BOOTSTRAP_EXIT_CODE)"
+            echo "This might be due to:"
+            echo "  - Permission issue: Service account needs 'roles/serviceusage.serviceUsageAdmin'"
+            echo "  - API already enabled"
+            echo "  - API needs to be enabled manually via GCP Console"
+            echo "Continuing with plan using -refresh=false..."
           else
             echo "bootstrap_success=false" >> $GITHUB_OUTPUT
             echo "⚠ Bootstrap API apply returned exit code: $BOOTSTRAP_EXIT_CODE"
-            echo "Will use -refresh=false for plan to avoid refresh errors..."
+            echo "Continuing with plan using -refresh=false..."
           fi
           
           echo "Waiting 20 seconds for API activation to propagate..."

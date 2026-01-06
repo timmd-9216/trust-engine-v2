@@ -99,27 +99,41 @@ Set these in GitHub repository settings (Settings → Secrets and variables → 
 
 ### Service Account Permissions
 
-The Terraform service account needs:
+The Terraform service account needs the following roles:
 
 ```bash
-# Grant roles to service account
+# Required for managing project services (enabling/disabling APIs)
+gcloud projects add-iam-policy-binding trust-481601 \
+  --member="serviceAccount:ci-deployer@trust-481601.iam.gserviceaccount.com" \
+  --role="roles/serviceusage.serviceUsageAdmin"
+
+# Required for BigQuery resources
 gcloud projects add-iam-policy-binding trust-481601 \
   --member="serviceAccount:ci-deployer@trust-481601.iam.gserviceaccount.com" \
   --role="roles/bigquery.admin"
 
+# Required for Cloud Scheduler resources
 gcloud projects add-iam-policy-binding trust-481601 \
   --member="serviceAccount:ci-deployer@trust-481601.iam.gserviceaccount.com" \
   --role="roles/cloudscheduler.admin"
 
+# Required for Workflows resources
 gcloud projects add-iam-policy-binding trust-481601 \
   --member="serviceAccount:ci-deployer@trust-481601.iam.gserviceaccount.com" \
   --role="roles/workflows.admin"
 
-# For state bucket
-  gsutil iam ch \
+# Required for Eventarc resources (if using workflows)
+gcloud projects add-iam-policy-binding trust-481601 \
+  --member="serviceAccount:ci-deployer@trust-481601.iam.gserviceaccount.com" \
+  --role="roles/eventarc.admin"
+
+# For Terraform state bucket
+gsutil iam ch \
   serviceAccount:ci-deployer@trust-481601.iam.gserviceaccount.com:objectAdmin \
   gs://trust-481601-terraform-state
 ```
+
+**Important**: The `roles/serviceusage.serviceUsageAdmin` role is required for Terraform to enable/disable GCP APIs. Without this role, the bootstrap step will fail with a permission error.
 
 ## State Management
 
