@@ -94,6 +94,8 @@ resource "google_bigquery_table" "replies" {
       { name = "retry_count", type = "INTEGER", mode = "NULLABLE" },
     ])
 
+    # Hive partitioning: order matches directory structure (platform first, then ingestion_date)
+    # Structure: processed/replies/platform={platform}/ingestion_date={date}/
     hive_partitioning_options {
       mode                     = "AUTO"
       source_uri_prefix        = "gs://${var.gcs_bucket}/processed/replies/"
