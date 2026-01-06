@@ -177,13 +177,27 @@ jobs:
         run: terraform init -input=false
 
       - name: Download Plan
+        id: download-plan
         uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
           name: tfplan
           path: ${{ env.TF_WORKING_DIR }}
 
+      - name: Check if plan exists
+        id: check-plan
+        run: |
+          if [ -f "${{ env.TF_WORKING_DIR }}/tfplan" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Error: tfplan artifact not found. Ensure terraform-plan job succeeded."
+            exit 1
+          fi
+
       - name: Terraform Apply
         working-directory: ${{ env.TF_WORKING_DIR }}
+        if: steps.check-plan.outputs.exists == 'true'
         run: terraform apply -input=false -auto-approve tfplan
 
       - name: Terraform Output
