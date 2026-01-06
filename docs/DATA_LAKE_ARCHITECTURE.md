@@ -87,8 +87,8 @@ gs://trust-prd/
 │
 ├── processed/                        # Capa PROCESSED - Parquet optimizado
 │   └── replies/
-│       └── platform={twitter|instagram}/
-│           └── ingestion_date=YYYY-MM-DD/
+│       └── ingestion_date=YYYY-MM-DD/
+│           └── platform={twitter|instagram}/
 │               └── data.parquet      # Parquet particionado
 │
 ├── logs/                             # Logs de ejecución
@@ -133,7 +133,7 @@ gs://trust-prd/
 
 - Datos transformados y optimizados
 - Schema definido y tipado
-- Particionado por `platform` e `ingestion_date`
+- Particionado por `ingestion_date` y `platform` (orden: ingestion_date primero)
 - Formato: Parquet (compresión Snappy)
 
 **Schema Twitter**:
@@ -249,8 +249,8 @@ CREATE SCHEMA IF NOT EXISTS `trust-481601.trust_analytics`;
 -- Crear external table con particiones Hive
 CREATE EXTERNAL TABLE `trust-481601.trust_analytics.replies`
 WITH PARTITION COLUMNS (
-  platform STRING,
-  ingestion_date DATE
+  ingestion_date DATE,
+  platform STRING
 )
 OPTIONS (
   format = 'PARQUET',

@@ -54,7 +54,7 @@ def find_parquet_files(source_dir: str) -> list[tuple[str, str]]:
     Find all .parquet files in source_dir and return (local_path, gcs_path).
 
     Expected structure:
-    source_dir/replies/platform={platform}/ingestion_date={date}/data.parquet
+    source_dir/replies/ingestion_date={date}/platform={platform}/data.parquet
 
     Returns:
         List of (local_path, gcs_path) tuples
@@ -71,7 +71,7 @@ def find_parquet_files(source_dir: str) -> list[tuple[str, str]]:
         relative_path = parquet_file.relative_to(source_path)
 
         # Convert to GCS path
-        # Expected structure: replies/platform=*/ingestion_date=*/data.parquet
+        # Expected structure: replies/ingestion_date=*/platform=*/data.parquet
         parts = relative_path.parts
         if parts[0] == "replies":
             # Already has replies/ prefix
@@ -117,7 +117,7 @@ def main():
 
     if not parquet_files:
         print(f"❌ No Parquet files found in {args.source_dir}")
-        print("Expected structure: {source_dir}/replies/platform=*/ingestion_date=*/data.parquet")
+        print("Expected structure: {source_dir}/replies/ingestion_date=*/platform=*/data.parquet")
         sys.exit(1)
 
     print(f"Found {len(parquet_files)} Parquet file(s)")
