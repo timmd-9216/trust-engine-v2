@@ -105,12 +105,31 @@ jobs:
             -detailed-exitcode || echo "exitcode=$?" >> $GITHUB_OUTPUT
         continue-on-error: true
 
-      - name: Upload Plan
+      - name: Check if plan file exists
+        id: check-plan-file
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          if [ -f "tfplan" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload Plan to GitHub Artifacts
+        if: steps.check-plan-file.outputs.exists == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: tfplan
           path: ${{ env.TF_WORKING_DIR }}/tfplan
           retention-days: 5
+
+      - name: Upload Plan to GCS (backup)
+        if: steps.check-plan-file.outputs.exists == 'true'
+        run: |
+          PLAN_PATH="gs://trust-481601-terraform-state/terraform/plans/${GITHUB_RUN_ID}-${GITHUB_SHA:0:7}.tfplan"
+          gsutil cp ${{ env.TF_WORKING_DIR }}/tfplan "${PLAN_PATH}"
+          echo "Plan saved to: ${PLAN_PATH}"
+          echo "plan_gcs_path=${PLAN_PATH}" >> $GITHUB_OUTPUT
 
       - name: Comment on PR
         if: github.event_name == 'pull_request'
@@ -176,22 +195,39 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform init -input=false
 
-      - name: Download Plan
-        id: download-plan
+      - name: Download Plan from GitHub Artifacts
+        id: download-artifact
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
           name: tfplan
           path: ${{ env.TF_WORKING_DIR }}
 
+      - name: Download Plan from GCS (fallback)
+        id: download-gcs
+        if: steps.download-artifact.outcome != 'success'
+        run: |
+          # Try to get the latest plan from GCS
+          LATEST_PLAN=$(gsutil ls -l gs://trust-481601-terraform-state/terraform/plans/*.tfplan 2>/dev/null | tail -1 | awk '{print $3}' || echo "")
+          if [ -n "${LATEST_PLAN}" ]; then
+            echo "Downloading plan from GCS: ${LATEST_PLAN}"
+            gsutil cp "${LATEST_PLAN}" ${{ env.TF_WORKING_DIR }}/tfplan
+            echo "downloaded=true" >> $GITHUB_OUTPUT
+          else
+            echo "downloaded=false" >> $GITHUB_OUTPUT
+            echo "No plan found in GCS either"
+          fi
+        continue-on-error: true
+
       - name: Check if plan exists
         id: check-plan
+        working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
-          if [ -f "${{ env.TF_WORKING_DIR }}/tfplan" ]; then
+          if [ -f "tfplan" ]; then
             echo "exists=true" >> $GITHUB_OUTPUT
           else
             echo "exists=false" >> $GITHUB_OUTPUT
-            echo "Error: tfplan artifact not found. Ensure terraform-plan job succeeded."
+            echo "Error: tfplan not found in artifacts or GCS. Ensure terraform-plan job succeeded."
             exit 1
           fi
 
