@@ -1,10 +1,20 @@
 # GCS-triggered Workflow for NLP Processing
 #
 # Variables project_id and region are defined in variables.tf
+#
+# This workflow is optional. Set enable_nlp_workflow = true and provide
+# the required variables to enable it.
+
+variable "enable_nlp_workflow" {
+  description = "Enable NLP workflow resources (set to false to disable)"
+  type        = bool
+  default     = false
+}
 
 variable "source_bucket" {
-  description = "Bucket to watch for new objects"
+  description = "Bucket to watch for new objects (required if enable_nlp_workflow = true)"
   type        = string
+  default     = ""
 }
 
 variable "source_prefix" {
@@ -14,13 +24,15 @@ variable "source_prefix" {
 }
 
 variable "output_bucket" {
-  description = "Bucket where processed output will be written"
+  description = "Bucket where processed output will be written (required if enable_nlp_workflow = true)"
   type        = string
+  default     = ""
 }
 
 variable "trust_api_process_url" {
-  description = "HTTP endpoint for the trust-api processing service"
+  description = "HTTP endpoint for the trust-api processing service (required if enable_nlp_workflow = true)"
   type        = string
+  default     = ""
 }
 
 variable "workflow_name" {
@@ -32,38 +44,50 @@ variable "workflow_name" {
 # Provider is configured in versions.tf
 
 resource "google_service_account" "workflow" {
+  count = var.enable_nlp_workflow ? 1 : 0
+
   account_id   = "${var.workflow_name}-sa"
   display_name = "Workflow SA for ${var.workflow_name}"
 }
 
 resource "google_project_iam_member" "workflow_run_invoker" {
+  count = var.enable_nlp_workflow ? 1 : 0
+
   project = var.project_id
   role    = "roles/run.invoker"
-  member  = "serviceAccount:${google_service_account.workflow.email}"
+  member  = "serviceAccount:${google_service_account.workflow[0].email}"
 }
 
 resource "google_project_iam_member" "workflow_storage_viewer" {
+  count = var.enable_nlp_workflow ? 1 : 0
+
   project = var.project_id
   role    = "roles/storage.objectViewer"
-  member  = "serviceAccount:${google_service_account.workflow.email}"
+  member  = "serviceAccount:${google_service_account.workflow[0].email}"
 }
 
 resource "google_project_iam_member" "workflow_storage_creator" {
+  count = var.enable_nlp_workflow ? 1 : 0
+
   project = var.project_id
   role    = "roles/storage.objectCreator"
-  member  = "serviceAccount:${google_service_account.workflow.email}"
+  member  = "serviceAccount:${google_service_account.workflow[0].email}"
 }
 
 resource "google_project_iam_member" "workflow_invoker" {
+  count = var.enable_nlp_workflow ? 1 : 0
+
   project = var.project_id
   role    = "roles/workflows.invoker"
-  member  = "serviceAccount:${google_service_account.workflow.email}"
+  member  = "serviceAccount:${google_service_account.workflow[0].email}"
 }
 
 resource "google_workflows_workflow" "trust_api" {
+  count = var.enable_nlp_workflow ? 1 : 0
+
   name            = var.workflow_name
   region          = var.region
-  service_account = google_service_account.workflow.email
+  service_account = google_service_account.workflow[0].email
 
   user_env_vars = {
     SOURCE_PREFIX      = var.source_prefix
@@ -141,6 +165,8 @@ resource "google_workflows_workflow" "trust_api" {
 }
 
 resource "google_eventarc_trigger" "trust_api" {
+  count = var.enable_nlp_workflow ? 1 : 0
+
   name     = "${var.workflow_name}-trigger"
   location = var.region
   project  = var.project_id
@@ -164,8 +190,8 @@ resource "google_eventarc_trigger" "trust_api" {
   }
 
   destination {
-    workflow = google_workflows_workflow.trust_api.id
+    workflow = google_workflows_workflow.trust_api[0].id
   }
 
-  service_account = google_service_account.workflow.email
+  service_account = google_service_account.workflow[0].email
 }
