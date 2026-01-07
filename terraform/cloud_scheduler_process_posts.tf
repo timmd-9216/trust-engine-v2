@@ -30,9 +30,9 @@ variable "max_posts" {
 }
 
 variable "schedule" {
-  description = "Cron schedule expression (default: every hour at minute 0)"
+  description = "Cron schedule expression (default: every 30 minutes at minutes 0 and 30)"
   type        = string
-  default     = "0 * * * *"
+  default     = "0,30 * * * *"
 }
 
 variable "job_name" {
@@ -54,9 +54,9 @@ variable "process_jobs_job_name" {
 }
 
 variable "process_jobs_schedule" {
-  description = "Cron schedule expression for process-jobs (default: every hour at minute 30)"
+  description = "Cron schedule expression for process-jobs (default: every 30 minutes at minutes 15 and 45)"
   type        = string
-  default     = "30 * * * *"
+  default     = "15,45 * * * *"
 }
 
 variable "json_to_parquet_job_name" {
@@ -100,7 +100,7 @@ data "google_cloud_run_service" "scrapping_tools" {
 resource "google_cloud_scheduler_job" "process_posts" {
   count            = var.enable_cloud_scheduler ? 1 : 0
   name             = var.job_name
-  description      = "Process posts hourly by calling /process-posts endpoint"
+  description      = "Process posts every 30 minutes by calling /process-posts endpoint"
   schedule         = var.schedule
   time_zone        = var.time_zone
   region           = var.region
@@ -137,7 +137,7 @@ output "endpoint_url" {
 }
 
 # Second scheduler for processing pending jobs
-# Runs 30 minutes after process-posts (at minute 30 of every hour)
+# Runs every 30 minutes at minutes 15 and 45 (15 minutes after process-posts)
 resource "google_cloud_scheduler_job" "process_jobs" {
   count            = var.enable_cloud_scheduler ? 1 : 0
   name             = var.process_jobs_job_name

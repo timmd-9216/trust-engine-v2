@@ -253,3 +253,79 @@ Esta arquitectura permite:
 - ✅ Asegurar que todos los servicios usen la misma versión del código
 - ✅ Simplificar el mantenimiento y deployment
 
+## Endpoints Disponibles
+
+El servicio `scrapping-tools` expone los siguientes endpoints:
+
+### `GET /health`
+Health check del servicio.
+
+### `POST /process-posts`
+Envía jobs a Information Tracer API para posts con `status='noreplies'`.
+
+### `GET /pending-jobs`
+Consulta jobs pendientes sin procesarlos.
+
+### `POST /process-jobs`
+Procesa jobs pendientes, descarga resultados y guarda JSONs en GCS.
+
+### `POST /fix-jobs`
+Corrige jobs marcados como 'done' pero con JSONs vacíos en GCS.
+
+### `POST /json-to-parquet` ⭐ Nuevo
+Convierte JSONs de la capa `raw/` a formato Parquet en `processed/replies/` con **carga incremental optimizada**.
+
+**Parámetros opcionales**:
+- `country`: Filtrar por país (ej: `honduras`)
+- `platform`: Filtrar por plataforma (ej: `twitter`, `instagram`)
+- `candidate_id`: Filtrar por candidato específico
+- `skip_timestamp_filter`: Si es `true`, procesa todos los JSONs sin filtrar por timestamp (confía solo en deduplicación). Por defecto `false` (usa optimización de timestamp).
+
+**Características**:
+- ✅ **Carga incremental**: Solo procesa JSONs nuevos comparando timestamps
+- ✅ **No sobreescribe**: Fusiona nuevos registros con existentes
+- ✅ **Deduplicación**: Evita duplicados por `(source_file, tweet_id)`
+- ✅ **Eficiente**: Reduce I/O y procesamiento en 99% en ejecuciones incrementales
+
+**Ejemplo de uso**:
+```bash
+# Procesar todos los JSONs nuevos
+curl -X POST "${SERVICE_URL}/json-to-parquet"
+
+# Filtrar por país y plataforma
+curl -X POST "${SERVICE_URL}/json-to-parquet?country=honduras&platform=twitter"
+
+# Filtrar por candidato específico
+curl -X POST "${SERVICE_URL}/json-to-parquet?country=honduras&platform=twitter&candidate_id=hnd01monc"
+
+# Deshabilitar filtro por timestamp (procesa todos los JSONs, confía en deduplicación)
+curl -X POST "${SERVICE_URL}/json-to-parquet?skip_timestamp_filter=true"
+```
+
+**Respuesta**:
+```json
+{
+  "processed": 100,
+  "succeeded": 3,
+  "failed": 0,
+  "errors": [],
+  "written_files": [
+    "gs://trust-prd/processed/replies/ingestion_date=2026-01-05/platform=twitter/data.parquet"
+  ]
+}
+```
+
+**Ver documentación completa**: [JSON_TO_PARQUET_OPTIMIZATIONS.md](../JSON_TO_PARQUET_OPTIMIZATIONS.md)
+
+### Flujo Recomendado
+
+```bash
+# 1. Procesar jobs pendientes (genera JSONs en raw/)
+POST /process-jobs
+
+# 2. Convertir JSONs nuevos a Parquet (optimizado)
+POST /json-to-parquet
+
+# 3. Los datos están disponibles en BigQuery automáticamente
+```
+

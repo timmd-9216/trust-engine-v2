@@ -1,8 +1,8 @@
 # Cloud Scheduler para `/process-posts`, `/process-jobs` y `/json-to-parquet` con Terraform
 
 Este archivo Terraform crea tres Cloud Scheduler jobs:
-1. **process-posts-hourly**: Ejecuta `/process-posts` cada hora en el minuto 0
-2. **process-jobs-hourly**: Ejecuta `/process-jobs` cada hora en el minuto 30 (30 minutos después del primero)
+1. **process-posts-hourly**: Ejecuta `/process-posts` cada 30 minutos en los minutos 0 y 30
+2. **process-jobs-hourly**: Ejecuta `/process-jobs` cada 30 minutos en los minutos 15 y 45 (15 minutos después del primero)
 3. **json-to-parquet-daily**: Ejecuta `/json-to-parquet` diariamente a las 7:00 AM UTC
 
 ## Flujo de dos fases
@@ -10,12 +10,12 @@ Este archivo Terraform crea tres Cloud Scheduler jobs:
 El sistema funciona en dos fases separadas:
 
 1. **Fase 1 - Crear Jobs** (`/process-posts`): 
-   - Se ejecuta cada hora en el minuto 0
+   - Se ejecuta cada 30 minutos en los minutos 0 y 30
    - Hace submit de posts a Information Tracer y guarda los hash_id en `pending_jobs`
    - Este proceso es rápido y no espera resultados
 
 2. **Fase 2 - Procesar Jobs** (`/process-jobs`):
-   - Se ejecuta cada hora en el minuto 30 (30 minutos después de la Fase 1)
+   - Se ejecuta cada 30 minutos en los minutos 15 y 45 (15 minutos después de la Fase 1)
    - Procesa todos los jobs pendientes en `pending_jobs`
    - Verifica el estado, descarga resultados y guarda en GCS
 
@@ -75,9 +75,9 @@ terraform apply \
 | `scrapping_tools_service_name` | Nombre del servicio Cloud Run | (requerido) |
 | `service_account_email` | Email del service account para OIDC | (requerido) |
 | `max_posts` | Máximo de posts a procesar por ejecución | `10` |
-| `schedule` | Expresión cron para process-posts | `0 * * * *` (cada hora en minuto 0) |
+| `schedule` | Expresión cron para process-posts | `0,30 * * * *` (cada 30 minutos en minutos 0 y 30) |
 | `job_name` | Nombre del job de Cloud Scheduler para process-posts | `process-posts-hourly` |
-| `process_jobs_schedule` | Expresión cron para process-jobs | `30 * * * *` (cada hora en minuto 30) |
+| `process_jobs_schedule` | Expresión cron para process-jobs | `15,45 * * * *` (cada 30 minutos en minutos 15 y 45) |
 | `process_jobs_job_name` | Nombre del job de Cloud Scheduler para process-jobs | `process-jobs-hourly` |
 | `json_to_parquet_schedule` | Expresión cron para json-to-parquet | `0 7 * * *` (diario a las 7 AM UTC) |
 | `json_to_parquet_job_name` | Nombre del job de Cloud Scheduler para json-to-parquet | `json-to-parquet-daily` |
@@ -93,7 +93,7 @@ region                      = "us-east1"
 scrapping_tools_service_name = "scrapping-tools"
 service_account_email       = "scheduler@trust-481601.iam.gserviceaccount.com"
 max_posts                   = 10
-schedule                    = "0 * * * *"
+schedule                    = "0,30 * * * *"
 job_name                    = "process-posts-hourly"
 time_zone                   = "UTC"
 ```
@@ -106,21 +106,23 @@ terraform apply
 ## Ejemplos de schedules
 
 **Para process-posts:**
-- `0 * * * *` - Cada hora en el minuto 0 (default)
+- `0,30 * * * *` - Cada 30 minutos en minutos 0 y 30 (default)
+- `0 * * * *` - Cada hora en el minuto 0
 - `0 */2 * * *` - Cada 2 horas
 - `0 9 * * *` - Todos los días a las 9:00 AM
 
 **Para process-jobs:**
-- `30 * * * *` - Cada hora en el minuto 30 (default, 30 min después de process-posts)
+- `15,45 * * * *` - Cada 30 minutos en minutos 15 y 45 (default, 15 min después de process-posts)
+- `30 * * * *` - Cada hora en el minuto 30
 - `15 * * * *` - Cada hora en el minuto 15
-- `*/30 * * * *` - Cada 30 minutos
+- `*/30 * * * *` - Cada 30 minutos (sin desfase)
 
 **Para json-to-parquet:**
 - `0 7 * * *` - Diariamente a las 7:00 AM UTC (default)
 - `0 8 * * *` - Diariamente a las 8:00 AM UTC
 - `0 7 * * 1` - Cada lunes a las 7:00 AM UTC
 
-**Nota:** Se recomienda mantener process-jobs al menos 30 minutos después de process-posts para dar tiempo a que los jobs se completen en Information Tracer. El job json-to-parquet se ejecuta diariamente y procesa todos los JSONs nuevos acumulados durante el día.
+**Nota:** Se recomienda mantener process-jobs al menos 15 minutos después de process-posts para dar tiempo a que los jobs se completen en Information Tracer. Con la configuración actual, process-jobs se ejecuta 15 minutos después de process-posts (minutos 15 y 45 vs minutos 0 y 30). El job json-to-parquet se ejecuta diariamente y procesa todos los JSONs nuevos acumulados durante el día.
 
 Para más información sobre el formato cron, ver: [Cron job format and time zone](https://cloud.google.com/scheduler/docs/configuring/cron-job-schedules)
 

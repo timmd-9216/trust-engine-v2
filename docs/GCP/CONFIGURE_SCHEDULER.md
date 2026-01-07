@@ -120,7 +120,7 @@ gcloud scheduler jobs describe process-posts-hourly \
 
 El script configura:
 - **Nombre del job**: `process-posts-hourly`
-- **Schedule**: `0 * * * *` (cada hora, en el minuto 0)
+- **Schedule**: `0,30 * * * *` (cada 30 minutos, en los minutos 0 y 30)
 - **Time Zone**: `UTC`
 - **Método HTTP**: `POST`
 - **Endpoint**: `{SERVICE_URL}/process-posts?max_posts=10` (procesa 10 posts por ejecución)
@@ -136,7 +136,7 @@ El sistema funciona en dos fases separadas para evitar sobrecargar Information T
 2. **Fase 2 - Procesar Jobs** (`/process-jobs`): Consulta los jobs pendientes, verifica su estado, y cuando están listos obtiene los resultados. Se ejecuta después de que los jobs hayan tenido tiempo de procesarse.
 
 Con esta configuración:
-- **10 posts por hora** = 10 submits rápidos sin esperar resultados
+- **20 posts por hora** (10 posts cada 30 minutos) = submits rápidos sin esperar resultados
 - Los jobs se procesan después (en la siguiente ejecución de `/process-jobs`)
 - Esto distribuye la carga en el tiempo y evita bloqueos largos
 
@@ -161,6 +161,7 @@ gcloud scheduler jobs update http process-posts-hourly \
 
 ### Formatos de schedule comunes
 
+- `0,30 * * * *` - Cada 30 minutos (minutos 0 y 30) - default actual
 - `0 * * * *` - Cada hora (minuto 0)
 - `0 */2 * * *` - Cada 2 horas
 - `0 */6 * * *` - Cada 6 horas
