@@ -44,7 +44,7 @@ resource "google_bigquery_table" "replies" {
   external_data_configuration {
     autodetect    = false
     source_format = "PARQUET"
-    source_uris   = ["gs://${var.gcs_bucket}/processed/replies/*"]
+    source_uris   = ["gs://${var.gcs_bucket}/marts/replies/*"]
 
     # Explicit schema matching the unified schema from json_to_parquet.py
     schema = jsonencode([
@@ -95,10 +95,10 @@ resource "google_bigquery_table" "replies" {
     ])
 
     # Hive partitioning: order matches directory structure (ingestion_date first, then platform)
-    # Structure: processed/replies/ingestion_date={date}/platform={platform}/
+    # Structure: marts/replies/ingestion_date={date}/platform={platform}/
     hive_partitioning_options {
       mode                     = "AUTO"
-      source_uri_prefix        = "gs://${var.gcs_bucket}/processed/replies/"
+      source_uri_prefix        = "gs://${var.gcs_bucket}/marts/replies/"
       require_partition_filter = false
     }
   }

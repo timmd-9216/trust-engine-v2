@@ -1,5 +1,5 @@
 # Empty Result Jobs - Guía de Uso
-
+curl -X POST "http://localhost:8082/empty-result-jobs/retry"
 Esta guía explica cómo manejar jobs con status `empty_result` y los endpoints disponibles para consultar y retry estos jobs.
 
 ## ¿Qué son los Empty Result Jobs?
@@ -14,7 +14,54 @@ Estos jobs se distinguen de los jobs `failed` porque técnicamente terminaron co
 
 ## Endpoints Disponibles
 
-### 1. GET `/empty-result-jobs/count`
+### 1. GET `/jobs/count` ⭐ Genérico (Recomendado)
+
+Cuenta jobs con cualquier status en Firestore con filtros opcionales.
+
+**Método:** `GET`
+
+**Parámetros de query:**
+- `status`: Job status a contar. Por defecto: `pending`. Valores válidos: `pending`, `empty_result`, `done`, `failed`, `processing`, `verified`
+- `candidate_id`: Opcional - Filtrar por candidate_id
+- `platform`: Opcional - Filtrar por platform (e.g., 'twitter', 'instagram')
+- `country`: Opcional - Filtrar por country
+
+**Respuesta:**
+```json
+{
+  "count": 150,
+  "status": "pending",
+  "filters": {
+    "candidate_id": null,
+    "platform": null,
+    "country": null
+  }
+}
+```
+
+**Ejemplos de uso:**
+
+```bash
+# Contar jobs pendientes (por defecto)
+curl -X GET "http://localhost:8082/jobs/count"
+
+# Contar jobs pendientes con filtro
+curl -X GET "http://localhost:8082/jobs/count?status=pending&candidate_id=hnd09sosa"
+
+# Contar jobs con empty_result
+curl -X GET "http://localhost:8082/jobs/count?status=empty_result"
+
+# Contar jobs done
+curl -X GET "http://localhost:8082/jobs/count?status=done"
+
+# Contar jobs failed
+curl -X GET "http://localhost:8082/jobs/count?status=failed"
+
+# Contar con múltiples filtros
+curl -X GET "http://localhost:8082/jobs/count?status=pending&candidate_id=hnd09sosa&platform=twitter"
+```
+
+### 2. GET `/empty-result-jobs/count` (Compatibilidad)
 
 Cuenta jobs con status `empty_result` en Firestore con filtros opcionales.
 
@@ -65,7 +112,7 @@ gcloud run services proxy scrapping-tools \
 curl http://localhost:8080/empty-result-jobs/count
 ```
 
-### 2. POST `/empty-result-jobs/retry`
+### 3. POST `/empty-result-jobs/retry`
 
 Retry jobs con status `empty_result` moviéndolos a `pending` para reprocesarlos.
 
@@ -130,10 +177,33 @@ curl -X POST "http://localhost:8080/empty-result-jobs/retry?limit=10"
 
 Cuando se retry un job con `empty_result`:
 
-1. **Cambia el status** de `empty_result` a `pending`
-2. **Incrementa `retry_count`** automáticamente
-3. **El job será procesado** en la próxima ejecución de `/process-jobs`
-4. **Los logs mostrarán** que es un reintento con `is_retry: true` y `retry_count: N`
+1. **Reutiliza el mismo job document**: NO se crea un nuevo job. El mismo documento de Firestore se actualiza:
+   - El `job_id` (hash de Information Tracer) se mantiene igual
+   - El `post_doc_id` (referencia al post) se mantiene igual
+   - Solo se actualizan: `status`, `retry_count`, y `updated_at`
+
+2. **Cambia el status** del job de `empty_result` a `pending`
+
+3. **Incrementa `retry_count`** automáticamente
+
+4. **Actualiza el post asociado**: Si el post está en status `done`, se actualiza a `noreplies` para permitir reprocesamiento
+
+5. **El job será procesado** en la próxima ejecución de `/process-jobs`
+
+6. **Los logs mostrarán** que es un reintento con `is_retry: true` y `retry_count: N`
+
+### ¿Qué pasa con el job viejo?
+
+**El job viejo NO se elimina ni se crea uno nuevo.** El mismo documento se reutiliza:
+
+- **Mismo `job_id`**: El hash de Information Tracer se mantiene (es el mismo job en Information Tracer)
+- **Misma referencia al post**: El `post_doc_id` se mantiene, manteniendo la relación entre job y post
+- **Historial preservado**: El `retry_count` se incrementa, permitiendo rastrear cuántas veces se ha intentado
+
+Esto es más eficiente que crear jobs nuevos porque:
+- No duplica documentos en Firestore
+- Mantiene el historial de reintentos en un solo lugar
+- Information Tracer puede reutilizar el mismo job_id si es necesario
 
 ## Flujo de Trabajo Recomendado
 

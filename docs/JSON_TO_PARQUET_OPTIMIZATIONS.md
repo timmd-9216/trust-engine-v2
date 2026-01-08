@@ -39,16 +39,17 @@ El endpoint `/json-to-parquet` convierte archivos JSON desde la capa `raw/` de G
 
 **Problema**: Sin esta optimización, el endpoint procesaría todos los JSONs del bucket en cada ejecución, incluso aquellos que ya fueron convertidos.
 
-**Solución**: Comparación simple y directa de timestamps por partición:
+**Solución**: Comparación de timestamps por partición con buffer de seguridad:
 
-1. **JSON más nuevo que Parquet para su fecha de ingesta** → Procesar (datos nuevos)
-2. **JSON más antiguo o igual que Parquet para su fecha de ingesta** → Skip (ya procesado)
+1. **JSON dentro de 1 hora del Parquet o más nuevo** → Procesar (puede tener datos nuevos)
+2. **JSON más de 1 hora más antiguo que el Parquet** → Skip (probablemente ya procesado)
 3. **Deduplicación por `(source_file, tweet_id)`** → Respaldo final para evitar duplicados
 
 Esta estrategia es eficiente y correcta porque:
-- Solo procesa JSONs que son más nuevos que el Parquet para su fecha de ingesta
+- Usa un buffer de 1 hora para evitar saltar JSONs que aún no han sido procesados
 - Compara dentro de la misma partición `(ingestion_date, platform)`
 - La deduplicación asegura que no se creen duplicados como medida de seguridad adicional
+- Es menos agresiva que comparar directamente, evitando problemas cuando el Parquet se actualiza frecuentemente
 
 **Implementación**:
 
@@ -60,7 +61,7 @@ for parquet_blob in bucket.list_blobs(prefix="processed/replies/"):
     date_part, platform_part = extract_partition(parquet_blob.name)
     parquet_timestamps[(date_part, platform_part)] = parquet_blob.updated
 
-# Filtrar JSONs: solo procesar si son más nuevos que Parquet para su fecha de ingesta
+# Filtrar JSONs: procesar si están dentro de 1 hora del Parquet o más nuevos
 for blob in json_blobs:
     blob.reload()  # Solo metadata
     ingestion_ts = blob.updated
@@ -69,11 +70,12 @@ for blob in json_blobs:
     
     if partition_key in parquet_timestamps:
         parquet_ts = parquet_timestamps[partition_key]
-        if ingestion_ts <= parquet_ts:
-            # JSON más antiguo o igual que Parquet → skip (ya procesado)
+        buffer = timedelta(hours=1)
+        if ingestion_ts < (parquet_ts - buffer):
+            # JSON más de 1 hora más antiguo que Parquet → skip (probablemente ya procesado)
             continue
     
-    # JSON más nuevo que Parquet (o Parquet no existe) → procesar
+    # JSON dentro de 1 hora del Parquet o más nuevo (o Parquet no existe) → procesar
     data = blob.download_as_text()
     json_files.append((blob.name, data, ingestion_ts))
 
@@ -91,9 +93,9 @@ for (date_str, platform), new_records in records_by_partition.items():
 - **Escalabilidad**: Reduce procesamiento proporcionalmente con el volumen de datos
 
 **Métricas**:
-- **Filtrado**: Solo descarga JSONs más nuevos que Parquet para su fecha de ingesta
+- **Filtrado**: Solo descarga JSONs dentro de 1 hora del Parquet o más nuevos para su fecha de ingesta
 - **Deduplicación**: O(1) lookup por registro (respaldo)
-- **Mejora**: 99% menos descargas en ejecuciones incrementales típicas
+- **Mejora**: Reduce significativamente las descargas en ejecuciones incrementales, evitando procesar JSONs muy antiguos
 
 ### 2. Carga Incremental con Merge Inteligente
 
@@ -313,13 +315,14 @@ for (date_str, platform), new_records in records_by_partition.items():
 **Solución**: Parámetro `skip_timestamp_filter` que permite deshabilitar el filtro por timestamp y confiar solo en la deduplicación.
 
 **Comportamiento**:
-- `skip_timestamp_filter=false` (por defecto): Usa optimización de timestamp - solo procesa JSONs más nuevos que el Parquet
+- `skip_timestamp_filter=false` (por defecto): Usa optimización de timestamp - procesa JSONs que están dentro de 1 hora del Parquet o más nuevos (evita procesar JSONs más de 1 hora más antiguos)
 - `skip_timestamp_filter=true`: Procesa todos los JSONs sin filtrar por timestamp, confía solo en deduplicación por `(source_file, tweet_id)`
 
 **Cuándo usar `skip_timestamp_filter=true`**:
-- Si los JSONs nuevos no se están procesando debido a problemas con timestamps
+- Si los JSONs nuevos no se están procesando debido a problemas con timestamps (aunque esto debería ser raro con el buffer de 1 hora)
 - Si necesitas garantizar que todos los JSONs se procesen (modo seguro)
 - Si prefieres confiar en la deduplicación en lugar del filtro por timestamp
+- Si tienes JSONs muy antiguos que necesitas procesar y que serían saltados por el filtro
 
 **Trade-offs**:
 - **Ventaja**: Garantiza que todos los JSONs se procesen, incluso si tienen timestamps antiguos

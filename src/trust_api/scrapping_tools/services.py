@@ -798,6 +798,43 @@ def query_done_jobs(max_jobs: int | None = None) -> list[dict[str, Any]]:
     return jobs
 
 
+def count_jobs_by_status(
+    status: str,
+    candidate_id: str | None = None,
+    platform: str | None = None,
+    country: str | None = None,
+) -> int:
+    """
+    Count jobs with a specific status in Firestore.
+
+    Args:
+        status: Job status to count ('pending', 'empty_result', 'done', 'failed', etc.)
+        candidate_id: Optional candidate_id to filter jobs
+        platform: Optional platform to filter jobs (e.g., 'twitter', 'instagram')
+        country: Optional country to filter jobs
+
+    Returns:
+        Total count of jobs with the specified status matching the filters
+    """
+    client = get_firestore_client()
+    query = client.collection(settings.firestore_jobs_collection).where("status", "==", status)
+
+    # Apply optional filters
+    if candidate_id:
+        query = query.where("candidate_id", "==", candidate_id)
+    if platform:
+        query = query.where("platform", "==", platform.lower())
+    if country:
+        query = query.where("country", "==", country.lower())
+
+    # Count documents (Firestore doesn't have a direct count, so we iterate)
+    count = 0
+    for _ in query.stream():
+        count += 1
+
+    return count
+
+
 def count_empty_result_jobs(
     candidate_id: str | None = None,
     platform: str | None = None,
@@ -805,6 +842,8 @@ def count_empty_result_jobs(
 ) -> int:
     """
     Count jobs with status='empty_result' in Firestore.
+
+    This is a convenience wrapper around count_jobs_by_status for backward compatibility.
 
     Args:
         candidate_id: Optional candidate_id to filter jobs
@@ -814,10 +853,34 @@ def count_empty_result_jobs(
     Returns:
         Total count of jobs with status='empty_result' matching the filters
     """
-    client = get_firestore_client()
-    query = client.collection(settings.firestore_jobs_collection).where(
-        "status", "==", "empty_result"
+    return count_jobs_by_status(
+        status="empty_result",
+        candidate_id=candidate_id,
+        platform=platform,
+        country=country,
     )
+
+
+def count_posts_by_status(
+    status: str,
+    candidate_id: str | None = None,
+    platform: str | None = None,
+    country: str | None = None,
+) -> int:
+    """
+    Count posts with a specific status in Firestore.
+
+    Args:
+        status: Post status to count ('noreplies', 'done', 'skipped')
+        candidate_id: Optional candidate_id to filter posts
+        platform: Optional platform to filter posts (e.g., 'twitter', 'instagram')
+        country: Optional country to filter posts
+
+    Returns:
+        Total count of posts with the specified status matching the filters
+    """
+    client = get_firestore_client()
+    query = client.collection(settings.firestore_collection).where("status", "==", status)
 
     # Apply optional filters
     if candidate_id:
@@ -905,6 +968,13 @@ def retry_job_from_empty_result(doc_id: str) -> int:
     Move a job from 'empty_result' status to 'pending' and increment retry_count.
     This is used when manually reprocessing jobs that had empty results.
 
+    IMPORTANT: This function reuses the SAME job document. It does NOT create a new job.
+    The job_id (Information Tracer hash) remains the same, and the post_doc_id reference
+    is preserved. Only the status, retry_count, and updated_at fields are updated.
+
+    The associated post is also updated to 'noreplies' status to allow reprocessing,
+    but only if it's currently in 'done' status (to avoid interfering with other operations).
+
     Args:
         doc_id: The Firestore document ID of the job to retry
 
@@ -927,6 +997,7 @@ def retry_job_from_empty_result(doc_id: str) -> int:
 
     current_data = doc.to_dict()
     current_status = current_data.get("status")
+    post_doc_id = current_data.get("post_doc_id")
 
     # Verify that the job is in empty_result status
     if current_status != "empty_result":
@@ -949,9 +1020,27 @@ def retry_job_from_empty_result(doc_id: str) -> int:
         }
     )
 
+    # Update associated post to 'noreplies' if it's in 'done' status
+    # This allows the post to be reprocessed, but only if it was already done
+    # (to avoid interfering with posts that might be in other states)
+    if post_doc_id:
+        try:
+            post_ref = client.collection(settings.firestore_collection).document(post_doc_id)
+            post_doc = post_ref.get()
+            if post_doc.exists:
+                post_data = post_doc.to_dict()
+                post_status = post_data.get("status")
+                # Only update if post is in 'done' status (was successfully processed before)
+                if post_status == "done":
+                    post_ref.update({"status": "noreplies", "updated_at": now})
+                    logger.info(f"Updated post {post_doc_id} from 'done' to 'noreplies' for retry")
+        except Exception as e:
+            # Log but don't fail if post update fails
+            logger.warning(f"Could not update post {post_doc_id} status during retry: {str(e)}")
+
     logger.info(
         f"Retrying job {doc_id} from empty_result (retry #{new_retry_count}). "
-        f"Status updated to 'pending'."
+        f"Status updated to 'pending'. Job document reused (same job_id, same post_doc_id)."
     )
 
     return new_retry_count
@@ -2062,7 +2151,7 @@ def _get_parquet_last_modified(
     platform: str,
 ) -> datetime | None:
     """Get the last modified timestamp of existing Parquet file, if it exists."""
-    blob_path = f"processed/replies/ingestion_date={date_str}/platform={platform}/data.parquet"
+    blob_path = f"marts/replies/ingestion_date={date_str}/platform={platform}/data.parquet"
     blob = bucket.blob(blob_path)
 
     if not blob.exists():
@@ -2091,7 +2180,7 @@ def _read_existing_parquet_from_gcs(
     if not pa or not pq:
         return [], None
 
-    blob_path = f"processed/replies/ingestion_date={date_str}/platform={platform}/data.parquet"
+    blob_path = f"marts/replies/ingestion_date={date_str}/platform={platform}/data.parquet"
     blob = bucket.blob(blob_path)
 
     if not blob.exists():
@@ -2144,7 +2233,7 @@ def _write_parquet_to_gcs(
     buffer.seek(0)
 
     # Upload to GCS
-    blob_path = f"processed/replies/ingestion_date={date_str}/platform={platform}/data.parquet"
+    blob_path = f"marts/replies/ingestion_date={date_str}/platform={platform}/data.parquet"
     blob = bucket.blob(blob_path)
     blob.upload_from_file(buffer, content_type="application/octet-stream")
 
@@ -2165,7 +2254,7 @@ def json_to_parquet_service(
     2. Flattens nested structures into tabular format
     3. Groups by ingestion_date and platform
     4. For each partition, reads existing Parquet if it exists and merges with new data
-    5. Writes updated Parquet files to GCS processed layer
+    5. Writes updated Parquet files to GCS marts layer (marts/replies/)
 
     Args:
         country: Country name to filter (e.g., 'honduras'). If None, processes all countries.
@@ -2233,7 +2322,7 @@ def json_to_parquet_service(
                 "Timestamp filter enabled - will skip JSONs older than Parquet file timestamp (incremental loading)"
             )
 
-        parquet_prefix = "processed/replies/ingestion_date="
+        parquet_prefix = "marts/replies/ingestion_date="
         parquet_blobs = bucket.list_blobs(prefix=parquet_prefix)
 
         for parquet_blob in parquet_blobs:
@@ -2299,23 +2388,30 @@ def json_to_parquet_service(
                 platform_from_path = path_parts[1] if len(path_parts) > 1 else ""
                 partition_key = (date_str, platform_from_path)
 
-                # Incremental loading: Skip if JSON is older than or equal to Parquet file timestamp
+                # Incremental loading: Skip if JSON is significantly older than Parquet file timestamp
                 # NOTE: This is an optimization - deduplication by (source_file, tweet_id) ensures correctness
+                # WARNING: Using blob.updated of Parquet can be problematic because it updates every time
+                # the Parquet is written, not when the data was actually processed. We use a large buffer
+                # (1 hour) to be less aggressive and avoid skipping JSONs that haven't been processed yet.
                 if not skip_timestamp_filter and partition_key in parquet_file_timestamps:
                     parquet_file_ts = parquet_file_timestamps[partition_key]
-                    # Add buffer (5 seconds) to handle timestamp precision issues and clock skew
-                    buffer = timedelta(seconds=5)
-                    if ingestion_ts <= (parquet_file_ts + buffer):
+                    # Use a large buffer (1 hour) to handle cases where Parquet was updated recently
+                    # but JSONs from before that update haven't been processed yet.
+                    # This makes the filter less aggressive and more reliable.
+                    buffer = timedelta(hours=1)
+                    # Only skip if JSON is significantly older (more than 1 hour) than Parquet
+                    # This prevents skipping JSONs that were written before the Parquet was last updated
+                    if ingestion_ts < (parquet_file_ts - buffer):
                         logger.debug(
-                            f"Skipping {blob.name}: JSON updated {ingestion_ts} <= Parquet file timestamp "
-                            f"{parquet_file_ts} (with 5s buffer) for partition {partition_key}"
+                            f"Skipping {blob.name}: JSON updated {ingestion_ts} is more than 1 hour older than "
+                            f"Parquet file timestamp {parquet_file_ts} for partition {partition_key}"
                         )
                         skipped_count += 1
                         continue
-                    # JSON is newer than Parquet file → will process (incremental load)
-                    logger.info(
-                        f"Processing {blob.name}: JSON updated {ingestion_ts} > Parquet file timestamp {parquet_file_ts} "
-                        f"for partition {partition_key} (incremental load)"
+                    # JSON is recent enough (within 1 hour of Parquet or newer) → will process
+                    logger.debug(
+                        f"Processing {blob.name}: JSON updated {ingestion_ts} is within 1 hour of or newer than "
+                        f"Parquet file timestamp {parquet_file_ts} for partition {partition_key}"
                     )
                 elif skip_timestamp_filter:
                     logger.debug(

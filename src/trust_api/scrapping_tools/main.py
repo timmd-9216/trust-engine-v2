@@ -6,6 +6,8 @@ from pydantic import BaseModel
 from trust_api.scrapping_tools.core.config import settings
 from trust_api.scrapping_tools.services import (
     count_empty_result_jobs,
+    count_jobs_by_status,
+    count_posts_by_status,
     fetch_post_information,
     fix_jobs_service,
     json_to_parquet_service,
@@ -76,6 +78,18 @@ class JsonToParquetResponse(BaseModel):
 
 class EmptyResultJobsResponse(BaseModel):
     count: int
+    filters: dict[str, str | None]  # Applied filters (candidate_id, platform, country)
+
+
+class JobsCountResponse(BaseModel):
+    count: int
+    status: str  # Job status that was counted
+    filters: dict[str, str | None]  # Applied filters (candidate_id, platform, country)
+
+
+class PostsCountResponse(BaseModel):
+    count: int
+    status: str  # Post status that was counted
     filters: dict[str, str | None]  # Applied filters (candidate_id, platform, country)
 
 
@@ -323,6 +337,136 @@ async def count_empty_result_jobs_endpoint(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error counting empty result jobs: {str(e)}",
+        )
+
+
+@app.get("/jobs/count", response_model=JobsCountResponse)
+async def count_jobs_by_status_endpoint(
+    status: str = "pending",
+    candidate_id: str | None = None,
+    platform: str | None = None,
+    country: str | None = None,
+):
+    """
+    Count jobs with a specific status in Firestore.
+
+    This endpoint allows querying the count of jobs by status (pending, empty_result, done, failed, etc.)
+    with optional filters. Useful for monitoring job states.
+
+    Args:
+        status: Job status to count. Default is 'pending'. Valid values: 'pending', 'empty_result', 'done', 'failed', 'processing', 'verified'
+        candidate_id: Optional candidate_id to filter jobs
+        platform: Optional platform to filter jobs (e.g., 'twitter', 'instagram')
+        country: Optional country to filter jobs
+
+    Returns:
+        JobsCountResponse with count, status, and applied filters.
+
+    Raises:
+        HTTPException: If the query fails or configuration is missing
+
+    Examples:
+        # Count pending jobs
+        GET /jobs/count?status=pending
+
+        # Count pending jobs for a specific candidate
+        GET /jobs/count?status=pending&candidate_id=hnd09sosa
+
+        # Count empty_result jobs (same as /empty-result-jobs/count)
+        GET /jobs/count?status=empty_result
+
+        # Count done jobs
+        GET /jobs/count?status=done
+    """
+    try:
+        count = count_jobs_by_status(
+            status=status,
+            candidate_id=candidate_id,
+            platform=platform,
+            country=country,
+        )
+        return JobsCountResponse(
+            count=count,
+            status=status,
+            filters={
+                "candidate_id": candidate_id,
+                "platform": platform,
+                "country": country,
+            },
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error counting jobs by status: {str(e)}",
+        )
+
+
+@app.get("/posts/count", response_model=PostsCountResponse)
+async def count_posts_by_status_endpoint(
+    status: str = "noreplies",
+    candidate_id: str | None = None,
+    platform: str | None = None,
+    country: str | None = None,
+):
+    """
+    Count posts with a specific status in Firestore.
+
+    This endpoint allows querying the count of posts by status (noreplies, done, skipped)
+    with optional filters. Useful for monitoring post states.
+
+    Note: Posts do NOT have a 'pending' status. Valid post statuses are:
+    - 'noreplies': Post pendiente de procesar (default)
+    - 'done': Post procesado exitosamente
+    - 'skipped': Post saltado porque max_replies <= 0
+
+    Args:
+        status: Post status to count. Default is 'noreplies'. Valid values: 'noreplies', 'done', 'skipped'
+        candidate_id: Optional candidate_id to filter posts
+        platform: Optional platform to filter posts (e.g., 'twitter', 'instagram')
+        country: Optional country to filter posts
+
+    Returns:
+        PostsCountResponse with count, status, and applied filters.
+
+    Raises:
+        HTTPException: If the query fails or configuration is missing
+
+    Examples:
+        # Count posts pending to process (noreplies)
+        GET /posts/count?status=noreplies
+
+        # Count posts pending to process for a specific candidate
+        GET /posts/count?status=noreplies&candidate_id=hnd09sosa
+
+        # Count done posts
+        GET /posts/count?status=done
+
+        # Count skipped posts
+        GET /posts/count?status=skipped
+
+        # Count with multiple filters
+        GET /posts/count?status=noreplies&candidate_id=hnd09sosa&platform=twitter&country=honduras
+    """
+    try:
+        count = count_posts_by_status(
+            status=status,
+            candidate_id=candidate_id,
+            platform=platform,
+            country=country,
+        )
+        return PostsCountResponse(
+            count=count,
+            status=status,
+            filters={
+                "candidate_id": candidate_id,
+                "platform": platform,
+                "country": country,
+            },
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error counting posts by status: {str(e)}",
         )
 
 

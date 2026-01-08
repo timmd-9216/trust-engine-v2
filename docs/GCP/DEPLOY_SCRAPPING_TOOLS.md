@@ -279,7 +279,33 @@ Convierte JSONs de la capa `raw/` a formato Parquet en `processed/replies/` con 
 - `country`: Filtrar por país (ej: `honduras`)
 - `platform`: Filtrar por plataforma (ej: `twitter`, `instagram`)
 
-### `GET /empty-result-jobs/count` ⭐ Nuevo
+### `GET /jobs/count` ⭐ Nuevo (Recomendado)
+Cuenta jobs con cualquier status en Firestore con filtros opcionales.
+
+**Parámetros:**
+- `status`: Job status a contar (default: `pending`). Valores: `pending`, `empty_result`, `done`, `failed`, `processing`, `verified`
+- `candidate_id`: Opcional - Filtrar por candidate_id
+- `platform`: Opcional - Filtrar por platform
+- `country`: Opcional - Filtrar por country
+
+**Ejemplos:**
+```bash
+# Contar jobs pendientes (por defecto)
+GET /jobs/count
+
+# Contar jobs pendientes con filtro
+GET /jobs/count?status=pending&candidate_id=hnd09sosa
+
+# Contar jobs con empty_result
+GET /jobs/count?status=empty_result
+
+# Contar jobs done
+GET /jobs/count?status=done
+```
+
+Ver documentación completa en [EMPTY_RESULT_JOBS.md](../../EMPTY_RESULT_JOBS.md).
+
+### `GET /empty-result-jobs/count` (Compatibilidad)
 Cuenta jobs con status `empty_result` en Firestore con filtros opcionales.
 
 **Parámetros opcionales**:

@@ -28,7 +28,52 @@ gcloud run services proxy scrapping-tools \
 BASE_URL="http://localhost:8080"
 ```
 
-## Endpoint 1: GET `/empty-result-jobs/count`
+## Endpoint 1: GET `/jobs/count` (Genérico - Recomendado)
+
+### Contar jobs pendientes (por defecto)
+
+```bash
+curl -X GET "http://localhost:8082/jobs/count"
+```
+
+**Respuesta esperada:**
+```json
+{
+  "count": 150,
+  "status": "pending",
+  "filters": {
+    "candidate_id": null,
+    "platform": null,
+    "country": null
+  }
+}
+```
+
+### Contar jobs pendientes con filtro
+
+```bash
+curl -X GET "http://localhost:8082/jobs/count?status=pending&candidate_id=hnd09sosa"
+```
+
+### Contar jobs con empty_result
+
+```bash
+curl -X GET "http://localhost:8082/jobs/count?status=empty_result"
+```
+
+### Contar jobs done
+
+```bash
+curl -X GET "http://localhost:8082/jobs/count?status=done"
+```
+
+### Contar jobs failed
+
+```bash
+curl -X GET "http://localhost:8082/jobs/count?status=failed"
+```
+
+## Endpoint 2: GET `/empty-result-jobs/count` (Compatibilidad)
 
 ### Contar todos los jobs con empty_result
 
@@ -126,7 +171,7 @@ curl -X GET "http://localhost:8082/empty-result-jobs/count?candidate_id=hnd09sos
 curl -X GET "http://localhost:8082/empty-result-jobs/count" | jq
 ```
 
-## Endpoint 2: POST `/empty-result-jobs/retry`
+## Endpoint 3: POST `/empty-result-jobs/retry`
 
 ### Retry todos los jobs con empty_result (⚠️ Cuidado: puede ser muchos)
 
@@ -234,11 +279,17 @@ curl -X POST "http://localhost:8082/empty-result-jobs/retry?limit=5" | jq '{tota
 ### 1. Verificar cuántos jobs hay
 
 ```bash
-# Ver total
-curl -X GET "http://localhost:8082/empty-result-jobs/count" | jq '.count'
+# Ver jobs pendientes (por defecto)
+curl -X GET "http://localhost:8082/jobs/count" | jq '.count'
 
-# Ver por candidate
-curl -X GET "http://localhost:8082/empty-result-jobs/count?candidate_id=hnd09sosa" | jq '.count'
+# Ver jobs pendientes por candidate
+curl -X GET "http://localhost:8082/jobs/count?status=pending&candidate_id=hnd09sosa" | jq '.count'
+
+# Ver jobs con empty_result
+curl -X GET "http://localhost:8082/jobs/count?status=empty_result" | jq '.count'
+
+# Ver jobs done
+curl -X GET "http://localhost:8082/jobs/count?status=done" | jq '.count'
 ```
 
 ### 2. Retry un pequeño lote para probar
