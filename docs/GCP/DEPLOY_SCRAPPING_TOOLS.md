@@ -278,6 +278,51 @@ Convierte JSONs de la capa `raw/` a formato Parquet en `processed/replies/` con 
 **Parámetros opcionales**:
 - `country`: Filtrar por país (ej: `honduras`)
 - `platform`: Filtrar por plataforma (ej: `twitter`, `instagram`)
+
+### `GET /empty-result-jobs/count` ⭐ Nuevo
+Cuenta jobs con status `empty_result` en Firestore con filtros opcionales.
+
+**Parámetros opcionales**:
+- `candidate_id`: Filtrar por candidate_id
+- `platform`: Filtrar por platform (ej: `twitter`, `instagram`)
+- `country`: Filtrar por country
+
+**Respuesta:**
+```json
+{
+  "count": 498,
+  "filters": {
+    "candidate_id": null,
+    "platform": null,
+    "country": null
+  }
+}
+```
+
+Ver documentación completa en [EMPTY_RESULT_JOBS.md](../../EMPTY_RESULT_JOBS.md).
+
+### `POST /empty-result-jobs/retry` ⭐ Nuevo
+Retry jobs con status `empty_result` moviéndolos a `pending` para reprocesarlos.
+
+**Parámetros opcionales**:
+- `candidate_id`: Filtrar por candidate_id
+- `platform`: Filtrar por platform (ej: `twitter`, `instagram`)
+- `country`: Filtrar por country
+- `limit`: Máximo número de jobs a retry
+
+**Respuesta:**
+```json
+{
+  "total_found": 10,
+  "retried": 10,
+  "errors": [],
+  "retried_jobs": [...]
+}
+```
+
+Cuando estos jobs se procesen por `/process-jobs`, los logs mostrarán `is_retry: true` y `retry_count` para identificar reintentos.
+
+Ver documentación completa en [EMPTY_RESULT_JOBS.md](../../EMPTY_RESULT_JOBS.md).
 - `candidate_id`: Filtrar por candidato específico
 - `skip_timestamp_filter`: Si es `true`, procesa todos los JSONs sin filtrar por timestamp (confía solo en deduplicación). Por defecto `false` (usa optimización de timestamp).
 

@@ -957,6 +957,144 @@ def retry_job_from_empty_result(doc_id: str) -> int:
     return new_retry_count
 
 
+def query_empty_result_jobs(
+    candidate_id: str | None = None,
+    platform: str | None = None,
+    country: str | None = None,
+    limit: int | None = None,
+) -> list[dict[str, Any]]:
+    """
+    Query Firestore for jobs with status='empty_result'.
+
+    Args:
+        candidate_id: Optional candidate_id to filter jobs
+        platform: Optional platform to filter jobs (e.g., 'twitter', 'instagram')
+        country: Optional country to filter jobs
+        limit: Maximum number of jobs to return. If None, returns all matching jobs.
+
+    Returns:
+        List of job documents with fields: job_id, post_doc_id, post_id, etc.
+        Each document also includes '_doc_id' field with the Firestore document ID.
+    """
+    client = get_firestore_client()
+    query = (
+        client.collection(settings.firestore_jobs_collection)
+        .where("status", "==", "empty_result")
+        .order_by("updated_at")
+    )
+
+    # Apply optional filters
+    if candidate_id:
+        query = query.where("candidate_id", "==", candidate_id)
+    if platform:
+        query = query.where("platform", "==", platform.lower())
+    if country:
+        query = query.where("country", "==", country.lower())
+
+    # Apply limit if specified
+    if limit is not None and limit > 0:
+        query = query.limit(limit)
+
+    jobs = []
+    for doc in query.stream():
+        doc_data = doc.to_dict()
+        doc_data["_doc_id"] = doc.id  # Store document ID
+        jobs.append(doc_data)
+
+    return jobs
+
+
+def retry_empty_result_jobs_service(
+    candidate_id: str | None = None,
+    platform: str | None = None,
+    country: str | None = None,
+    limit: int | None = None,
+) -> dict[str, Any]:
+    """
+    Retry jobs with status='empty_result' by moving them to 'pending' status.
+
+    This service:
+    1. Queries Firestore for jobs with status='empty_result' (with optional filters)
+    2. Moves each job to 'pending' status using retry_job_from_empty_result()
+    3. Increments retry_count automatically
+    4. Ensures logs will show these as retries when processed
+
+    Args:
+        candidate_id: Optional candidate_id to filter jobs
+        platform: Optional platform to filter jobs (e.g., 'twitter', 'instagram')
+        country: Optional country to filter jobs
+        limit: Maximum number of jobs to retry. If None, retries all matching jobs.
+
+    Returns:
+        Dictionary with processing results including:
+        - total_found: Total number of empty_result jobs found
+        - retried: Number of jobs successfully retried
+        - errors: List of error messages
+        - retried_jobs: List of jobs that were retried with their details
+    """
+    results = {
+        "total_found": 0,
+        "retried": 0,
+        "errors": [],
+        "retried_jobs": [],
+    }
+
+    try:
+        # Query empty_result jobs
+        jobs = query_empty_result_jobs(
+            candidate_id=candidate_id,
+            platform=platform,
+            country=country,
+            limit=limit,
+        )
+        results["total_found"] = len(jobs)
+
+        # Retry each job
+        for job in jobs:
+            doc_id = job.get("_doc_id")
+            job_id = job.get("job_id")
+            post_id = job.get("post_id")
+            platform_job = job.get("platform", "unknown")
+            country_job = job.get("country", "unknown")
+            candidate_id_job = job.get("candidate_id", "unknown")
+            current_retry_count = job.get("retry_count", 0)
+
+            if not doc_id:
+                error_msg = f"Job missing _doc_id: job_id={job_id}, post_id={post_id}"
+                results["errors"].append(error_msg)
+                continue
+
+            try:
+                # Retry the job
+                new_retry_count = retry_job_from_empty_result(doc_id)
+                results["retried"] += 1
+                results["retried_jobs"].append(
+                    {
+                        "doc_id": doc_id,
+                        "job_id": job_id,
+                        "post_id": post_id,
+                        "platform": platform_job,
+                        "country": country_job,
+                        "candidate_id": candidate_id_job,
+                        "previous_retry_count": current_retry_count,
+                        "new_retry_count": new_retry_count,
+                    }
+                )
+            except Exception as e:
+                error_msg = (
+                    f"Error retrying job {doc_id} (job_id={job_id}, post_id={post_id}): {str(e)}"
+                )
+                results["errors"].append(error_msg)
+                logger.error(error_msg)
+
+    except Exception as e:
+        error_msg = f"Error querying empty_result jobs: {str(e)}"
+        results["errors"].append(error_msg)
+        logger.error(error_msg)
+
+    return results
+
+
 def submit_post_job(
     post_id: str,
     platform: str,

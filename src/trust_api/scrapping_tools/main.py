@@ -12,6 +12,7 @@ from trust_api.scrapping_tools.services import (
     process_pending_jobs_service,
     process_posts_service,
     query_pending_jobs,
+    retry_empty_result_jobs_service,
 )
 
 
@@ -76,6 +77,13 @@ class JsonToParquetResponse(BaseModel):
 class EmptyResultJobsResponse(BaseModel):
     count: int
     filters: dict[str, str | None]  # Applied filters (candidate_id, platform, country)
+
+
+class RetryEmptyResultJobsResponse(BaseModel):
+    total_found: int
+    retried: int
+    errors: list[str]
+    retried_jobs: list[dict]  # List of retried jobs with details
 
 
 app = FastAPI(
@@ -315,6 +323,74 @@ async def count_empty_result_jobs_endpoint(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error counting empty result jobs: {str(e)}",
+        )
+
+
+@app.post("/empty-result-jobs/retry", response_model=RetryEmptyResultJobsResponse)
+async def retry_empty_result_jobs_endpoint(
+    candidate_id: str | None = None,
+    platform: str | None = None,
+    country: str | None = None,
+    limit: int | None = None,
+):
+    """
+    Retry jobs with status='empty_result' by moving them to 'pending' status.
+
+    This endpoint:
+    1. Queries Firestore for jobs with status='empty_result' (with optional filters)
+    2. Moves each job to 'pending' status
+    3. Increments retry_count automatically
+    4. Ensures logs will show these as retries when processed by /process-jobs
+
+    When these jobs are processed by /process-jobs, the logs will include:
+    - is_retry: true
+    - retry_count: the number of retry attempts
+
+    This is useful when you want to reprocess jobs that previously returned empty results,
+    perhaps after Information Tracer has had more time to process them or after fixing
+    configuration issues.
+
+    Args:
+        candidate_id: Optional candidate_id to filter jobs
+        platform: Optional platform to filter jobs (e.g., 'twitter', 'instagram')
+        country: Optional country to filter jobs
+        limit: Maximum number of jobs to retry. If None, retries all matching jobs.
+
+    Returns:
+        RetryEmptyResultJobsResponse with:
+        - total_found: Total number of empty_result jobs found
+        - retried: Number of jobs successfully retried
+        - errors: List of error messages (if any)
+        - retried_jobs: List of jobs that were retried with their details
+
+    Raises:
+        HTTPException: If the processing fails or configuration is missing
+
+    Example:
+        # Retry all empty_result jobs
+        POST /empty-result-jobs/retry
+
+        # Retry with limit
+        POST /empty-result-jobs/retry?limit=10
+
+        # Retry for specific candidate
+        POST /empty-result-jobs/retry?candidate_id=hnd09sosa
+
+        # Retry with multiple filters
+        POST /empty-result-jobs/retry?candidate_id=hnd09sosa&platform=twitter&limit=5
+    """
+    try:
+        results = retry_empty_result_jobs_service(
+            candidate_id=candidate_id,
+            platform=platform,
+            country=country,
+            limit=limit,
+        )
+        return RetryEmptyResultJobsResponse(**results)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrying empty result jobs: {str(e)}",
         )
 
 
