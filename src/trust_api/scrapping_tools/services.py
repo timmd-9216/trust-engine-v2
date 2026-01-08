@@ -126,6 +126,8 @@ def add_log_entry(
     skipped: bool = False,
     skip_reason: str | None = None,
     job_id: str | None = None,
+    is_retry: bool = False,
+    retry_count: int = 0,
 ) -> None:
     """
     Add a log entry to the execution logs (in-memory).
@@ -141,6 +143,8 @@ def add_log_entry(
         skipped: Whether the post was skipped (not queried)
         skip_reason: Reason for skipping (if skipped)
         job_id: Information Tracer job ID (id_hash256) if available
+        is_retry: Whether this is a retry attempt (default: False)
+        retry_count: Number of retry attempt (default: 0)
     """
     now = datetime.now(timezone.utc)
     log_entry = {
@@ -155,6 +159,8 @@ def add_log_entry(
         "skipped": skipped,
         "skip_reason": skip_reason,
         "job_id": job_id,
+        "is_retry": is_retry,
+        "retry_count": retry_count,
     }
     _execution_logs.append(log_entry)
 
@@ -792,6 +798,43 @@ def query_done_jobs(max_jobs: int | None = None) -> list[dict[str, Any]]:
     return jobs
 
 
+def count_empty_result_jobs(
+    candidate_id: str | None = None,
+    platform: str | None = None,
+    country: str | None = None,
+) -> int:
+    """
+    Count jobs with status='empty_result' in Firestore.
+
+    Args:
+        candidate_id: Optional candidate_id to filter jobs
+        platform: Optional platform to filter jobs (e.g., 'twitter', 'instagram')
+        country: Optional country to filter jobs
+
+    Returns:
+        Total count of jobs with status='empty_result' matching the filters
+    """
+    client = get_firestore_client()
+    query = client.collection(settings.firestore_jobs_collection).where(
+        "status", "==", "empty_result"
+    )
+
+    # Apply optional filters
+    if candidate_id:
+        query = query.where("candidate_id", "==", candidate_id)
+    if platform:
+        query = query.where("platform", "==", platform.lower())
+    if country:
+        query = query.where("country", "==", country.lower())
+
+    # Count documents (Firestore doesn't have a direct count, so we iterate)
+    count = 0
+    for _ in query.stream():
+        count += 1
+
+    return count
+
+
 def update_job_status(doc_id: str, new_status: str) -> None:
     """
     Update the status field of a job document and set updated_at timestamp.
@@ -853,6 +896,63 @@ def increment_job_retry_count(doc_id: str) -> int:
     # Update retry_count and updated_at
     now = datetime.now(timezone.utc)
     doc_ref.update({"retry_count": new_retry_count, "updated_at": now})
+
+    return new_retry_count
+
+
+def retry_job_from_empty_result(doc_id: str) -> int:
+    """
+    Move a job from 'empty_result' status to 'pending' and increment retry_count.
+    This is used when manually reprocessing jobs that had empty results.
+
+    Args:
+        doc_id: The Firestore document ID of the job to retry
+
+    Returns:
+        The new retry_count value
+
+    Raises:
+        ValueError: If doc_id is not provided
+    """
+    if not doc_id:
+        raise ValueError("doc_id is required to retry job from empty_result")
+
+    client = get_firestore_client()
+    doc_ref = client.collection(settings.firestore_jobs_collection).document(doc_id)
+
+    # Get current document to check status and retry_count
+    doc = doc_ref.get()
+    if not doc.exists:
+        raise ValueError(f"Job document {doc_id} does not exist")
+
+    current_data = doc.to_dict()
+    current_status = current_data.get("status")
+
+    # Verify that the job is in empty_result status
+    if current_status != "empty_result":
+        logger.warning(
+            f"Job {doc_id} is not in 'empty_result' status (current: {current_status}). "
+            f"Proceeding anyway, but this may not be a retry from empty_result."
+        )
+
+    # Increment retry_count
+    current_retry_count = current_data.get("retry_count", 0)
+    new_retry_count = current_retry_count + 1
+
+    # Update status to pending, increment retry_count, and update timestamp
+    now = datetime.now(timezone.utc)
+    doc_ref.update(
+        {
+            "status": "pending",
+            "retry_count": new_retry_count,
+            "updated_at": now,
+        }
+    )
+
+    logger.info(
+        f"Retrying job {doc_id} from empty_result (retry #{new_retry_count}). "
+        f"Status updated to 'pending'."
+    )
 
     return new_retry_count
 
@@ -1169,6 +1269,8 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
             platform = job.get("platform", "unknown")
             country = job.get("country", "unknown")
             candidate_id = job.get("candidate_id", "unknown")
+            # Get retry_count from job document (if it exists, indicates a retry)
+            current_retry_count = job.get("retry_count", 0)
 
             if not job_id or not job_doc_id:
                 error_msg = f"Job missing required fields: job_id={job_id}, job_doc_id={job_doc_id}"
@@ -1234,8 +1336,9 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                     existing_file = read_from_gcs_if_exists(
                         country, platform, candidate_id, post_id
                     )
-                    is_retry = existing_file is not None
-                    retry_count = 0
+                    # Detect retry: either file exists in GCS OR retry_count > 0 (e.g., from empty_result)
+                    is_retry = existing_file is not None or current_retry_count > 0
+                    retry_count = current_retry_count
 
                     # Prepare metadata for retry information
                     metadata = None
@@ -1248,13 +1351,21 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                             "is_retry": True,
                             "retry_count": retry_count,
                             "retry_timestamp": now.isoformat(),
-                            "previous_file_existed": True,
-                            "older_version": existing_file,  # Include the previous version
+                            "previous_file_existed": existing_file is not None,
                         }
+                        if existing_file:
+                            metadata["older_version"] = (
+                                existing_file  # Include the previous version
+                            )
+
+                        retry_reason = (
+                            "file existed in GCS"
+                            if existing_file
+                            else "reprocessing from empty_result"
+                        )
                         logger.info(
-                            f"Retrying job {job_id} (retry #{retry_count}). "
-                            f"Overwriting existing file in GCS for post_id={post_id}. "
-                            f"Previous version included in metadata."
+                            f"Retrying job {job_id} (retry #{retry_count}, reason: {retry_reason}). "
+                            f"post_id={post_id}"
                         )
 
                     # Save to GCS (with metadata if it's a retry)
@@ -1270,13 +1381,15 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                     # Update job status to done
                     update_job_status(job_doc_id, "done")
 
-                    # Log successful processing
+                    # Log successful processing (include retry information if applicable)
                     add_log_entry(
                         post_id=post_id,
                         url=f"https://informationtracer.com/rawdata (job_id:{job_id})",
                         success=True,
                         status_code=200,
                         job_id=job_id,
+                        is_retry=is_retry,
+                        retry_count=retry_count,
                     )
 
                     results["succeeded"] += 1

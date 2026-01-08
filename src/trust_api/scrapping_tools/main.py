@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from trust_api.scrapping_tools.core.config import settings
 from trust_api.scrapping_tools.services import (
+    count_empty_result_jobs,
     fetch_post_information,
     fix_jobs_service,
     json_to_parquet_service,
@@ -70,6 +71,11 @@ class JsonToParquetResponse(BaseModel):
     failed: int
     errors: list[str]
     written_files: list[str]  # List of GCS URIs of written Parquet files
+
+
+class EmptyResultJobsResponse(BaseModel):
+    count: int
+    filters: dict[str, str | None]  # Applied filters (candidate_id, platform, country)
 
 
 app = FastAPI(
@@ -265,6 +271,50 @@ async def fix_jobs_endpoint(max_jobs: int | None = None):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error fixing jobs: {str(e)}",
+        )
+
+
+@app.get("/empty-result-jobs/count", response_model=EmptyResultJobsResponse)
+async def count_empty_result_jobs_endpoint(
+    candidate_id: str | None = None,
+    platform: str | None = None,
+    country: str | None = None,
+):
+    """
+    Count jobs with status='empty_result' in Firestore.
+
+    This endpoint allows querying the count of jobs that have empty results.
+    Useful for monitoring and deciding when to retry jobs.
+
+    Args:
+        candidate_id: Optional candidate_id to filter jobs
+        platform: Optional platform to filter jobs (e.g., 'twitter', 'instagram')
+        country: Optional country to filter jobs
+
+    Returns:
+        EmptyResultJobsResponse with count and applied filters.
+
+    Raises:
+        HTTPException: If the query fails or configuration is missing
+    """
+    try:
+        count = count_empty_result_jobs(
+            candidate_id=candidate_id,
+            platform=platform,
+            country=country,
+        )
+        return EmptyResultJobsResponse(
+            count=count,
+            filters={
+                "candidate_id": candidate_id,
+                "platform": platform,
+                "country": country,
+            },
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error counting empty result jobs: {str(e)}",
         )
 
 
