@@ -2266,12 +2266,17 @@ def json_to_parquet_service(
     Returns:
         Dictionary with processing results including records processed, files written, etc.
     """
+    print(
+        f"[JSON-TO-PARQUET-SERVICE] Starting with filters: country={country}, platform={platform}, "
+        f"candidate_id={candidate_id}, skip_timestamp_filter={skip_timestamp_filter}"
+    )
     logger.info(
         f"Starting json_to_parquet_service with filters: country={country}, platform={platform}, "
         f"candidate_id={candidate_id}, skip_timestamp_filter={skip_timestamp_filter}"
     )
 
     if not pa or not pq:
+        print("[JSON-TO-PARQUET-SERVICE] ERROR: pyarrow is not installed")
         logger.error("pyarrow is not installed")
         return {
             "processed": 0,
@@ -2282,6 +2287,7 @@ def json_to_parquet_service(
         }
 
     if not settings.gcs_bucket_name:
+        print("[JSON-TO-PARQUET-SERVICE] ERROR: GCS_BUCKET_NAME is not configured")
         logger.error("GCS_BUCKET_NAME is not configured")
         return {
             "processed": 0,
@@ -2291,6 +2297,7 @@ def json_to_parquet_service(
             "written_files": [],
         }
 
+    print(f"[JSON-TO-PARQUET-SERVICE] Using GCS bucket: {settings.gcs_bucket_name}")
     logger.info(f"Using GCS bucket: {settings.gcs_bucket_name}")
 
     results = {
@@ -2332,7 +2339,9 @@ def json_to_parquet_service(
             )
 
         parquet_prefix = "marts/replies/ingestion_date="
+        print(f"[JSON-TO-PARQUET-SERVICE] Listing Parquet files with prefix: {parquet_prefix}")
         parquet_blobs = bucket.list_blobs(prefix=parquet_prefix)
+        print("[JSON-TO-PARQUET-SERVICE] Found Parquet blobs (iterating...)")
 
         for parquet_blob in parquet_blobs:
             if not parquet_blob.name.endswith(".parquet"):

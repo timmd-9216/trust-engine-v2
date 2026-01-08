@@ -168,25 +168,78 @@ echo "✓ Cloud Scheduler job '${PROCESS_JOBS_JOB_NAME}' configured successfully
 echo ""
 
 # ============================================================================
+# Scheduler 3: json-to-parquet-daily
+# ============================================================================
+JSON_TO_PARQUET_ENDPOINT_URL="${SERVICE_URL}/json-to-parquet?skip_timestamp_filter=false"
+JSON_TO_PARQUET_JOB_NAME="json-to-parquet-daily"
+JSON_TO_PARQUET_SCHEDULE="0 7 * * *"  # Daily at 7 AM UTC
+
+echo "=========================================="
+echo "Setting up Cloud Scheduler job: ${JSON_TO_PARQUET_JOB_NAME}"
+echo "=========================================="
+echo "Project: ${PROJECT_ID}"
+echo "Region: ${REGION}"
+echo "Endpoint: ${JSON_TO_PARQUET_ENDPOINT_URL}"
+echo "Schedule: ${JSON_TO_PARQUET_SCHEDULE} (daily at 7 AM UTC)"
+echo "Time Zone: UTC"
+echo "Service Account: ${SERVICE_ACCOUNT_EMAIL}"
+echo ""
+
+# Check if job already exists
+if gcloud scheduler jobs describe "${JSON_TO_PARQUET_JOB_NAME}" \
+  --project "${PROJECT_ID}" \
+  --location "${REGION}" >/dev/null 2>&1; then
+  echo "Job ${JSON_TO_PARQUET_JOB_NAME} already exists. Updating..."
+  gcloud scheduler jobs update http "${JSON_TO_PARQUET_JOB_NAME}" \
+    --project "${PROJECT_ID}" \
+    --location "${REGION}" \
+    --schedule "${JSON_TO_PARQUET_SCHEDULE}" \
+    --uri "${JSON_TO_PARQUET_ENDPOINT_URL}" \
+    --http-method POST \
+    --oidc-service-account-email "${SERVICE_ACCOUNT_EMAIL}" \
+    --time-zone "UTC" \
+    --attempt-deadline 600s
+else
+  echo "Creating new job ${JSON_TO_PARQUET_JOB_NAME}..."
+  gcloud scheduler jobs create http "${JSON_TO_PARQUET_JOB_NAME}" \
+    --project "${PROJECT_ID}" \
+    --location "${REGION}" \
+    --schedule "${JSON_TO_PARQUET_SCHEDULE}" \
+    --uri "${JSON_TO_PARQUET_ENDPOINT_URL}" \
+    --http-method POST \
+    --oidc-service-account-email "${SERVICE_ACCOUNT_EMAIL}" \
+    --time-zone "UTC" \
+    --attempt-deadline 600s \
+    --description="Convert JSONs to Parquet format daily by calling /json-to-parquet endpoint"
+fi
+
+echo "✓ Cloud Scheduler job '${JSON_TO_PARQUET_JOB_NAME}' configured successfully!"
+echo ""
+
+# ============================================================================
 # Summary
 # ============================================================================
 echo "=========================================="
-echo "✓ Both Cloud Scheduler jobs configured successfully!"
+echo "✓ All Cloud Scheduler jobs configured successfully!"
 echo "=========================================="
 echo ""
 echo "Jobs created:"
 echo "  1. ${JOB_NAME} - Runs every 30 minutes at :00 and :30"
 echo "  2. ${PROCESS_JOBS_JOB_NAME} - Runs every 30 minutes at :15 and :45"
+echo "  3. ${JSON_TO_PARQUET_JOB_NAME} - Runs daily at 7 AM UTC"
 echo ""
 echo "To manually trigger the jobs:"
 echo "  gcloud scheduler jobs run ${JOB_NAME} --project ${PROJECT_ID} --location ${REGION}"
 echo "  gcloud scheduler jobs run ${PROCESS_JOBS_JOB_NAME} --project ${PROJECT_ID} --location ${REGION}"
+echo "  gcloud scheduler jobs run ${JSON_TO_PARQUET_JOB_NAME} --project ${PROJECT_ID} --location ${REGION}"
 echo ""
 echo "To view job details:"
 echo "  gcloud scheduler jobs describe ${JOB_NAME} --project ${PROJECT_ID} --location ${REGION}"
 echo "  gcloud scheduler jobs describe ${PROCESS_JOBS_JOB_NAME} --project ${PROJECT_ID} --location ${REGION}"
+echo "  gcloud scheduler jobs describe ${JSON_TO_PARQUET_JOB_NAME} --project ${PROJECT_ID} --location ${REGION}"
 echo ""
 echo "To delete the jobs:"
 echo "  gcloud scheduler jobs delete ${JOB_NAME} --project ${PROJECT_ID} --location ${REGION}"
 echo "  gcloud scheduler jobs delete ${PROCESS_JOBS_JOB_NAME} --project ${PROJECT_ID} --location ${REGION}"
+echo "  gcloud scheduler jobs delete ${JSON_TO_PARQUET_JOB_NAME} --project ${PROJECT_ID} --location ${REGION}"
 

@@ -1,1 +1,1 @@
-poetry run uvicorn trust_api.scrapping_tools.main:app --reload --port 8082
+poetry run uvicorn trust_api.scrapping_tools.main:app --reload --port 8082 --log-level info

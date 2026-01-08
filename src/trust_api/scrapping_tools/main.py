@@ -596,6 +596,10 @@ async def json_to_parquet_endpoint(
     import logging
 
     logger = logging.getLogger(__name__)
+    print(
+        f"[JSON-TO-PARQUET] Received request: country={country}, platform={platform}, "
+        f"candidate_id={candidate_id}, skip_timestamp_filter={skip_timestamp_filter}"
+    )
     logger.info(
         f"Received json-to-parquet request: country={country}, platform={platform}, "
         f"candidate_id={candidate_id}, skip_timestamp_filter={skip_timestamp_filter}"
