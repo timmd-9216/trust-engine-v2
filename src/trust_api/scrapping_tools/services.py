@@ -2341,9 +2341,14 @@ def json_to_parquet_service(
         parquet_prefix = "marts/replies/ingestion_date="
         print(f"[JSON-TO-PARQUET-SERVICE] Listing Parquet files with prefix: {parquet_prefix}")
         parquet_blobs = bucket.list_blobs(prefix=parquet_prefix)
-        print("[JSON-TO-PARQUET-SERVICE] Found Parquet blobs (iterating...)")
+        print("[JSON-TO-PARQUET-SERVICE] Starting iteration over Parquet blobs...")
 
+        blob_count = 0
         for parquet_blob in parquet_blobs:
+            blob_count += 1
+            if blob_count % 10 == 0:
+                print(f"[JSON-TO-PARQUET-SERVICE] Processed {blob_count} Parquet blobs so far...")
+
             if not parquet_blob.name.endswith(".parquet"):
                 continue
             parts = parquet_blob.name.split("/")
@@ -2356,6 +2361,10 @@ def json_to_parquet_service(
 
                 try:
                     # Use file timestamp (blob.updated) - simpler and more reliable for incremental loading
+                    if blob_count <= 5:  # Log first few for debugging
+                        print(
+                            f"[JSON-TO-PARQUET-SERVICE] Processing blob {blob_count}: {parquet_blob.name}"
+                        )
                     parquet_blob.reload()  # Only metadata, not content
                     if parquet_blob.updated:
                         if parquet_blob.updated.tzinfo is None:
@@ -2367,20 +2376,37 @@ def json_to_parquet_service(
                                 parquet_blob.updated
                             )
                 except Exception as e:
+                    print(
+                        f"[JSON-TO-PARQUET-SERVICE] WARNING: Could not get timestamp for {parquet_blob.name}: {e}"
+                    )
                     logger.warning(f"Could not get timestamp for {parquet_blob.name}: {e}")
                     continue
 
+        print(
+            f"[JSON-TO-PARQUET-SERVICE] Finished processing {blob_count} Parquet blobs. "
+            f"Found {len(parquet_file_timestamps)} unique partitions"
+        )
         logger.info(
             f"Found {len(parquet_file_timestamps)} Parquet partitions: {list(parquet_file_timestamps.keys())}"
         )
 
         # Process JSONs: only download content for those newer than Parquet
+        print(f"[JSON-TO-PARQUET-SERVICE] Starting to process JSONs from prefix: {prefix}")
         json_files = []
         skipped_count = 0
         total_json_blobs = 0
         blobs = bucket.list_blobs(prefix=prefix)
+        print("[JSON-TO-PARQUET-SERVICE] Starting iteration over JSON blobs...")
 
+        json_count = 0
         for blob in blobs:
+            json_count += 1
+            if json_count % 50 == 0:
+                print(
+                    f"[JSON-TO-PARQUET-SERVICE] Iterated {json_count} blobs so far... "
+                    f"(json_files={total_json_blobs}, skipped={skipped_count}, queued_for_processing={len(json_files)})"
+                )
+
             if not blob.name.lower().endswith(".json"):
                 continue
 
@@ -2396,6 +2422,10 @@ def json_to_parquet_service(
 
             try:
                 # Get metadata only (blob.reload() reads headers, not content - lightweight)
+                if total_json_blobs <= 5:  # Log first few for debugging
+                    print(
+                        f"[JSON-TO-PARQUET-SERVICE] Processing JSON blob {total_json_blobs}: {blob.name}"
+                    )
                 blob.reload()
                 ingestion_ts = blob.updated or datetime.now(timezone.utc)
                 if ingestion_ts.tzinfo is None:
@@ -2449,6 +2479,10 @@ def json_to_parquet_service(
                 results["errors"].append(f"Error reading {blob.name}: {e}")
                 continue
 
+        print(
+            f"[JSON-TO-PARQUET-SERVICE] Finished processing JSONs. "
+            f"Total found: {total_json_blobs}, Skipped: {skipped_count}, To process: {len(json_files)}"
+        )
         logger.info(
             f"Total JSON blobs found: {total_json_blobs}, "
             f"Skipped: {skipped_count}, "
@@ -2463,8 +2497,10 @@ def json_to_parquet_service(
         results["processed"] = len(json_files)
 
         if not json_files:
+            print("[JSON-TO-PARQUET-SERVICE] No JSON files to process. Returning early.")
             return results
 
+        print(f"[JSON-TO-PARQUET-SERVICE] Grouping {len(json_files)} JSON files by partition...")
         # Group records by ingestion date and platform
         records_by_partition: dict[tuple[str, str], list[dict[str, Any]]] = {}
 
@@ -2488,8 +2524,17 @@ def json_to_parquet_service(
                 results["failed"] += 1
                 continue
 
+        print(
+            f"[JSON-TO-PARQUET-SERVICE] Found {len(records_by_partition)} partitions to write: {list(records_by_partition.keys())}"
+        )
+        print("[JSON-TO-PARQUET-SERVICE] Starting to write Parquet files...")
         # Write Parquet files with incremental loading
+        partition_count = 0
         for (date_str, platform), new_records in records_by_partition.items():
+            partition_count += 1
+            print(
+                f"[JSON-TO-PARQUET-SERVICE] Writing partition {partition_count}/{len(records_by_partition)}: {date_str}/{platform} ({len(new_records)} records)"
+            )
             try:
                 # Read existing Parquet if it exists (returns records and timestamp)
                 existing_records, _ = _read_existing_parquet_from_gcs(bucket, date_str, platform)
@@ -2533,7 +2578,13 @@ def json_to_parquet_service(
                 results["failed"] += 1
 
     except Exception as e:
+        print(f"[JSON-TO-PARQUET-SERVICE] ERROR: {e}")
         logger.error(f"Error in json_to_parquet_service: {e}")
         results["errors"].append(f"Error in json_to_parquet_service: {e}")
 
+    print(
+        f"[JSON-TO-PARQUET-SERVICE] Completed. Processed: {results['processed']}, "
+        f"Succeeded: {results['succeeded']}, Failed: {results['failed']}, "
+        f"Files written: {len(results['written_files'])}"
+    )
     return results

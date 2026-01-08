@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Scrapping Tools</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .kpi-card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .kpi-card.loading {
+            opacity: 0.6;
+        }
+
+        .kpi-card.error {
+            border-left: 5px solid #e74c3c;
+        }
+
+        .kpi-title {
+            font-size: 1.1em;
+            color: #666;
+            margin-bottom: 15px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .kpi-value {
+            font-size: 3em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .kpi-subtitle {
+            font-size: 0.9em;
+            color: #999;
+        }
+
+        .status-bar {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #27ae60;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .last-update {
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+
+        .refresh-btn {
+            background: white;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-size: 1em;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            transition: transform 0.2s ease;
+            margin-top: 20px;
+        }
+
+        .refresh-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .refresh-btn:active {
+            transform: scale(0.95);
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Dashboard Scrapping Tools</h1>
+            <p>Monitoreo en tiempo real de KPIs</p>
+        </div>
+
+        <div class="dashboard">
+            <div class="kpi-card" id="posts-pending-card">
+                <div class="kpi-title">Posts Pendientes de Extraer</div>
+                <div class="kpi-value" id="posts-pending-value">-</div>
+                <div class="kpi-subtitle">Posts con status "noreplies"</div>
+            </div>
+
+            <div class="kpi-card" id="empty-jobs-card">
+                <div class="kpi-title">Empty Jobs</div>
+                <div class="kpi-value" id="empty-jobs-value">-</div>
+                <div class="kpi-subtitle">Jobs con resultado vacío</div>
+            </div>
+        </div>
+
+        <div class="status-bar">
+            <span class="status-indicator"></span>
+            <span id="status-text">Conectado</span>
+            <div class="last-update" id="last-update">
+                Última actualización: Nunca
+            </div>
+            <button class="refresh-btn" onclick="refreshDashboard()">
+                🔄 Actualizar Ahora
+                <span class="loading-spinner" id="refresh-spinner" style="display: none;"></span>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+
+        async function fetchPostsPending() {
+            try {
+                const response = await fetch(`${API_BASE}/posts/count?status=noreplies`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                return data.count;
+            } catch (error) {
+                console.error('Error fetching posts pending:', error);
+                throw error;
+            }
+        }
+
+        async function fetchEmptyJobs() {
+            try {
+                const response = await fetch(`${API_BASE}/empty-result-jobs/count`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                return data.count;
+            } catch (error) {
+                console.error('Error fetching empty jobs:', error);
+                throw error;
+            }
+        }
+
+        function formatNumber(num) {
+            if (num === null || num === undefined) return '-';
+            return num.toLocaleString('es-ES');
+        }
+
+        function updateLastUpdate() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('es-ES', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            document.getElementById('last-update').textContent = 
+                `Última actualización: ${timeString}`;
+        }
+
+        async function updateKPIs() {
+            const postsCard = document.getElementById('posts-pending-card');
+            const emptyJobsCard = document.getElementById('empty-jobs-card');
+            const statusText = document.getElementById('status-text');
+
+            // Add loading state
+            postsCard.classList.add('loading');
+            emptyJobsCard.classList.add('loading');
+
+            try {
+                // Fetch both KPIs in parallel
+                const [postsPending, emptyJobs] = await Promise.all([
+                    fetchPostsPending(),
+                    fetchEmptyJobs()
+                ]);
+
+                // Update values
+                document.getElementById('posts-pending-value').textContent = 
+                    formatNumber(postsPending);
+                document.getElementById('empty-jobs-value').textContent = 
+                    formatNumber(emptyJobs);
+
+                // Remove error state
+                postsCard.classList.remove('error');
+                emptyJobsCard.classList.remove('error');
+
+                // Update status
+                statusText.textContent = 'Conectado';
+                statusText.style.color = '#27ae60';
+
+                updateLastUpdate();
+            } catch (error) {
+                console.error('Error updating KPIs:', error);
+                
+                // Show error state
+                postsCard.classList.add('error');
+                emptyJobsCard.classList.add('error');
+                
+                // Update status
+                statusText.textContent = 'Error de conexión';
+                statusText.style.color = '#e74c3c';
+
+                // Show error values
+                document.getElementById('posts-pending-value').textContent = 'Error';
+                document.getElementById('empty-jobs-value').textContent = 'Error';
+            } finally {
+                // Remove loading state
+                postsCard.classList.remove('loading');
+                emptyJobsCard.classList.remove('loading');
+            }
+        }
+
+        async function refreshDashboard() {
+            const spinner = document.getElementById('refresh-spinner');
+            spinner.style.display = 'inline-block';
+            
+            try {
+                await updateKPIs();
+            } finally {
+                spinner.style.display = 'none';
+            }
+        }
+
+        // Initial load
+        updateKPIs();
+
+        // Auto-refresh every 30 seconds
+        setInterval(updateKPIs, 30000);
+    </script>
+</body>
+</html>
+

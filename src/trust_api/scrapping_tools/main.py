@@ -1,6 +1,8 @@
+from pathlib import Path
 from typing import Literal
 
 from fastapi import FastAPI, HTTPException, status
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from trust_api.scrapping_tools.core.config import settings
@@ -113,6 +115,7 @@ async def root():
         "service": settings.service_name,
         "version": settings.version,
         "docs": "/docs",
+        "dashboard": "/dashboard",
         "environment": settings.environment,
     }
 
@@ -120,6 +123,28 @@ async def root():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard():
+    """
+    Dashboard web para visualizar KPIs del sistema.
+
+    Muestra:
+    - Posts pendientes de extraer (status="noreplies")
+    - Contador de empty jobs
+
+    El dashboard se actualiza automáticamente cada 30 segundos.
+    """
+    dashboard_path = Path(__file__).parent / "dashboard.html"
+    if not dashboard_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Dashboard HTML file not found",
+        )
+    with open(dashboard_path, "r", encoding="utf-8") as f:
+        html_content = f.read()
+    return HTMLResponse(content=html_content)
 
 
 @app.post("/posts/information", response_model=PostInformationResponse)

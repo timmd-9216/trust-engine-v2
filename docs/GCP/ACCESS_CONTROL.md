@@ -21,10 +21,82 @@ gcloud run services remove-iam-policy-binding $GCP_SERVICE_NAME \
 ```
 
 ## Grant invoker to a specific identity
+
+### Grant access to a user
 ```bash
 gcloud run services add-iam-policy-binding $GCP_SERVICE_NAME \
   --project $GCP_PROJECT_ID \
   --region $GCP_REGION \
-  --member="user:someone@example.com" \ # or serviceAccount:sa@project.iam.gserviceaccount.com
+  --member="user:someone@example.com" \
+  --role="roles/run.invoker"
+```
+
+### Grant access to a service account
+```bash
+gcloud run services add-iam-policy-binding $GCP_SERVICE_NAME \
+  --project $GCP_PROJECT_ID \
+  --region $GCP_REGION \
+  --member="serviceAccount:sa@project.iam.gserviceaccount.com" \
+  --role="roles/run.invoker"
+```
+
+## Example: Grant access to scrapping-tools service
+
+### Grant access to specific user (hordiales@gmail.com)
+```bash
+gcloud run services add-iam-policy-binding scrapping-tools \
+  --project=trust-481601 \
+  --region=us-east1 \
+  --member="user:hordiales@gmail.com" \
+  --role="roles/run.invoker"
+```
+
+After granting access, the user needs to authenticate with their Google account when accessing the service.
+
+### Accessing via Browser
+
+**If you get "Forbidden" error**, you need to authenticate with Google:
+
+1. **Option A: Use Incognito/Private Window**
+   - Open a new incognito/private window
+   - Visit: `https://scrapping-tools-127336238226.us-east1.run.app/docs`
+   - You'll be prompted to sign in with Google - use `hordiales@gmail.com`
+   - Accept the permissions
+
+2. **Option B: Use Local Proxy (Recommended)**
+   - This automatically handles authentication:
+   ```bash
+   ./scripts/proxy_scrapping_tools.sh
+   ```
+   - Then visit: `http://localhost:8080/docs` in your browser
+   - The proxy handles all authentication automatically
+
+### Accessing via curl
+
+Use an identity token:
+```bash
+TOKEN=$(gcloud auth print-identity-token)
+curl -H "Authorization: Bearer ${TOKEN}" \
+  https://scrapping-tools-127336238226.us-east1.run.app/health
+
+# Example: Call json-to-parquet endpoint
+curl -X POST \
+  -H "Authorization: Bearer ${TOKEN}" \
+  "https://scrapping-tools-127336238226.us-east1.run.app/json-to-parquet?country=honduras"
+```
+
+### Verify current access permissions
+```bash
+gcloud run services get-iam-policy scrapping-tools \
+  --project=trust-481601 \
+  --region=us-east1
+```
+
+### Revoke access from a specific user
+```bash
+gcloud run services remove-iam-policy-binding scrapping-tools \
+  --project=trust-481601 \
+  --region=us-east1 \
+  --member="user:hordiales@gmail.com" \
   --role="roles/run.invoker"
 ```
