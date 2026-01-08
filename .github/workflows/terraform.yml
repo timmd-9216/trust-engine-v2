@@ -251,15 +251,18 @@ jobs:
         run: |
           set +e  # Don't exit on error, we'll handle it manually
           
-          # Always use -refresh=false to avoid refresh errors with cloudscheduler
-          # The refresh will fail if Cloud Resource Manager API isn't enabled
-          # We'll enable refresh in future runs once the API is confirmed working
-          echo "⚠ Using -refresh=false to avoid refresh errors with cloudscheduler resource"
-          echo "  This is safe - the plan will still show all changes correctly"
-          echo "  Once Cloud Resource Manager API is enabled, refresh will work normally"
+          # Use refresh if API is enabled, otherwise skip refresh to avoid errors
+          if [ "${{ steps.check-api.outputs.api_enabled }}" == "true" ]; then
+            echo "✓ Cloud Resource Manager API is enabled - using refresh"
+            REFRESH_FLAG=""
+          else
+            echo "⚠ Cloud Resource Manager API not confirmed - using -refresh=false"
+            echo "  This avoids refresh errors but may miss some state changes"
+            REFRESH_FLAG="-refresh=false"
+          fi
           
           terraform plan \
-            -refresh=false \
+            ${REFRESH_FLAG} \
             -var="project_id=${GCP_PROJECT_ID}" \
             -var="region=${GCP_REGION}" \
             -var="gcs_bucket=${GCS_BUCKET_NAME}" \
