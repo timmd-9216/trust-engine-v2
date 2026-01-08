@@ -2266,7 +2266,13 @@ def json_to_parquet_service(
     Returns:
         Dictionary with processing results including records processed, files written, etc.
     """
+    logger.info(
+        f"Starting json_to_parquet_service with filters: country={country}, platform={platform}, "
+        f"candidate_id={candidate_id}, skip_timestamp_filter={skip_timestamp_filter}"
+    )
+
     if not pa or not pq:
+        logger.error("pyarrow is not installed")
         return {
             "processed": 0,
             "succeeded": 0,
@@ -2276,6 +2282,7 @@ def json_to_parquet_service(
         }
 
     if not settings.gcs_bucket_name:
+        logger.error("GCS_BUCKET_NAME is not configured")
         return {
             "processed": 0,
             "succeeded": 0,
@@ -2283,6 +2290,8 @@ def json_to_parquet_service(
             "errors": ["GCS_BUCKET_NAME is not configured"],
             "written_files": [],
         }
+
+    logger.info(f"Using GCS bucket: {settings.gcs_bucket_name}")
 
     results = {
         "processed": 0,

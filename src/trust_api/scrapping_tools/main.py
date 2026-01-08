@@ -593,12 +593,23 @@ async def json_to_parquet_endpoint(
     Raises:
         HTTPException: If the processing fails or configuration is missing
     """
+    import logging
+
+    logger = logging.getLogger(__name__)
+    logger.info(
+        f"Received json-to-parquet request: country={country}, platform={platform}, "
+        f"candidate_id={candidate_id}, skip_timestamp_filter={skip_timestamp_filter}"
+    )
     try:
         results = json_to_parquet_service(
             country=country,
             platform=platform,
             candidate_id=candidate_id,
             skip_timestamp_filter=skip_timestamp_filter,
+        )
+        logger.info(
+            f"json-to-parquet completed: processed={results.get('processed', 0)}, "
+            f"succeeded={results.get('succeeded', 0)}, failed={results.get('failed', 0)}"
         )
         return JsonToParquetResponse(**results)
     except Exception as e:
