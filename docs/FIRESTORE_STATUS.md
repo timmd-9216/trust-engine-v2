@@ -62,26 +62,33 @@ La colección `pending_jobs` almacena los jobs de Information Tracer que están 
 | `pending` | Job pendiente de procesar | Estado inicial cuando se crea un job después de hacer submit a Information Tracer. También se asigna cuando un job tiene status "timeout" o desconocido, indicando que debe reintentarse. |
 | `processing` | Job en proceso de verificación | Se asigna cuando el sistema comienza a verificar el status del job con Information Tracer API. Es un estado transitorio. |
 | `done` | Job completado exitosamente | Se asigna cuando el job se completa exitosamente, los resultados se obtienen de Information Tracer, se validan como no vacíos y se guardan correctamente en GCS. |
-| `failed` | Job falló al procesar | Se asigna cuando: (1) Information Tracer API reporta que el job falló, (2) no se pueden obtener los resultados (result es None), o (3) ocurre una excepción durante el procesamiento. |
+| `failed` | Job falló al procesar | Se asigna cuando: (1) Information Tracer API reporta que el job falló y la quota NO está excedida, (2) no se pueden obtener los resultados (result es None) y la quota NO está excedida, o (3) ocurre una excepción durante el procesamiento y la quota NO está excedida. |
+| `quota_exceeded` | Job falló por quota excedida | Se asigna cuando Information Tracer API reporta que el job falló Y la verificación de quota muestra que se alcanzó el límite diario (searches_used >= max_searches_per_day). Este status es diferente de `failed` porque indica un problema temporal (quota) que se resolverá al día siguiente, mientras que `failed` indica un fallo permanente del job. |
 | `empty_result` | Job completado pero resultado vacío | Se asigna cuando el job se completa exitosamente según Information Tracer (status="finished"), pero el resultado obtenido está vacío (lista vacía o diccionario vacío). Este es un caso especial que se distingue de "failed" porque el job técnicamente terminó, pero no hay datos útiles. |
 | `verified` | Job verificado como resultado vacío esperado | Se asigna cuando un job tiene status `empty_result`, la plataforma es `twitter`, y el `replies_count` del post asociado es <= 2. Indica que el resultado vacío es esperado porque el post tiene pocas o ninguna respuesta. |
 
 ### Flujo de Estados
 
 ```
-pending → processing → done          (si el job se completa exitosamente)
-pending → processing → failed        (si Information Tracer reporta fallo)
-pending → processing → empty_result  (si el resultado está vacío)
-pending → processing → pending       (si el job tiene timeout, se reintenta)
-empty_result → verified              (si platform='twitter' y replies_count <= 2)
+pending → processing → done           (si el job se completa exitosamente)
+pending → processing → failed         (si Information Tracer reporta fallo y quota NO excedida)
+pending → processing → quota_exceeded (si Information Tracer reporta fallo y quota está excedida)
+pending → processing → empty_result   (si el resultado está vacío)
+pending → processing → pending        (si el job tiene timeout, se reintenta)
+empty_result → verified               (si platform='twitter' y replies_count <= 2)
 ```
 
 ### Diferencias entre `failed` y `empty_result`
 
-- **`failed`**: El job no se completó correctamente. Puede deberse a:
-  - Information Tracer API reportó que el job falló
-  - No se pudieron obtener los resultados (error de conexión, API error, etc.)
-  - Ocurrió una excepción durante el procesamiento
+- **`failed`**: El job no se completó correctamente Y la quota NO está excedida. Puede deberse a:
+  - Information Tracer API reportó que el job falló (pero quota disponible)
+  - No se pudieron obtener los resultados (error de conexión, API error, etc.) y quota disponible
+  - Ocurrió una excepción durante el procesamiento y quota disponible
+
+- **`quota_exceeded`**: El job no se completó correctamente porque la quota diaria está excedida. Se diferencia de `failed` porque:
+  - Es un problema temporal que se resolverá cuando se resetee la quota (generalmente al día siguiente)
+  - Permite identificar trabajos que podrían reintentarse automáticamente cuando haya quota disponible
+  - Se detecta verificando el estado de la cuenta con `check_api_usage()` cuando Information Tracer reporta "failed"
 
 - **`empty_result`**: El job se completó técnicamente (Information Tracer reportó "finished"), pero el resultado está vacío. Esto puede ocurrir cuando:
   - El post no tiene respuestas reales
@@ -135,7 +142,8 @@ doc_ref.update({
 |-------|-------|-----------|
 | `pending` | `processing` | Inicio de verificación del job |
 | `processing` | `done` | Job completado exitosamente con resultados no vacíos |
-| `processing` | `failed` | Information Tracer reporta fallo, error al obtener resultados, o excepción |
+| `processing` | `failed` | Information Tracer reporta fallo, error al obtener resultados, o excepción, Y quota NO está excedida |
+| `processing` | `quota_exceeded` | Information Tracer reporta fallo Y verificación de quota muestra límite diario alcanzado (searches_used >= max_searches_per_day) |
 | `processing` | `empty_result` | Job completado pero resultado vacío |
 | `processing` | `pending` | Job con timeout o status desconocido (se reintenta) |
 | `empty_result` | `verified` | Platform es 'twitter' y replies_count del post <= 2 (resultado vacío esperado). **Nota**: Cuando un job se verifica, el post asociado también se actualiza a `done`. |

@@ -947,7 +947,7 @@ def update_job_status(doc_id: str, new_status: str) -> None:
 
     Args:
         doc_id: The Firestore document ID of the job to update
-        new_status: The new status value ('pending', 'processing', 'done', 'failed', 'empty_result')
+        new_status: The new status value ('pending', 'processing', 'done', 'failed', 'quota_exceeded', 'empty_result', 'verified')
 
     Raises:
         ValueError: If doc_id is not provided
@@ -1523,6 +1523,7 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
         "processed": 0,
         "succeeded": 0,
         "failed": 0,
+        "quota_exceeded": 0,
         "empty_results": 0,
         "still_pending": 0,
         "errors": [],
@@ -1581,9 +1582,53 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                         error_msg = (
                             f"Failed to retrieve results for job_id={job_id}, post_id={post_id}"
                         )
+                        # Check if quota is exceeded before marking as failed
+                        final_status = "failed"
+                        try:
+                            from trust_api.scrapping_tools.information_tracer import check_api_usage
+
+                            if settings.information_tracer_api_key:
+                                api_usage = check_api_usage(settings.information_tracer_api_key)
+                                if isinstance(api_usage, dict) and "usage" in api_usage:
+                                    daily_usage = api_usage["usage"].get("day", {})
+                                    searches_used = daily_usage.get("searches_used", 0)
+                                    limits = api_usage.get("limits", {})
+                                    daily_limit = limits.get("max_searches_per_day", 0)
+
+                                    if daily_limit > 0 and searches_used >= daily_limit:
+                                        final_status = "quota_exceeded"
+                                        error_msg = (
+                                            f"Failed to retrieve results (quota exceeded): "
+                                            f"searches_used={searches_used}/{daily_limit} "
+                                            f"for job_id={job_id}, post_id={post_id}"
+                                        )
+                                        logger.warning(
+                                            f"Job {job_id} marked as quota_exceeded "
+                                            f"when result is None (quota: {searches_used}/{daily_limit})"
+                                        )
+                        except Exception as e:
+                            logger.warning(f"Could not check quota when result is None: {str(e)}")
+
                         results["errors"].append(error_msg)
-                        results["failed"] += 1
-                        update_job_status(job_doc_id, "failed")
+                        if final_status == "quota_exceeded":
+                            results["quota_exceeded"] = results.get("quota_exceeded", 0) + 1
+                        else:
+                            results["failed"] += 1
+
+                        update_job_status(job_doc_id, final_status)
+
+                        # Log to error logs for quota_exceeded
+                        if final_status == "quota_exceeded":
+                            add_error_entry(
+                                job_id=job_id,
+                                post_id=post_id,
+                                platform=platform,
+                                country=country,
+                                candidate_id=candidate_id,
+                                error_type="quota_exceeded",
+                                error_message=error_msg,
+                                job_doc_id=job_doc_id,
+                            )
                         continue
 
                     # Validate that result is not empty before saving
@@ -1695,10 +1740,62 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                     results["succeeded"] += 1
 
                 elif status == "failed":
+                    # Check if quota is exceeded before marking as failed
+                    # If quota is exceeded, mark as quota_exceeded instead of failed
+                    final_status = "failed"
+                    error_type_for_log = "failed"
                     error_msg = f"Job failed for job_id={job_id}, post_id={post_id}"
+
+                    try:
+                        from trust_api.scrapping_tools.information_tracer import check_api_usage
+
+                        if settings.information_tracer_api_key:
+                            api_usage = check_api_usage(settings.information_tracer_api_key)
+                            if isinstance(api_usage, dict) and "usage" in api_usage:
+                                daily_usage = api_usage["usage"].get("day", {})
+                                searches_used = daily_usage.get("searches_used", 0)
+                                limits = api_usage.get("limits", {})
+                                daily_limit = limits.get("max_searches_per_day", 0)
+
+                                # Check if quota is exceeded (used >= limit)
+                                if daily_limit > 0 and searches_used >= daily_limit:
+                                    final_status = "quota_exceeded"
+                                    error_type_for_log = "quota_exceeded"
+                                    error_msg = (
+                                        f"Job failed due to quota exceeded: "
+                                        f"searches_used={searches_used}/{daily_limit} "
+                                        f"for job_id={job_id}, post_id={post_id}"
+                                    )
+                                    logger.warning(
+                                        f"Job {job_id} marked as quota_exceeded "
+                                        f"(quota: {searches_used}/{daily_limit})"
+                                    )
+                    except Exception as e:
+                        # If quota check fails, log warning but continue with failed status
+                        logger.warning(f"Could not check quota when job failed: {str(e)}")
+
                     results["errors"].append(error_msg)
-                    results["failed"] += 1
-                    update_job_status(job_doc_id, "failed")
+                    if final_status == "quota_exceeded":
+                        results["quota_exceeded"] = results.get("quota_exceeded", 0) + 1
+                        results["failed"] = results.get("failed", 0)  # Don't increment failed
+                    else:
+                        results["failed"] += 1
+
+                    update_job_status(job_doc_id, final_status)
+
+                    # Log to error logs for quota_exceeded
+                    if final_status == "quota_exceeded":
+                        add_error_entry(
+                            job_id=job_id,
+                            post_id=post_id,
+                            platform=platform,
+                            country=country,
+                            candidate_id=candidate_id,
+                            error_type=error_type_for_log,
+                            error_message=error_msg,
+                            job_doc_id=job_doc_id,
+                        )
+
                     # Update post status back to noreplies to allow retry
                     # (but only if there's no other pending/processing job for this post)
                     if post_doc_id:
@@ -1718,10 +1815,36 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
             except Exception as e:
                 error_msg = f"Error processing job_id={job_id}, post_id={post_id}: {str(e)}"
                 results["errors"].append(error_msg)
-                results["failed"] += 1
-                # Update job status to failed on exception
+                # Check if quota is exceeded on exception as well
+                final_status = "failed"
                 try:
-                    update_job_status(job_doc_id, "failed")
+                    from trust_api.scrapping_tools.information_tracer import check_api_usage
+
+                    if settings.information_tracer_api_key:
+                        api_usage = check_api_usage(settings.information_tracer_api_key)
+                        if isinstance(api_usage, dict) and "usage" in api_usage:
+                            daily_usage = api_usage["usage"].get("day", {})
+                            searches_used = daily_usage.get("searches_used", 0)
+                            limits = api_usage.get("limits", {})
+                            daily_limit = limits.get("max_searches_per_day", 0)
+
+                            if daily_limit > 0 and searches_used >= daily_limit:
+                                final_status = "quota_exceeded"
+                                results["quota_exceeded"] = results.get("quota_exceeded", 0) + 1
+                                logger.warning(
+                                    f"Exception occurred but quota is exceeded: "
+                                    f"{searches_used}/{daily_limit}, marking as quota_exceeded"
+                                )
+                except Exception:
+                    # If quota check fails, continue with failed status
+                    pass
+
+                if final_status == "failed":
+                    results["failed"] += 1
+
+                # Update job status
+                try:
+                    update_job_status(job_doc_id, final_status)
                     # Update post status back to noreplies to allow retry
                     # (but only if there's no other pending/processing job for this post)
                     if post_doc_id:

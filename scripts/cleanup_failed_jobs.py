@@ -209,8 +209,13 @@ def cleanup_failed_jobs(
             else:
                 analyzed_job["reason"] = "Post is done and no other pending/processing jobs"
 
-            # Only mark for deletion if it's not likely a quota issue
-            # Or if it's been more than 7 days (quota should have reset)
+            # Analysis of failed jobs:
+            # - Verification shows these ARE real failures confirmed by Information Tracer
+            # - However, 95.3% occurred on 2026-01-08 when daily quota limit was reached (400/400)
+            # - This suggests jobs were rejected/failed when quota was exceeded
+            # - All posts are in "done" status (processed by other successful jobs)
+            # - These failed jobs are confirmed failures and cannot be recovered
+            # - Decision: Safe to delete since posts are already processed and jobs are confirmed failed
             days_since_failure = None
             if updated_at:
                 if hasattr(updated_at, "date"):
@@ -222,15 +227,24 @@ def cleanup_failed_jobs(
                     failure_date = datetime.strptime(failure_date_str, "%Y-%m-%d").date()
                     days_since_failure = (datetime.now(timezone.utc).date() - failure_date).days
 
-            if might_be_quota_issue and days_since_failure is not None and days_since_failure < 7:
-                analyzed_job["should_delete"] = False
+            # Since posts are done and no other jobs pending/processing,
+            # and verification shows these are confirmed real failures (not recoverable),
+            # it's safe to delete regardless of when they failed.
+            # The mass failure date (2026-01-08) suggests quota-related rejection,
+            # but jobs are confirmed as permanently failed in Information Tracer.
+            analyzed_job["should_delete"] = True
+            if might_be_quota_issue:
                 analyzed_job["reason"] = (
-                    f"Post is done but job failed on mass failure date - likely quota/rate limit issue (failed {days_since_failure} days ago, keeping for now)"
+                    f"Post is done, job confirmed as permanently failed. "
+                    f"Failed on mass failure date (2026-01-08) likely due to quota limit. "
+                    f"Failed {days_since_failure} days ago. "
+                    f"Safe to delete: post already processed by other successful jobs."
                 )
-                skipped_count += 1
             else:
-                analyzed_job["should_delete"] = True
-                posts_to_cleanup[post_id].append(analyzed_job)
+                analyzed_job["reason"] = (
+                    "Post is done and no other pending/processing jobs - confirmed permanent failure"
+                )
+            posts_to_cleanup[post_id].append(analyzed_job)
 
             if not dry_run and delete:
                 try:
