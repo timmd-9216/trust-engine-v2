@@ -19,7 +19,7 @@
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
         }
 
@@ -40,24 +40,56 @@
             opacity: 0.9;
         }
 
-        .dashboard {
+        .header .info-note {
+            font-size: 0.9em;
+            margin-top: 10px;
+            opacity: 0.85;
+            font-style: italic;
+        }
+
+        .section {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .section-title {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .section-subtitle {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: #555;
+            margin-top: 25px;
+            margin-bottom: 15px;
+        }
+
+        .kpi-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
         }
 
         .kpi-card {
-            background: white;
-            border-radius: 12px;
-            padding: 30px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            background: linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);
+            border-radius: 8px;
+            padding: 20px;
+            border-left: 4px solid #667eea;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
 
         .kpi-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
         }
 
         .kpi-card.loading {
@@ -65,28 +97,88 @@
         }
 
         .kpi-card.error {
-            border-left: 5px solid #e74c3c;
+            border-left-color: #e74c3c;
+            background: linear-gradient(135deg, #fee 0%, #fff 100%);
         }
 
-        .kpi-title {
-            font-size: 1.1em;
+        .kpi-card.posts-noreplies {
+            border-left-color: #f39c12;
+        }
+
+        .kpi-card.posts-done {
+            border-left-color: #27ae60;
+        }
+
+        .kpi-card.posts-skipped {
+            border-left-color: #95a5a6;
+        }
+
+        .kpi-card.jobs-pending {
+            border-left-color: #3498db;
+        }
+
+        .kpi-card.jobs-processing {
+            border-left-color: #9b59b6;
+        }
+
+        .kpi-card.jobs-done {
+            border-left-color: #27ae60;
+        }
+
+        .kpi-card.jobs-failed {
+            border-left-color: #e74c3c;
+        }
+
+        .kpi-card.jobs-empty-result {
+            border-left-color: #f39c12;
+        }
+
+        .kpi-card.jobs-verified {
+            border-left-color: #1abc9c;
+        }
+
+        .kpi-label {
+            font-size: 0.9em;
             color: #666;
-            margin-bottom: 15px;
+            margin-bottom: 8px;
             font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
         }
 
         .kpi-value {
-            font-size: 3em;
+            font-size: 2em;
             font-weight: bold;
-            color: #667eea;
-            margin-bottom: 10px;
+            color: #333;
+            margin-bottom: 5px;
         }
 
-        .kpi-subtitle {
-            font-size: 0.9em;
-            color: #999;
+        .platform-section {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+
+        .platform-tag {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin-bottom: 15px;
+            text-transform: capitalize;
+        }
+
+        .platform-tag.twitter {
+            background: #1da1f2;
+        }
+
+        .platform-tag.instagram {
+            background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+        }
+
+        .platform-tag.youtube {
+            background: #ff0000;
         }
 
         .status-bar {
@@ -123,15 +215,17 @@
         }
 
         .refresh-btn {
-            background: white;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
             border: none;
             border-radius: 8px;
-            padding: 10px 20px;
+            padding: 12px 24px;
             font-size: 1em;
             cursor: pointer;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
             transition: transform 0.2s ease;
-            margin-top: 20px;
+            margin-top: 15px;
+            font-weight: 600;
         }
 
         .refresh-btn:hover {
@@ -146,11 +240,12 @@
             display: inline-block;
             width: 20px;
             height: 20px;
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #667eea;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid white;
             border-radius: 50%;
             animation: spin 1s linear infinite;
             margin-left: 10px;
+            vertical-align: middle;
         }
 
         @keyframes spin {
@@ -166,20 +261,216 @@
             <p>Monitoreo en tiempo real de KPIs</p>
         </div>
 
-        <div class="dashboard">
-            <div class="kpi-card" id="posts-pending-card">
-                <div class="kpi-title">Posts Pendientes de Extraer</div>
-                <div class="kpi-value" id="posts-pending-value">-</div>
-                <div class="kpi-subtitle">Posts con status "noreplies"</div>
+        <!-- Sección General -->
+        <div class="section">
+            <div class="section-title">📈 Vista General</div>
+            
+            <div class="section-subtitle">Posts</div>
+            <div class="kpi-grid" id="posts-general-grid">
+                <div class="kpi-card posts-noreplies loading">
+                    <div class="kpi-label">Noreplies</div>
+                    <div class="kpi-value">-</div>
+                </div>
+                <div class="kpi-card posts-done loading">
+                    <div class="kpi-label">Done</div>
+                    <div class="kpi-value">-</div>
+                </div>
+                <div class="kpi-card posts-skipped loading">
+                    <div class="kpi-label">Skipped</div>
+                    <div class="kpi-value">-</div>
+                </div>
             </div>
 
-            <div class="kpi-card" id="empty-jobs-card">
-                <div class="kpi-title">Empty Jobs</div>
-                <div class="kpi-value" id="empty-jobs-value">-</div>
-                <div class="kpi-subtitle">Jobs con resultado vacío</div>
+            <div class="section-subtitle">Jobs</div>
+            <div class="kpi-grid" id="jobs-general-grid">
+                <div class="kpi-card jobs-pending loading">
+                    <div class="kpi-label">Pending</div>
+                    <div class="kpi-value">-</div>
+                </div>
+                <div class="kpi-card jobs-processing loading">
+                    <div class="kpi-label">Processing</div>
+                    <div class="kpi-value">-</div>
+                </div>
+                <div class="kpi-card jobs-done loading">
+                    <div class="kpi-label">Done</div>
+                    <div class="kpi-value">-</div>
+                </div>
+                <div class="kpi-card jobs-failed loading">
+                    <div class="kpi-label">Failed</div>
+                    <div class="kpi-value">-</div>
+                </div>
+                <div class="kpi-card jobs-empty-result loading">
+                    <div class="kpi-label">Empty Result</div>
+                    <div class="kpi-value">-</div>
+                </div>
+                <div class="kpi-card jobs-verified loading">
+                    <div class="kpi-label">Verified</div>
+                    <div class="kpi-value">-</div>
+                </div>
             </div>
         </div>
 
+        <!-- Sección por Plataforma -->
+        <div class="section">
+            <div class="section-title">🌐 Vista por Plataforma</div>
+
+            <!-- Twitter -->
+            <div class="platform-section" id="twitter-section">
+                <span class="platform-tag twitter">🐦 Twitter</span>
+                <div class="section-subtitle">Posts</div>
+                <div class="kpi-grid" id="posts-twitter-grid">
+                    <div class="kpi-card posts-noreplies loading">
+                        <div class="kpi-label">Noreplies</div>
+                        <div class="kpi-value">-</div>
+                    </div>
+                    <div class="kpi-card posts-done loading">
+                        <div class="kpi-label">Done</div>
+                        <div class="kpi-value">-</div>
+                    </div>
+                    <div class="kpi-card posts-skipped loading">
+                        <div class="kpi-label">Skipped</div>
+                        <div class="kpi-value">-</div>
+                    </div>
+                </div>
+                <div class="section-subtitle">Jobs</div>
+                <div class="kpi-grid" id="jobs-twitter-grid">
+                    <div class="kpi-card jobs-pending loading">
+                        <div class="kpi-label">Pending</div>
+                        <div class="kpi-value">-</div>
+                    </div>
+                    <div class="kpi-card jobs-processing loading">
+                        <div class="kpi-label">Processing</div>
+                        <div class="kpi-value">-</div>
+                    </div>
+                    <div class="kpi-card jobs-done loading">
+                        <div class="kpi-label">Done</div>
+                        <div class="kpi-value">-</div>
+                    </div>
+                    <div class="kpi-card jobs-failed loading">
+                        <div class="kpi-label">Failed</div>
+                        <div class="kpi-value">-</div>
+                    </div>
+                    <div class="kpi-card jobs-empty-result loading">
+                        <div class="kpi-label">Empty Result</div>
+                        <div class="kpi-value">-</div>
+                    </div>
+                    <div class="kpi-card jobs-verified loading">
+                        <div class="kpi-label">Verified</div>
+                        <div class="kpi-value">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Instagram -->
+            <div class="platform-section" id="instagram-section">
+                <span class="platform-tag instagram">📷 Instagram</span>
+                <div class="section-subtitle">Posts</div>
+                <div class="kpi-grid" id="posts-instagram-grid">
+                    <div class="kpi-card posts-noreplies loading">
+                        <div class="kpi-label">Noreplies</div>
+                        <div class="kpi-value">-</div>
+                    </div>
+                    <div class="kpi-card posts-done loading">
+                        <div class="kpi-label">Done</div>
+                        <div class="kpi-value">-</div>
+                    </div>
+                    <div class="kpi-card posts-skipped loading">
+                        <div class="kpi-label">Skipped</div>
+                        <div class="kpi-value">-</div>
+                    </div>
+                </div>
+                <div class="section-subtitle">Jobs</div>
+                <div class="kpi-grid" id="jobs-instagram-grid">
+                    <div class="kpi-card jobs-pending loading">
+                        <div class="kpi-label">Pending</div>
+                        <div class="kpi-value">-</div>
+                    </div>
+                    <div class="kpi-card jobs-processing loading">
+                        <div class="kpi-label">Processing</div>
+                        <div class="kpi-value">-</div>
+                    </div>
+                    <div class="kpi-card jobs-done loading">
+                        <div class="kpi-label">Done</div>
+                        <div class="kpi-value">-</div>
+                    </div>
+                    <div class="kpi-card jobs-failed loading">
+                        <div class="kpi-label">Failed</div>
+                        <div class="kpi-value">-</div>
+                    </div>
+                    <div class="kpi-card jobs-empty-result loading">
+                        <div class="kpi-label">Empty Result</div>
+                        <div class="kpi-value">-</div>
+                    </div>
+                    <div class="kpi-card jobs-verified loading">
+                        <div class="kpi-label">Verified</div>
+                        <div class="kpi-value">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- YouTube -->
+            <div class="platform-section" id="youtube-section">
+                <span class="platform-tag youtube">📺 YouTube</span>
+                <div class="section-subtitle">Posts</div>
+                <div class="kpi-grid" id="posts-youtube-grid">
+                    <div class="kpi-card posts-noreplies loading">
+                        <div class="kpi-label">Noreplies</div>
+                        <div class="kpi-value">-</div>
+                    </div>
+                    <div class="kpi-card posts-done loading">
+                        <div class="kpi-label">Done</div>
+                        <div class="kpi-value">-</div>
+                    </div>
+                    <div class="kpi-card posts-skipped loading">
+                        <div class="kpi-label">Skipped</div>
+                        <div class="kpi-value">-</div>
+                    </div>
+                </div>
+                <div class="section-subtitle">Jobs</div>
+                <div class="kpi-grid" id="jobs-youtube-grid">
+                    <div class="kpi-card jobs-pending loading">
+                        <div class="kpi-label">Pending</div>
+                        <div class="kpi-value">-</div>
+                    </div>
+                    <div class="kpi-card jobs-processing loading">
+                        <div class="kpi-label">Processing</div>
+                        <div class="kpi-value">-</div>
+                    </div>
+                    <div class="kpi-card jobs-done loading">
+                        <div class="kpi-label">Done</div>
+                        <div class="kpi-value">-</div>
+                    </div>
+                    <div class="kpi-card jobs-failed loading">
+                        <div class="kpi-label">Failed</div>
+                        <div class="kpi-value">-</div>
+                    </div>
+                    <div class="kpi-card jobs-empty-result loading">
+                        <div class="kpi-label">Empty Result</div>
+                        <div class="kpi-value">-</div>
+                    </div>
+                    <div class="kpi-card jobs-verified loading">
+                        <div class="kpi-label">Verified</div>
+                        <div class="kpi-value">-</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 
+            BARRA DE ESTADO Y ACTUALIZACIÓN
+            =================================
+            
+            Comportamiento de actualización del dashboard:
+            - Carga inicial: Los KPIs se cargan automáticamente al abrir el dashboard
+            - Actualización manual: Usa el botón "🔄 Actualizar Ahora" para refrescar los datos
+            
+            NO hay actualización automática (auto-refresh) para minimizar el uso de recursos:
+            - Reduce la carga en los endpoints de la API
+            - Disminuye las consultas a la base de datos Firestore
+            - Optimiza el consumo de recursos del servidor
+            
+            Para ver datos actualizados, haz click en el botón "🔄 Actualizar Ahora".
+        -->
         <div class="status-bar">
             <span class="status-indicator"></span>
             <span id="status-text">Conectado</span>
@@ -195,107 +486,254 @@
 
     <script>
         const API_BASE = window.location.origin;
+        const POST_STATUSES = ['noreplies', 'done', 'skipped'];
+        const JOB_STATUSES = ['pending', 'processing', 'done', 'failed', 'empty_result', 'verified'];
+        const PLATFORMS = ['twitter', 'instagram', 'youtube'];
 
-        async function fetchPostsPending() {
+        async function fetchCount(endpoint, params = {}) {
             try {
-                const response = await fetch(`${API_BASE}/posts/count?status=noreplies`);
+                const queryString = new URLSearchParams(params).toString();
+                const url = `${API_BASE}${endpoint}${queryString ? '?' + queryString : ''}`;
+                const response = await fetch(url);
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 const data = await response.json();
-                return data.count;
+                return data.count || 0;
             } catch (error) {
-                console.error('Error fetching posts pending:', error);
-                throw error;
-            }
-        }
-
-        async function fetchEmptyJobs() {
-            try {
-                const response = await fetch(`${API_BASE}/empty-result-jobs/count`);
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                const data = await response.json();
-                return data.count;
-            } catch (error) {
-                console.error('Error fetching empty jobs:', error);
+                console.error(`Error fetching ${endpoint}:`, error);
                 throw error;
             }
         }
 
         function formatNumber(num) {
-            if (num === null || num === undefined) return '-';
+            if (num === null || num === undefined || isNaN(num)) return '-';
             return num.toLocaleString('es-ES');
+        }
+
+        function updateKpiCard(containerId, status, value, isError = false) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            const cards = container.querySelectorAll('.kpi-card');
+            cards.forEach(card => {
+                const label = card.querySelector('.kpi-label');
+                if (label && label.textContent.toLowerCase() === status.toLowerCase()) {
+                    const valueEl = card.querySelector('.kpi-value');
+                    if (valueEl) {
+                        valueEl.textContent = isError ? 'Error' : formatNumber(value);
+                    }
+                    card.classList.remove('loading');
+                    if (isError) {
+                        card.classList.add('error');
+                    } else {
+                        card.classList.remove('error');
+                    }
+                }
+            });
+        }
+
+        function setAllLoading(containerId, loading = true) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            const cards = container.querySelectorAll('.kpi-card');
+            cards.forEach(card => {
+                if (loading) {
+                    card.classList.add('loading');
+                } else {
+                    card.classList.remove('loading');
+                }
+            });
+        }
+
+        async function fetchAllKPIs() {
+            const results = {
+                general: {
+                    posts: {},
+                    jobs: {}
+                },
+                platforms: {
+                    twitter: { posts: {}, jobs: {} },
+                    instagram: { posts: {}, jobs: {} },
+                    youtube: { posts: {}, jobs: {} }
+                }
+            };
+
+            // Build all fetch promises in parallel
+            const promises = [];
+
+            // General posts
+            for (const status of POST_STATUSES) {
+                promises.push(
+                    fetchCount('/posts/count', { status })
+                        .then(count => ({ type: 'general', category: 'posts', status, count }))
+                        .catch(() => ({ type: 'general', category: 'posts', status, count: null }))
+                );
+            }
+
+            // General jobs
+            for (const status of JOB_STATUSES) {
+                promises.push(
+                    fetchCount('/jobs/count', { status })
+                        .then(count => ({ type: 'general', category: 'jobs', status, count }))
+                        .catch(() => ({ type: 'general', category: 'jobs', status, count: null }))
+                );
+            }
+
+            // Platform-specific posts and jobs
+            for (const platform of PLATFORMS) {
+                // Posts for platform
+                for (const status of POST_STATUSES) {
+                    promises.push(
+                        fetchCount('/posts/count', { status, platform })
+                            .then(count => ({ type: 'platform', platform, category: 'posts', status, count }))
+                            .catch(() => ({ type: 'platform', platform, category: 'posts', status, count: null }))
+                    );
+                }
+
+                // Jobs for platform
+                for (const status of JOB_STATUSES) {
+                    promises.push(
+                        fetchCount('/jobs/count', { status, platform })
+                            .then(count => ({ type: 'platform', platform, category: 'jobs', status, count }))
+                            .catch(() => ({ type: 'platform', platform, category: 'jobs', status, count: null }))
+                    );
+                }
+            }
+
+            // Execute all promises in parallel
+            const allResults = await Promise.all(promises);
+
+            // Organize results
+            for (const result of allResults) {
+                if (result.type === 'general') {
+                    results.general[result.category][result.status] = result.count;
+                } else if (result.type === 'platform') {
+                    results.platforms[result.platform][result.category][result.status] = result.count;
+                }
+            }
+
+            return results;
+        }
+
+        function updateDashboard(data) {
+            // Update general section
+            for (const status of POST_STATUSES) {
+                const value = data.general.posts[status];
+                const isError = value === null;
+                updateKpiCard('posts-general-grid', status, value, isError);
+            }
+
+            for (const status of JOB_STATUSES) {
+                const value = data.general.jobs[status];
+                const isError = value === null;
+                updateKpiCard('jobs-general-grid', status, value, isError);
+            }
+
+            // Update platform sections
+            for (const platform of PLATFORMS) {
+                const platformData = data.platforms[platform];
+
+                // Posts
+                for (const status of POST_STATUSES) {
+                    const value = platformData.posts[status];
+                    const isError = value === null;
+                    updateKpiCard(`posts-${platform}-grid`, status, value, isError);
+                }
+
+                // Jobs
+                for (const status of JOB_STATUSES) {
+                    const value = platformData.jobs[status];
+                    const isError = value === null;
+                    updateKpiCard(`jobs-${platform}-grid`, status, value, isError);
+                }
+            }
+        }
+
+        function setAllLoadingState(loading = true) {
+            const containers = [
+                'posts-general-grid',
+                'jobs-general-grid',
+                'posts-twitter-grid',
+                'jobs-twitter-grid',
+                'posts-instagram-grid',
+                'jobs-instagram-grid',
+                'posts-youtube-grid',
+                'jobs-youtube-grid'
+            ];
+
+            containers.forEach(containerId => {
+                setAllLoading(containerId, loading);
+            });
         }
 
         function updateLastUpdate() {
             const now = new Date();
-            const timeString = now.toLocaleTimeString('es-ES', { 
-                hour: '2-digit', 
+            const timeString = now.toLocaleTimeString('es-ES', {
+                hour: '2-digit',
                 minute: '2-digit',
                 second: '2-digit'
             });
-            document.getElementById('last-update').textContent = 
+            document.getElementById('last-update').textContent =
                 `Última actualización: ${timeString}`;
         }
 
         async function updateKPIs() {
-            const postsCard = document.getElementById('posts-pending-card');
-            const emptyJobsCard = document.getElementById('empty-jobs-card');
             const statusText = document.getElementById('status-text');
 
-            // Add loading state
-            postsCard.classList.add('loading');
-            emptyJobsCard.classList.add('loading');
+            setAllLoadingState(true);
 
             try {
-                // Fetch both KPIs in parallel
-                const [postsPending, emptyJobs] = await Promise.all([
-                    fetchPostsPending(),
-                    fetchEmptyJobs()
-                ]);
+                const data = await fetchAllKPIs();
+                updateDashboard(data);
 
-                // Update values
-                document.getElementById('posts-pending-value').textContent = 
-                    formatNumber(postsPending);
-                document.getElementById('empty-jobs-value').textContent = 
-                    formatNumber(emptyJobs);
-
-                // Remove error state
-                postsCard.classList.remove('error');
-                emptyJobsCard.classList.remove('error');
-
-                // Update status
                 statusText.textContent = 'Conectado';
                 statusText.style.color = '#27ae60';
 
                 updateLastUpdate();
             } catch (error) {
                 console.error('Error updating KPIs:', error);
-                
-                // Show error state
-                postsCard.classList.add('error');
-                emptyJobsCard.classList.add('error');
-                
-                // Update status
+
                 statusText.textContent = 'Error de conexión';
                 statusText.style.color = '#e74c3c';
 
-                // Show error values
-                document.getElementById('posts-pending-value').textContent = 'Error';
-                document.getElementById('empty-jobs-value').textContent = 'Error';
+                // Mark all as error
+                setAllLoadingState(false);
+                const containers = [
+                    'posts-general-grid',
+                    'jobs-general-grid',
+                    'posts-twitter-grid',
+                    'jobs-twitter-grid',
+                    'posts-instagram-grid',
+                    'jobs-instagram-grid',
+                    'posts-youtube-grid',
+                    'jobs-youtube-grid'
+                ];
+                containers.forEach(containerId => {
+                    const container = document.getElementById(containerId);
+                    if (container) {
+                        container.querySelectorAll('.kpi-card').forEach(card => {
+                            const valueEl = card.querySelector('.kpi-value');
+                            if (valueEl) valueEl.textContent = 'Error';
+                            card.classList.add('error');
+                        });
+                    }
+                });
             } finally {
-                // Remove loading state
-                postsCard.classList.remove('loading');
-                emptyJobsCard.classList.remove('loading');
+                setAllLoadingState(false);
             }
         }
 
+        /**
+         * Actualiza el dashboard manualmente.
+         * 
+         * Esta función es llamada cuando el usuario hace click en el botón "Actualizar Ahora".
+         * Muestra un spinner de carga mientras se actualizan los KPIs.
+         */
         async function refreshDashboard() {
             const spinner = document.getElementById('refresh-spinner');
             spinner.style.display = 'inline-block';
-            
+
             try {
                 await updateKPIs();
             } finally {
@@ -303,12 +741,22 @@
             }
         }
 
-        // Initial load
+        /**
+         * INICIALIZACIÓN DEL DASHBOARD
+         * 
+         * Comportamiento de actualización:
+         * - Carga inicial: Los KPIs se cargan automáticamente al abrir el dashboard
+         * - Actualización manual: El usuario debe hacer click en el botón "Actualizar Ahora"
+         *   para refrescar los datos
+         * 
+         * NO hay actualización automática (auto-refresh) para minimizar el uso de recursos
+         * del servidor y la API. Esto reduce la carga en los endpoints y en la base de datos.
+         * 
+         * Para ver datos actualizados, usa el botón "🔄 Actualizar Ahora" en la parte superior.
+         */
+        
+        // Carga inicial de KPIs al abrir el dashboard
         updateKPIs();
-
-        // Auto-refresh every 30 seconds
-        setInterval(updateKPIs, 30000);
     </script>
 </body>
 </html>
-

@@ -45,12 +45,16 @@ class ProcessPostsResponse(BaseModel):
 class ProcessJobsResponse(BaseModel):
     processed: int
     succeeded: int
-    failed: int
+    failed: int  # Solo errores técnicos reales (API failures, excepciones, etc.)
+    empty_results: int  # Jobs terminados exitosamente pero sin datos útiles (no es error técnico)
     still_pending: int
-    errors: list[str]
+    errors: list[str]  # Solo errores técnicos (no incluye empty_results)
+    empty_result_jobs: list[dict]  # Lista de jobs con resultado vacío (info, no error)
     saved_files: list[str]
     log_file: str | None = None  # GCS URI of the execution log file
-    error_log_file: str | None = None  # GCS URI of the error log file (for empty results)
+    error_log_file: str | None = (
+        None  # GCS URI of the error log file (para empty_results y errores técnicos)
+    )
 
 
 class PendingJobsResponse(BaseModel):
@@ -275,7 +279,17 @@ async def process_jobs_endpoint(max_jobs: int | None = None):
         max_jobs: Maximum number of jobs to process in this call. If None, processes all pending jobs.
 
     Returns:
-        ProcessJobsResponse with processing results including success count, errors, saved files, etc.
+        ProcessJobsResponse with processing results:
+        - succeeded: Jobs with useful data saved successfully
+        - empty_results: Jobs completed successfully but returned empty data (NOT a technical error)
+        - failed: Only actual technical errors (API failures, exceptions, etc.)
+        - errors: List of technical error messages (does NOT include empty_results)
+        - empty_result_jobs: List of jobs with empty results (for monitoring, not errors)
+
+    Note:
+        Empty results are distinguished from technical errors:
+        - Empty result: Job completed successfully in Information Tracer but returned no data
+        - Technical error: API failure, exception, or job failed in Information Tracer
 
     Raises:
         HTTPException: If the processing fails or configuration is missing

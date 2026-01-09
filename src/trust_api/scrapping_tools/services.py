@@ -679,6 +679,41 @@ def update_post_status(doc_id: str, new_status: str = "done") -> None:
     )
 
 
+def has_existing_job_for_post(post_id: str) -> bool:
+    """
+    Check if there's already a pending or processing job for a given post.
+
+    Args:
+        post_id: The post ID to check
+
+    Returns:
+        True if there's an existing pending or processing job, False otherwise
+    """
+    client = get_firestore_client()
+
+    # Check for pending jobs
+    pending_query = (
+        client.collection(settings.firestore_jobs_collection)
+        .where("post_id", "==", post_id)
+        .where("status", "==", "pending")
+        .limit(1)
+    )
+    if list(pending_query.stream()):
+        return True
+
+    # Check for processing jobs
+    processing_query = (
+        client.collection(settings.firestore_jobs_collection)
+        .where("post_id", "==", post_id)
+        .where("status", "==", "processing")
+        .limit(1)
+    )
+    if list(processing_query.stream()):
+        return True
+
+    return False
+
+
 def save_pending_job(
     job_id: str,
     post_doc_id: str,
@@ -730,6 +765,14 @@ def save_pending_job(
 
     doc_ref = client.collection(settings.firestore_jobs_collection).document()
     doc_ref.set(job_data)
+
+    # Update post status to "processing" to prevent duplicate job creation
+    if post_doc_id:
+        try:
+            update_post_status(post_doc_id, "processing")
+        except Exception as e:
+            # Log but don't fail if post update fails
+            logger.warning(f"Could not update post {post_doc_id} to 'processing': {str(e)}")
 
     return doc_ref.id
 
@@ -1349,6 +1392,18 @@ def process_posts_service(
                 )
 
                 if info_data is None:
+                    # Check if there's already a pending or processing job for this post
+                    if has_existing_job_for_post(post_id):
+                        results["skipped"] += 1
+                        add_log_entry(
+                            post_id=post_id,
+                            url="N/A",
+                            success=False,
+                            skipped=True,
+                            skip_reason="Job already exists (pending or processing)",
+                        )
+                        continue
+
                     # Submit job to Information Tracer
                     job_id = submit_post_job(
                         post_id=post_id,
@@ -1468,8 +1523,10 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
         "processed": 0,
         "succeeded": 0,
         "failed": 0,
+        "empty_results": 0,
         "still_pending": 0,
         "errors": [],
+        "empty_result_jobs": [],
         "saved_files": [],
     }
 
@@ -1531,14 +1588,30 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
 
                     # Validate that result is not empty before saving
                     if _is_result_empty(result):
-                        error_msg = (
-                            f"Result is empty for job_id={job_id}, post_id={post_id}. "
-                            f"Skipping save to GCS."
-                        )
-                        results["errors"].append(error_msg)
-                        results["failed"] += 1
+                        # Empty result is NOT a technical error - job completed successfully, just no data
+                        results["empty_results"] += 1
                         update_job_status(job_doc_id, "empty_result")
-                        # Log the empty result in execution logs
+
+                        # Update post status to noreplies to allow retry if needed
+                        # (the post was processed but got no data, so it can be retried)
+                        # But only if there's no other pending/processing job for this post
+                        if post_doc_id:
+                            if not has_existing_job_for_post(post_id):
+                                update_post_status(post_doc_id, "noreplies")
+
+                        # Track empty result job (for reporting, not as error)
+                        results["empty_result_jobs"].append(
+                            {
+                                "job_id": job_id,
+                                "post_id": post_id,
+                                "platform": platform,
+                                "country": country,
+                                "candidate_id": candidate_id,
+                                "reason": "Result from Information Tracer is empty ([] or empty dict)",
+                            }
+                        )
+
+                        # Log the empty result in execution logs (for tracking)
                         add_log_entry(
                             post_id=post_id,
                             url=f"https://informationtracer.com/rawdata (job_id:{job_id})",
@@ -1546,7 +1619,7 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                             error_message="Result is empty",
                             job_id=job_id,
                         )
-                        # Also save to error logs file
+                        # Also save to error logs file (for historical tracking, aunque no sea error técnico)
                         add_error_entry(
                             job_id=job_id,
                             post_id=post_id,
@@ -1626,6 +1699,11 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                     results["errors"].append(error_msg)
                     results["failed"] += 1
                     update_job_status(job_doc_id, "failed")
+                    # Update post status back to noreplies to allow retry
+                    # (but only if there's no other pending/processing job for this post)
+                    if post_doc_id:
+                        if not has_existing_job_for_post(post_id):
+                            update_post_status(post_doc_id, "noreplies")
 
                 elif status == "timeout":
                     # Job is still processing, keep it as pending
@@ -1644,6 +1722,11 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                 # Update job status to failed on exception
                 try:
                     update_job_status(job_doc_id, "failed")
+                    # Update post status back to noreplies to allow retry
+                    # (but only if there's no other pending/processing job for this post)
+                    if post_doc_id:
+                        if not has_existing_job_for_post(post_id):
+                            update_post_status(post_doc_id, "noreplies")
                 except Exception:
                     pass  # Ignore errors updating status
 
