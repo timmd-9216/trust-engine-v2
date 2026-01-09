@@ -138,13 +138,15 @@ doc_ref.update({
 | `processing` | `failed` | Information Tracer reporta fallo, error al obtener resultados, o excepción |
 | `processing` | `empty_result` | Job completado pero resultado vacío |
 | `processing` | `pending` | Job con timeout o status desconocido (se reintenta) |
-| `empty_result` | `verified` | Platform es 'twitter' y replies_count del post <= 2 (resultado vacío esperado) |
+| `empty_result` | `verified` | Platform es 'twitter' y replies_count del post <= 2 (resultado vacío esperado). **Nota**: Cuando un job se verifica, el post asociado también se actualiza a `done`. |
 
 ---
 
 ## Notas Importantes
 
-1. **Sincronización**: Cuando un job en `pending_jobs` cambia a `done`, el post asociado en `posts` también cambia a `done`.
+1. **Sincronización**: 
+   - Cuando un job en `pending_jobs` cambia a `done`, el post asociado en `posts` también cambia a `done`.
+   - Cuando un job en `pending_jobs` cambia a `verified` (mediante el script de verificación), el post asociado también cambia a `done` (ya que el resultado vacío es esperado).
 
 2. **Índices**: Para consultas eficientes, se requieren índices compuestos:
    - `posts`: `status + platform + created_at`

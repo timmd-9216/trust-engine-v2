@@ -334,8 +334,14 @@ class TestProcessPostsService:
     @patch("trust_api.scrapping_tools.services.submit_post_job")
     @patch("trust_api.scrapping_tools.services.save_pending_job")
     @patch("trust_api.scrapping_tools.services.read_from_gcs_if_exists")
+    @patch("trust_api.scrapping_tools.services.has_existing_job_for_post")
+    @patch("trust_api.scrapping_tools.services.save_execution_logs")
+    @patch("trust_api.scrapping_tools.services.update_post_status")
     def test_process_posts_success(
         self,
+        mock_update_post_status,
+        mock_save_execution_logs,
+        mock_has_existing_job,
         mock_read_gcs,
         mock_save_job,
         mock_submit_job,
@@ -354,8 +360,11 @@ class TestProcessPostsService:
         ]
         # File doesn't exist in GCS, so we need to create a job
         mock_read_gcs.return_value = None
+        # No existing job for this post
+        mock_has_existing_job.return_value = False
         mock_submit_job.return_value = "job123"
         mock_save_job.return_value = "job_doc_id_123"
+        mock_save_execution_logs.return_value = None
 
         result = services.process_posts_service(max_posts=10)
 
