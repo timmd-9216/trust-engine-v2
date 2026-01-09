@@ -1503,7 +1503,11 @@ def process_posts_service(
 def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
     """
     Process pending jobs from Firestore jobs collection.
-    For each job:
+
+    **Quota Check:** Before processing any jobs, checks Information Tracer API quota.
+    If quota is exceeded (400/400), returns early without processing to avoid wasted API calls.
+
+    For each job (if quota allows):
     1. Check job status with Information Tracer API
     2. If finished, retrieve results
     3. Save results to GCS
@@ -1515,6 +1519,7 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
 
     Returns:
         Dictionary with processing results including success count, errors, etc.
+        If quota is exceeded, returns early with errors containing quota message.
     """
     # Reset logs for this execution
     reset_execution_logs()
@@ -1534,6 +1539,44 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
     if not settings.information_tracer_api_key:
         results["errors"].append("INFORMATION_TRACER_API_KEY is not configured")
         return results
+
+    # Early return: Check quota before processing jobs
+    # If quota is exceeded (400/400), skip processing to avoid wasted API calls
+    try:
+        from trust_api.scrapping_tools.information_tracer import check_api_usage
+
+        api_usage = check_api_usage(settings.information_tracer_api_key)
+        if isinstance(api_usage, dict) and "usage" in api_usage:
+            daily_usage = api_usage["usage"].get("day", {})
+            searches_used = (
+                daily_usage.get("searches_used", 0) if isinstance(daily_usage, dict) else 0
+            )
+            limits = api_usage.get("limits", {})
+            daily_limit = limits.get("max_searches_per_day", 0) if isinstance(limits, dict) else 0
+
+            # Check if quota is exceeded or very close to limit (>= 100%)
+            if daily_limit > 0 and searches_used >= daily_limit:
+                quota_message = (
+                    f"Quota exceeded: {searches_used}/{daily_limit} searches used. "
+                    f"Skipping job processing to avoid wasted API calls."
+                )
+                results["errors"].append(quota_message)
+                logger.warning(quota_message)
+                # Log this as a quota_exceeded event in execution logs
+                add_log_entry(
+                    post_id="system",
+                    url="https://informationtracer.com/account_stat",
+                    success=False,
+                    error_message=quota_message,
+                    skipped=True,
+                )
+                return results
+    except Exception as e:
+        # If quota check fails, log warning but continue processing
+        # (better to try processing than to stop everything if quota check fails)
+        logger.warning(
+            f"Could not check quota before processing jobs: {str(e)}. Continuing anyway."
+        )
 
     try:
         # Query pending jobs

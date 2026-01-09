@@ -277,6 +277,8 @@ async def process_jobs_endpoint(max_jobs: int | None = None):
     Process pending jobs from Firestore 'pending_jobs' collection.
 
     This endpoint:
+    0. **Checks Information Tracer API quota before processing** - If quota is exceeded (400/400),
+       returns early without processing any jobs to avoid wasted API calls
     1. Queries Firestore collection 'pending_jobs' for documents with status='pending'
     2. For each job, checks the status with Information Tracer API
     3. If the job is finished, retrieves the results
@@ -293,13 +295,18 @@ async def process_jobs_endpoint(max_jobs: int | None = None):
         - succeeded: Jobs with useful data saved successfully
         - empty_results: Jobs completed successfully but returned empty data (NOT a technical error)
         - failed: Only actual technical errors (API failures, exceptions, etc.)
-        - errors: List of technical error messages (does NOT include empty_results)
+        - errors: List of technical error messages (includes quota exceeded message if applicable)
         - empty_result_jobs: List of jobs with empty results (for monitoring, not errors)
 
     Note:
         Empty results are distinguished from technical errors:
         - Empty result: Job completed successfully in Information Tracer but returned no data
         - Technical error: API failure, exception, or job failed in Information Tracer
+
+        If quota is exceeded (400/400 searches used), the endpoint will return early with:
+        - processed: 0
+        - succeeded: 0
+        - errors: ["Quota exceeded: 400/400 searches used. Skipping job processing..."]
 
     Raises:
         HTTPException: If the processing fails or configuration is missing

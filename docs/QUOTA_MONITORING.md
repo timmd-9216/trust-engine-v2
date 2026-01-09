@@ -218,21 +218,71 @@ elif status == "failed":
 
 ## Próximos Pasos Recomendados
 
-1. ✅ **Implementar verificación de quota ANTES de retry** (alta prioridad)
+1. ✅ **Implementar verificación de quota ANTES de procesar jobs** (COMPLETADO)
+   - Modificado `process_pending_jobs_service()` para verificar quota primero
+   - Si quota >= 100%, retorna early sin procesar jobs
+   - Evita llamadas innecesarias a la API cuando no hay quota disponible
+
+2. ⚠️ **Implementar verificación de quota ANTES de retry** (alta prioridad)
    - Modificar `retry_empty_result_jobs_service()` para verificar quota primero
    - Pausar retries si quota >= 90%
 
-2. ⚠️ **Mejorar detección de errores de quota en submit()** (media prioridad)
+3. ⚠️ **Mejorar detección de errores de quota en submit()** (media prioridad)
    - Ya mejorado para capturar códigos HTTP 429, 403
    - Verificar respuesta JSON para mensajes de error
    - Buscar palabras clave relacionadas con quota
 
-3. ⏳ **Implementar retry automático para `quota_exceeded`** (baja prioridad)
+4. ⏳ **Implementar retry automático para `quota_exceeded`** (baja prioridad)
    - Solo cuando quota esté disponible nuevamente
    - Evitar retries masivos que consuman quota inmediatamente
 
 ---
 
+## Implementación de Verificación Proactiva
+
+### ✅ Wrapper de Quota en `/process-jobs`
+
+**Ubicación:** `src/trust_api/scrapping_tools/services.py` - `process_pending_jobs_service()`
+
+**Comportamiento:**
+```python
+# Al inicio de process_pending_jobs_service():
+1. Verifica quota usando check_api_usage()
+2. Si searches_used >= daily_limit (400/400):
+   - Retorna early sin procesar jobs
+   - Agrega mensaje de error descriptivo
+   - Logs el evento en execution logs
+   - Evita llamadas innecesarias a la API
+3. Si verificación de quota falla:
+   - Continúa procesando (fail-safe)
+   - Logs warning pero no bloquea el procesamiento
+```
+
+**Ventajas:**
+- ✅ Evita desperdiciar llamadas API cuando quota está excedida
+- ✅ Retorna respuesta clara indicando por qué no se procesaron jobs
+- ✅ Fail-safe: si la verificación falla, continúa procesando
+- ✅ Logs el evento para monitoreo y debugging
+
+**Ejemplo de respuesta cuando quota está excedida:**
+```json
+{
+  "processed": 0,
+  "succeeded": 0,
+  "failed": 0,
+  "quota_exceeded": 0,
+  "empty_results": 0,
+  "still_pending": 0,
+  "errors": [
+    "Quota exceeded: 400/400 searches used. Skipping job processing to avoid wasted API calls."
+  ],
+  "empty_result_jobs": [],
+  "saved_files": []
+}
+```
+
+---
+
 **Última actualización:** 2026-01-09  
-**Status:** Monitoreo implementado, detección mejorada
+**Status:** Monitoreo implementado, detección mejorada, verificación proactiva en `/process-jobs`
 
