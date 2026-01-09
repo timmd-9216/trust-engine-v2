@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -259,6 +260,32 @@
         <div class="header">
             <h1>📊 Dashboard Scrapping Tools</h1>
             <p>Monitoreo en tiempo real de KPIs</p>
+        </div>
+
+        <!-- Sección de Quota -->
+        <div class="section">
+            <div class="section-title">📊 Information Tracer API Quota</div>
+            <div class="kpi-grid" id="quota-grid">
+                <div class="kpi-card quota-status loading">
+                    <div class="kpi-label">Status</div>
+                    <div class="kpi-value">-</div>
+                </div>
+                <div class="kpi-card quota-daily-used loading">
+                    <div class="kpi-label">Daily Used</div>
+                    <div class="kpi-value">-</div>
+                </div>
+                <div class="kpi-card quota-daily-limit loading">
+                    <div class="kpi-label">Daily Limit</div>
+                    <div class="kpi-value">-</div>
+                </div>
+                <div class="kpi-card quota-percentage loading">
+                    <div class="kpi-label">Usage %</div>
+                    <div class="kpi-value">-</div>
+                </div>
+            </div>
+            <div id="quota-message" class="quota-message" style="margin-top: 15px; padding: 10px; border-radius: 6px; background: #f5f7fa; color: #666; font-size: 0.9em;">
+                Loading quota information...
+            </div>
         </div>
 
         <!-- Sección General -->
@@ -546,6 +573,106 @@
             });
         }
 
+        async function fetchQuota() {
+            try {
+                const response = await fetch(`${API_BASE}/api/quota`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Error fetching quota:', error);
+                return {
+                    status: 'error',
+                    message: 'Error fetching quota information',
+                    daily_used: null,
+                    daily_limit: null,
+                    percentage: null,
+                };
+            }
+        }
+
+        function updateQuotaDisplay(quotaData) {
+            const statusCard = document.querySelector('.quota-status');
+            const usedCard = document.querySelector('.quota-daily-used');
+            const limitCard = document.querySelector('.quota-daily-limit');
+            const percentageCard = document.querySelector('.quota-percentage');
+            const messageDiv = document.getElementById('quota-message');
+
+            // Update status card
+            if (statusCard) {
+                const valueEl = statusCard.querySelector('.kpi-value');
+                if (valueEl) {
+                    const statusText = {
+                        'ok': '✅ OK',
+                        'warning': '⚠️ Warning',
+                        'exceeded': '❌ Exceeded',
+                        'error': '❌ Error'
+                    }[quotaData.status] || '❓ Unknown';
+                    valueEl.textContent = statusText;
+                }
+                statusCard.classList.remove('loading', 'error', 'warning', 'exceeded');
+                if (quotaData.status === 'error') {
+                    statusCard.classList.add('error');
+                } else if (quotaData.status === 'warning') {
+                    statusCard.classList.add('warning');
+                } else if (quotaData.status === 'exceeded') {
+                    statusCard.classList.add('exceeded');
+                }
+            }
+
+            // Update used card
+            if (usedCard) {
+                const valueEl = usedCard.querySelector('.kpi-value');
+                if (valueEl) {
+                    valueEl.textContent = quotaData.daily_used !== null ? formatNumber(quotaData.daily_used) : 'Error';
+                }
+                usedCard.classList.remove('loading', 'error');
+                if (quotaData.daily_used === null) {
+                    usedCard.classList.add('error');
+                }
+            }
+
+            // Update limit card
+            if (limitCard) {
+                const valueEl = limitCard.querySelector('.kpi-value');
+                if (valueEl) {
+                    valueEl.textContent = quotaData.daily_limit !== null ? formatNumber(quotaData.daily_limit) : 'Error';
+                }
+                limitCard.classList.remove('loading', 'error');
+                if (quotaData.daily_limit === null) {
+                    limitCard.classList.add('error');
+                }
+            }
+
+            // Update percentage card
+            if (percentageCard) {
+                const valueEl = percentageCard.querySelector('.kpi-value');
+                if (valueEl) {
+                    if (quotaData.percentage !== null) {
+                        valueEl.textContent = `${quotaData.percentage.toFixed(1)}%`;
+                    } else {
+                        valueEl.textContent = 'Error';
+                    }
+                }
+                percentageCard.classList.remove('loading', 'error', 'warning', 'exceeded');
+                if (quotaData.percentage === null) {
+                    percentageCard.classList.add('error');
+                } else if (quotaData.status === 'exceeded') {
+                    percentageCard.classList.add('exceeded');
+                } else if (quotaData.status === 'warning') {
+                    percentageCard.classList.add('warning');
+                }
+            }
+
+            // Update message
+            if (messageDiv) {
+                messageDiv.textContent = quotaData.message || 'No message available';
+                messageDiv.className = 'quota-message ' + (quotaData.status || 'error');
+            }
+        }
+
         async function fetchAllKPIs() {
             const results = {
                 general: {
@@ -681,6 +808,10 @@
         async function updateKPIs() {
             const statusText = document.getElementById('status-text');
 
+            // Fetch quota first
+            const quotaData = await fetchQuota();
+            updateQuotaDisplay(quotaData);
+
             setAllLoadingState(true);
 
             try {
@@ -735,6 +866,10 @@
             spinner.style.display = 'inline-block';
 
             try {
+                // Fetch quota first
+                const quotaData = await fetchQuota();
+                updateQuotaDisplay(quotaData);
+
                 await updateKPIs();
             } finally {
                 spinner.style.display = 'none';
@@ -756,7 +891,13 @@
          */
         
         // Carga inicial de KPIs al abrir el dashboard
-        updateKPIs();
+        (async () => {
+            // Load quota first
+            const quotaData = await fetchQuota();
+            updateQuotaDisplay(quotaData);
+            // Then load all other KPIs
+            updateKPIs();
+        })();
     </script>
 </body>
 </html>

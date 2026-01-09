@@ -103,7 +103,17 @@ class RetryEmptyResultJobsResponse(BaseModel):
     total_found: int
     retried: int
     errors: list[str]
-    retried_jobs: list[dict]  # List of retried jobs with details
+    retried_jobs: list[dict]
+
+
+class QuotaResponse(BaseModel):
+    usage: dict | None = None
+    limits: dict | None = None
+    daily_used: int | None = None
+    daily_limit: int | None = None
+    percentage: float | None = None
+    status: str  # "ok", "warning", "exceeded", "error"
+    message: str | None = None  # List of retried jobs with details
 
 
 app = FastAPI(
@@ -437,6 +447,91 @@ async def count_jobs_by_status_endpoint(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error counting jobs by status: {str(e)}",
+        )
+
+
+@app.get("/api/quota", response_model=QuotaResponse)
+async def get_quota_status():
+    """
+    Get Information Tracer API quota/usage status.
+
+    Returns:
+        QuotaResponse with usage information, limits, and status indicators.
+    """
+    try:
+        from trust_api.scrapping_tools.information_tracer import check_api_usage
+
+        if not settings.information_tracer_api_key:
+            return QuotaResponse(
+                usage=None,
+                limits=None,
+                daily_used=None,
+                daily_limit=None,
+                percentage=None,
+                status="error",
+                message="INFORMATION_TRACER_API_KEY is not configured",
+            )
+
+        api_usage = check_api_usage(settings.information_tracer_api_key)
+
+        if not isinstance(api_usage, dict):
+            return QuotaResponse(
+                usage=None,
+                limits=None,
+                daily_used=None,
+                daily_limit=None,
+                percentage=None,
+                status="error",
+                message="Invalid API usage response format",
+            )
+
+        # Extract usage and limits
+        usage = api_usage.get("usage", {})
+        limits = api_usage.get("limits", {})
+        daily_usage = usage.get("day", {}) if isinstance(usage, dict) else {}
+        daily_used = daily_usage.get("searches_used", 0) if isinstance(daily_usage, dict) else 0
+        daily_limit = limits.get("max_searches_per_day", 0) if isinstance(limits, dict) else 0
+
+        # Calculate percentage
+        percentage = None
+        if daily_limit > 0:
+            percentage = (daily_used / daily_limit) * 100
+
+        # Determine status
+        status = "ok"
+        message = None
+        if daily_limit > 0:
+            if daily_used >= daily_limit:
+                status = "exceeded"
+                message = f"Quota exceeded: {daily_used}/{daily_limit} searches used"
+            elif percentage and percentage >= 90:
+                status = "warning"
+                message = f"Quota almost exceeded: {daily_used}/{daily_limit} ({percentage:.1f}%)"
+            elif percentage and percentage >= 75:
+                status = "warning"
+                message = f"Quota usage high: {daily_used}/{daily_limit} ({percentage:.1f}%)"
+            else:
+                message = f"Quota available: {daily_used}/{daily_limit} ({percentage:.1f}%)"
+
+        return QuotaResponse(
+            usage=usage if isinstance(usage, dict) else None,
+            limits=limits if isinstance(limits, dict) else None,
+            daily_used=daily_used,
+            daily_limit=daily_limit,
+            percentage=percentage,
+            status=status,
+            message=message,
+        )
+
+    except Exception as e:
+        return QuotaResponse(
+            usage=None,
+            limits=None,
+            daily_used=None,
+            daily_limit=None,
+            percentage=None,
+            status="error",
+            message=f"Error checking quota: {str(e)}",
         )
 
 
