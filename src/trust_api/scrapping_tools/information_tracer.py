@@ -184,12 +184,35 @@ def submit(
                 "enable_ai": enable_ai,
             },
         )
-        if "id_hash256" in response.json():
-            id_hash256 = response.json()["id_hash256"]
-        else:
-            logger.error("Submission failed!")
-            logger.error(response.json())
+        # Check HTTP status code
+        if response.status_code == 429:
+            logger.error("Submission failed: Rate limit exceeded (429)")
+            logger.error(f"Response: {response.json()}")
+            return None, requests_params
+        elif response.status_code == 403:
+            logger.error("Submission failed: Forbidden (403) - possible quota exceeded")
+            logger.error(f"Response: {response.json()}")
+            return None, requests_params
+        elif response.status_code >= 400:
+            logger.error(f"Submission failed: HTTP {response.status_code}")
+            logger.error(f"Response: {response.json()}")
+            return None, requests_params
 
+        response_json = response.json()
+        if "id_hash256" in response_json:
+            id_hash256 = response_json["id_hash256"]
+        else:
+            logger.error("Submission failed: No id_hash256 in response")
+            logger.error(f"Response: {response_json}")
+            # Check if there's an error message that might indicate quota
+            error_msg = str(response_json).lower()
+            if "quota" in error_msg or "limit" in error_msg or "exceeded" in error_msg:
+                logger.warning("Response suggests quota/limit issue")
+
+    except requests.exceptions.RequestException as e:
+        logger.error("Fatal Exception on server side (network/request error)!")
+        logger.error("Submission failed!")
+        logger.exception(e)
     except Exception as e:
         logger.error("Fatal Exception on server side!")
         logger.error("Submission failed!")
@@ -226,9 +249,25 @@ def check_status(id_hash256: str, token: str) -> str:
         try:
             full_url = f"{STATUS_URL}?id_hash256={id_hash256}&token={token}&include_partial_results={include_partial_results}"
 
-            response = requests.get(full_url, timeout=10).json()
+            response_obj = requests.get(full_url, timeout=10)
+            response = response_obj.json()
             response.pop("tweet_preview", None)
             logger.debug(f"Status response: {response}")
+
+            # Check HTTP status code for quota/rate limit errors
+            if response_obj.status_code == 429:
+                logger.error("Status check failed: Rate limit exceeded (429)")
+                logger.error(f"Response: {response}")
+                return "failed"
+            elif response_obj.status_code == 403:
+                logger.error("Status check failed: Forbidden (403) - possible quota exceeded")
+                logger.error(f"Response: {response}")
+                return "failed"
+            elif response_obj.status_code >= 400:
+                logger.error(f"Status check failed: HTTP {response_obj.status_code}")
+                logger.error(f"Response: {response}")
+                return "failed"
+
             if "status" in response:
                 task_status = response["status"]
 
@@ -239,6 +278,10 @@ def check_status(id_hash256: str, token: str) -> str:
             else:
                 logger.error("status is not in response")
                 logger.error(f"Response: {response}")
+                # Check if response contains error message about quota/limits
+                error_msg = str(response).lower()
+                if "quota" in error_msg or "limit" in error_msg or "exceeded" in error_msg:
+                    logger.warning("Response suggests quota/limit issue")
                 return "failed"
         except Exception as e:
             logger.error("Exception when checking job status!")
