@@ -41,36 +41,123 @@
             opacity: 0.9;
         }
 
-        .header .info-note {
-            font-size: 0.9em;
-            margin-top: 10px;
-            opacity: 0.85;
-            font-style: italic;
-        }
-
-        .section {
+        /* Tabs Styles */
+        .tabs-container {
             background: white;
             border-radius: 12px;
-            padding: 25px;
+            padding: 0;
             margin-bottom: 25px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
         }
 
-        .section-title {
-            font-size: 1.5em;
-            font-weight: bold;
+        .tabs-header {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e0e0e0;
+            padding: 0;
+        }
+
+        .tab-button {
+            flex: 1;
+            background: transparent;
+            border: none;
+            padding: 15px 20px;
+            font-size: 1em;
+            font-weight: 600;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+            position: relative;
+        }
+
+        .tab-button:hover {
+            background: #e9ecef;
             color: #333;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
+        }
+
+        .tab-button.active {
+            background: white;
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 25px;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .tab-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
             border-bottom: 2px solid #667eea;
         }
 
+        .tab-title {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .tab-refresh-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-size: 0.9em;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            transition: transform 0.2s ease;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tab-refresh-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .tab-refresh-btn:active {
+            transform: scale(0.95);
+        }
+
+        .tab-refresh-btn .spinner {
+            display: none;
+        }
+
+        .tab-refresh-btn.loading .spinner {
+            display: inline-block;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
         .section-subtitle {
-            font-size: 1.2em;
+            font-size: 1.1em;
             font-weight: 600;
             color: #555;
-            margin-top: 25px;
-            margin-bottom: 15px;
+            margin-top: 20px;
+            margin-bottom: 12px;
         }
 
         .kpi-grid {
@@ -102,41 +189,15 @@
             background: linear-gradient(135deg, #fee 0%, #fff 100%);
         }
 
-        .kpi-card.posts-noreplies {
-            border-left-color: #f39c12;
-        }
-
-        .kpi-card.posts-done {
-            border-left-color: #27ae60;
-        }
-
-        .kpi-card.posts-skipped {
-            border-left-color: #95a5a6;
-        }
-
-        .kpi-card.jobs-pending {
-            border-left-color: #3498db;
-        }
-
-        .kpi-card.jobs-processing {
-            border-left-color: #9b59b6;
-        }
-
-        .kpi-card.jobs-done {
-            border-left-color: #27ae60;
-        }
-
-        .kpi-card.jobs-failed {
-            border-left-color: #e74c3c;
-        }
-
-        .kpi-card.jobs-empty-result {
-            border-left-color: #f39c12;
-        }
-
-        .kpi-card.jobs-verified {
-            border-left-color: #1abc9c;
-        }
+        .kpi-card.posts-noreplies { border-left-color: #f39c12; }
+        .kpi-card.posts-done { border-left-color: #27ae60; }
+        .kpi-card.posts-skipped { border-left-color: #95a5a6; }
+        .kpi-card.jobs-pending { border-left-color: #3498db; }
+        .kpi-card.jobs-processing { border-left-color: #9b59b6; }
+        .kpi-card.jobs-done { border-left-color: #27ae60; }
+        .kpi-card.jobs-failed { border-left-color: #e74c3c; }
+        .kpi-card.jobs-empty-result { border-left-color: #f39c12; }
+        .kpi-card.jobs-verified { border-left-color: #1abc9c; }
 
         .kpi-label {
             font-size: 0.9em;
@@ -152,101 +213,68 @@
             margin-bottom: 5px;
         }
 
-        .platform-section {
-            margin-top: 20px;
-            padding-top: 20px;
+        .platform-section, .country-section {
+            margin-top: 25px;
+            padding-top: 25px;
             border-top: 1px solid #eee;
         }
 
-        .platform-tag {
+        .platform-tag, .country-tag {
             display: inline-block;
             background: #667eea;
             color: white;
-            padding: 5px 12px;
+            padding: 6px 14px;
             border-radius: 20px;
-            font-size: 0.85em;
+            font-size: 0.9em;
             font-weight: 600;
             margin-bottom: 15px;
             text-transform: capitalize;
         }
 
-        .platform-tag.twitter {
-            background: #1da1f2;
-        }
-
+        .platform-tag.twitter { background: #1da1f2; }
         .platform-tag.instagram {
             background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
         }
+        .platform-tag.youtube { background: #ff0000; }
 
-        .platform-tag.youtube {
-            background: #ff0000;
-        }
+        .country-tag.honduras { background: #0073ce; }
+        .country-tag.venezuela { background: #ffce00; color: #003893; }
+        .country-tag.chile { background: #0039a6; }
+        .country-tag.bolivia { background: #d52b1e; }
+        .country-tag.argentina { background: #75aadb; }
 
-        .status-bar {
-            background: white;
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-            text-align: center;
-        }
-
-        .status-indicator {
-            display: inline-block;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: #27ae60;
-            margin-right: 8px;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% {
-                opacity: 1;
-            }
-            50% {
-                opacity: 0.5;
-            }
-        }
-
-        .last-update {
+        .quota-message {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 6px;
+            background: #f5f7fa;
             color: #666;
             font-size: 0.9em;
-            margin-top: 10px;
         }
 
-        .refresh-btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            padding: 12px 24px;
-            font-size: 1em;
-            cursor: pointer;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-            transition: transform 0.2s ease;
-            margin-top: 15px;
-            font-weight: 600;
+        .quota-message.warning {
+            background: #fff3cd;
+            color: #856404;
         }
 
-        .refresh-btn:hover {
-            transform: scale(1.05);
+        .quota-message.exceeded {
+            background: #f8d7da;
+            color: #721c24;
         }
 
-        .refresh-btn:active {
-            transform: scale(0.95);
+        .quota-message.error {
+            background: #f8d7da;
+            color: #721c24;
         }
 
         .loading-spinner {
             display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(255, 255, 255, 0.3);
-            border-top: 3px solid white;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top: 2px solid white;
             border-radius: 50%;
             animation: spin 1s linear infinite;
-            margin-left: 10px;
-            vertical-align: middle;
         }
 
         @keyframes spin {
@@ -262,7 +290,31 @@
             <p>Monitoreo en tiempo real de KPIs</p>
         </div>
 
-        <!-- Sección de Quota -->
+        <!-- Tabs Container -->
+        <div class="tabs-container">
+            <div class="tabs-header">
+                <button class="tab-button active" onclick="switchTab('general', this)">
+                    📈 General + API
+                </button>
+                <button class="tab-button" onclick="switchTab('platforms', this)">
+                    🌐 Platforms
+                </button>
+                <button class="tab-button" onclick="switchTab('countries', this)">
+                    🌍 Countries
+                </button>
+            </div>
+
+            <!-- Tab 1: General + Information Tracer API -->
+            <div id="tab-general" class="tab-content active">
+                <div class="tab-header">
+                    <div class="tab-title">📈 General + Information Tracer API</div>
+                    <button class="tab-refresh-btn" onclick="refreshTab('general')">
+                        <span class="spinner loading-spinner"></span>
+                        🔄 Actualizar
+                    </button>
+                </div>
+
+                <!-- Information Tracer API Quota -->
         <div class="section">
             <div class="section-title">📊 Information Tracer API Quota</div>
             <div class="kpi-grid" id="quota-grid">
@@ -283,14 +335,12 @@
                     <div class="kpi-value">-</div>
                 </div>
             </div>
-            <div id="quota-message" class="quota-message" style="margin-top: 15px; padding: 10px; border-radius: 6px; background: #f5f7fa; color: #666; font-size: 0.9em;">
-                Loading quota information...
-            </div>
+                    <div id="quota-message" class="quota-message">Loading quota information...</div>
         </div>
 
-        <!-- Sección General -->
+                <!-- General Statistics -->
         <div class="section">
-            <div class="section-title">📈 Vista General</div>
+                    <div class="section-title">📊 Vista General</div>
             
             <div class="section-subtitle">Posts</div>
             <div class="kpi-grid" id="posts-general-grid">
@@ -333,13 +383,20 @@
                 <div class="kpi-card jobs-verified loading">
                     <div class="kpi-label">Verified</div>
                     <div class="kpi-value">-</div>
+                        </div>
                 </div>
             </div>
         </div>
 
-        <!-- Sección por Plataforma -->
-        <div class="section">
-            <div class="section-title">🌐 Vista por Plataforma</div>
+            <!-- Tab 2: Platforms -->
+            <div id="tab-platforms" class="tab-content">
+                <div class="tab-header">
+                    <div class="tab-title">🌐 Vista por Plataforma</div>
+                    <button class="tab-refresh-btn" onclick="refreshTab('platforms')">
+                        <span class="spinner loading-spinner"></span>
+                        🔄 Actualizar
+                    </button>
+                </div>
 
             <!-- Twitter -->
             <div class="platform-section" id="twitter-section">
@@ -483,31 +540,251 @@
             </div>
         </div>
 
-        <!-- 
-            BARRA DE ESTADO Y ACTUALIZACIÓN
-            =================================
-            
-            Comportamiento de actualización del dashboard:
-            - Carga inicial: Los KPIs se cargan automáticamente al abrir el dashboard
-            - Actualización manual: Usa el botón "🔄 Actualizar Ahora" para refrescar los datos
-            
-            NO hay actualización automática (auto-refresh) para minimizar el uso de recursos:
-            - Reduce la carga en los endpoints de la API
-            - Disminuye las consultas a la base de datos Firestore
-            - Optimiza el consumo de recursos del servidor
-            
-            Para ver datos actualizados, haz click en el botón "🔄 Actualizar Ahora".
-        -->
-        <div class="status-bar">
-            <span class="status-indicator"></span>
-            <span id="status-text">Conectado</span>
-            <div class="last-update" id="last-update">
-                Última actualización: Nunca
+            <!-- Tab 3: Countries -->
+            <div id="tab-countries" class="tab-content">
+                <div class="tab-header">
+                    <div class="tab-title">🌍 Vista por País</div>
+                    <button class="tab-refresh-btn" onclick="refreshTab('countries')">
+                        <span class="spinner loading-spinner"></span>
+                        🔄 Actualizar
+                    </button>
+                </div>
+
+                <!-- Honduras -->
+                <div class="country-section" id="honduras-section">
+                    <span class="country-tag honduras">🇭🇳 Honduras</span>
+                    <div class="section-subtitle">Posts</div>
+                    <div class="kpi-grid" id="posts-honduras-grid">
+                        <div class="kpi-card posts-noreplies loading">
+                            <div class="kpi-label">Noreplies</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                        <div class="kpi-card posts-done loading">
+                            <div class="kpi-label">Done</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                        <div class="kpi-card posts-skipped loading">
+                            <div class="kpi-label">Skipped</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                    </div>
+                    <div class="section-subtitle">Jobs</div>
+                    <div class="kpi-grid" id="jobs-honduras-grid">
+                        <div class="kpi-card jobs-pending loading">
+                            <div class="kpi-label">Pending</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                        <div class="kpi-card jobs-processing loading">
+                            <div class="kpi-label">Processing</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                        <div class="kpi-card jobs-done loading">
+                            <div class="kpi-label">Done</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                        <div class="kpi-card jobs-failed loading">
+                            <div class="kpi-label">Failed</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                        <div class="kpi-card jobs-empty-result loading">
+                            <div class="kpi-label">Empty Result</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                        <div class="kpi-card jobs-verified loading">
+                            <div class="kpi-label">Verified</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Venezuela -->
+                <div class="country-section" id="venezuela-section">
+                    <span class="country-tag venezuela">🇻🇪 Venezuela</span>
+                    <div class="section-subtitle">Posts</div>
+                    <div class="kpi-grid" id="posts-venezuela-grid">
+                        <div class="kpi-card posts-noreplies loading">
+                            <div class="kpi-label">Noreplies</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                        <div class="kpi-card posts-done loading">
+                            <div class="kpi-label">Done</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                        <div class="kpi-card posts-skipped loading">
+                            <div class="kpi-label">Skipped</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                    </div>
+                    <div class="section-subtitle">Jobs</div>
+                    <div class="kpi-grid" id="jobs-venezuela-grid">
+                        <div class="kpi-card jobs-pending loading">
+                            <div class="kpi-label">Pending</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                        <div class="kpi-card jobs-processing loading">
+                            <div class="kpi-label">Processing</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                        <div class="kpi-card jobs-done loading">
+                            <div class="kpi-label">Done</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                        <div class="kpi-card jobs-failed loading">
+                            <div class="kpi-label">Failed</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                        <div class="kpi-card jobs-empty-result loading">
+                            <div class="kpi-label">Empty Result</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                        <div class="kpi-card jobs-verified loading">
+                            <div class="kpi-label">Verified</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chile -->
+                <div class="country-section" id="chile-section">
+                    <span class="country-tag chile">🇨🇱 Chile</span>
+                    <div class="section-subtitle">Posts</div>
+                    <div class="kpi-grid" id="posts-chile-grid">
+                        <div class="kpi-card posts-noreplies loading">
+                            <div class="kpi-label">Noreplies</div>
+                            <div class="kpi-value">-</div>
             </div>
-            <button class="refresh-btn" onclick="refreshDashboard()">
-                🔄 Actualizar Ahora
-                <span class="loading-spinner" id="refresh-spinner" style="display: none;"></span>
-            </button>
+                        <div class="kpi-card posts-done loading">
+                            <div class="kpi-label">Done</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                        <div class="kpi-card posts-skipped loading">
+                            <div class="kpi-label">Skipped</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                    </div>
+                    <div class="section-subtitle">Jobs</div>
+                    <div class="kpi-grid" id="jobs-chile-grid">
+                        <div class="kpi-card jobs-pending loading">
+                            <div class="kpi-label">Pending</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                        <div class="kpi-card jobs-processing loading">
+                            <div class="kpi-label">Processing</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                        <div class="kpi-card jobs-done loading">
+                            <div class="kpi-label">Done</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                        <div class="kpi-card jobs-failed loading">
+                            <div class="kpi-label">Failed</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                        <div class="kpi-card jobs-empty-result loading">
+                            <div class="kpi-label">Empty Result</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                        <div class="kpi-card jobs-verified loading">
+                            <div class="kpi-label">Verified</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bolivia -->
+                <div class="country-section" id="bolivia-section">
+                    <span class="country-tag bolivia">🇧🇴 Bolivia</span>
+                    <div class="section-subtitle">Posts</div>
+                    <div class="kpi-grid" id="posts-bolivia-grid">
+                        <div class="kpi-card posts-noreplies loading">
+                            <div class="kpi-label">Noreplies</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                        <div class="kpi-card posts-done loading">
+                            <div class="kpi-label">Done</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                        <div class="kpi-card posts-skipped loading">
+                            <div class="kpi-label">Skipped</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                    </div>
+                    <div class="section-subtitle">Jobs</div>
+                    <div class="kpi-grid" id="jobs-bolivia-grid">
+                        <div class="kpi-card jobs-pending loading">
+                            <div class="kpi-label">Pending</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                        <div class="kpi-card jobs-processing loading">
+                            <div class="kpi-label">Processing</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                        <div class="kpi-card jobs-done loading">
+                            <div class="kpi-label">Done</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                        <div class="kpi-card jobs-failed loading">
+                            <div class="kpi-label">Failed</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                        <div class="kpi-card jobs-empty-result loading">
+                            <div class="kpi-label">Empty Result</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                        <div class="kpi-card jobs-verified loading">
+                            <div class="kpi-label">Verified</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Argentina -->
+                <div class="country-section" id="argentina-section">
+                    <span class="country-tag argentina">🇦🇷 Argentina</span>
+                    <div class="section-subtitle">Posts</div>
+                    <div class="kpi-grid" id="posts-argentina-grid">
+                        <div class="kpi-card posts-noreplies loading">
+                            <div class="kpi-label">Noreplies</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                        <div class="kpi-card posts-done loading">
+                            <div class="kpi-label">Done</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                        <div class="kpi-card posts-skipped loading">
+                            <div class="kpi-label">Skipped</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                    </div>
+                    <div class="section-subtitle">Jobs</div>
+                    <div class="kpi-grid" id="jobs-argentina-grid">
+                        <div class="kpi-card jobs-pending loading">
+                            <div class="kpi-label">Pending</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                        <div class="kpi-card jobs-processing loading">
+                            <div class="kpi-label">Processing</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                        <div class="kpi-card jobs-done loading">
+                            <div class="kpi-label">Done</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                        <div class="kpi-card jobs-failed loading">
+                            <div class="kpi-label">Failed</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                        <div class="kpi-card jobs-empty-result loading">
+                            <div class="kpi-label">Empty Result</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                        <div class="kpi-card jobs-verified loading">
+                            <div class="kpi-label">Verified</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -516,6 +793,66 @@
         const POST_STATUSES = ['noreplies', 'done', 'skipped'];
         const JOB_STATUSES = ['pending', 'processing', 'done', 'failed', 'empty_result', 'verified'];
         const PLATFORMS = ['twitter', 'instagram', 'youtube'];
+        const COUNTRIES = ['honduras', 'venezuela', 'chile', 'bolivia', 'argentina'];
+
+        // Track which tabs have been loaded
+        const loadedTabs = new Set(['general']); // General is loaded on page load
+
+        // Tab management
+        function switchTab(tabName, buttonElement) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // Show selected tab
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+            
+            // Activate the clicked button
+            if (buttonElement) {
+                buttonElement.classList.add('active');
+            }
+
+            // Load data if tab hasn't been loaded yet
+            if (!loadedTabs.has(tabName)) {
+                loadedTabs.add(tabName);
+                if (tabName === 'platforms') {
+                    updatePlatformsTab();
+                } else if (tabName === 'countries') {
+                    updateCountriesTab();
+                }
+            }
+        }
+
+        // Refresh specific tab
+        async function refreshTab(tabName) {
+            // Find the refresh button in the active tab
+            const tabContent = document.getElementById(`tab-${tabName}`);
+            const btn = tabContent.querySelector('.tab-refresh-btn');
+            
+            if (btn) {
+                btn.classList.add('loading');
+                btn.disabled = true;
+            }
+
+            try {
+                if (tabName === 'general') {
+                    await updateGeneralTab();
+                } else if (tabName === 'platforms') {
+                    await updatePlatformsTab();
+                } else if (tabName === 'countries') {
+                    await updateCountriesTab();
+                }
+            } finally {
+                if (btn) {
+                    btn.classList.remove('loading');
+                    btn.disabled = false;
+                }
+            }
+        }
 
         async function fetchCount(endpoint, params = {}) {
             try {
@@ -600,7 +937,6 @@
             const percentageCard = document.querySelector('.quota-percentage');
             const messageDiv = document.getElementById('quota-message');
 
-            // Update status card
             if (statusCard) {
                 const valueEl = statusCard.querySelector('.kpi-value');
                 if (valueEl) {
@@ -622,7 +958,6 @@
                 }
             }
 
-            // Update used card
             if (usedCard) {
                 const valueEl = usedCard.querySelector('.kpi-value');
                 if (valueEl) {
@@ -634,7 +969,6 @@
                 }
             }
 
-            // Update limit card
             if (limitCard) {
                 const valueEl = limitCard.querySelector('.kpi-value');
                 if (valueEl) {
@@ -646,7 +980,6 @@
                 }
             }
 
-            // Update percentage card
             if (percentageCard) {
                 const valueEl = percentageCard.querySelector('.kpi-value');
                 if (valueEl) {
@@ -666,237 +999,125 @@
                 }
             }
 
-            // Update message
             if (messageDiv) {
                 messageDiv.textContent = quotaData.message || 'No message available';
                 messageDiv.className = 'quota-message ' + (quotaData.status || 'error');
             }
         }
 
-        async function fetchAllKPIs() {
-            const results = {
-                general: {
-                    posts: {},
-                    jobs: {}
-                },
-                platforms: {
-                    twitter: { posts: {}, jobs: {} },
-                    instagram: { posts: {}, jobs: {} },
-                    youtube: { posts: {}, jobs: {} }
-                }
-            };
+        // Update General Tab
+        async function updateGeneralTab() {
+            // Update quota
+            const quotaData = await fetchQuota();
+            updateQuotaDisplay(quotaData);
 
-            // Build all fetch promises in parallel
+            // Update general posts and jobs
+            setAllLoading('posts-general-grid', true);
+            setAllLoading('jobs-general-grid', true);
+
+            try {
+            for (const status of POST_STATUSES) {
+                    try {
+                        const count = await fetchCount('/posts/count', { status });
+                        updateKpiCard('posts-general-grid', status, count, false);
+                    } catch (error) {
+                        updateKpiCard('posts-general-grid', status, null, true);
+                    }
+                }
+
+            for (const status of JOB_STATUSES) {
+                    try {
+                        const count = await fetchCount('/jobs/count', { status });
+                        updateKpiCard('jobs-general-grid', status, count, false);
+                    } catch (error) {
+                        updateKpiCard('jobs-general-grid', status, null, true);
+                    }
+                }
+            } finally {
+                setAllLoading('posts-general-grid', false);
+                setAllLoading('jobs-general-grid', false);
+            }
+        }
+
+        // Update Platforms Tab
+        async function updatePlatformsTab() {
             const promises = [];
 
-            // General posts
-            for (const status of POST_STATUSES) {
-                promises.push(
-                    fetchCount('/posts/count', { status })
-                        .then(count => ({ type: 'general', category: 'posts', status, count }))
-                        .catch(() => ({ type: 'general', category: 'posts', status, count: null }))
-                );
-            }
-
-            // General jobs
-            for (const status of JOB_STATUSES) {
-                promises.push(
-                    fetchCount('/jobs/count', { status })
-                        .then(count => ({ type: 'general', category: 'jobs', status, count }))
-                        .catch(() => ({ type: 'general', category: 'jobs', status, count: null }))
-                );
-            }
-
-            // Platform-specific posts and jobs
             for (const platform of PLATFORMS) {
-                // Posts for platform
+                setAllLoading(`posts-${platform}-grid`, true);
+                setAllLoading(`jobs-${platform}-grid`, true);
+
                 for (const status of POST_STATUSES) {
                     promises.push(
                         fetchCount('/posts/count', { status, platform })
-                            .then(count => ({ type: 'platform', platform, category: 'posts', status, count }))
-                            .catch(() => ({ type: 'platform', platform, category: 'posts', status, count: null }))
+                            .then(count => ({ type: 'posts', platform, status, count }))
+                            .catch(() => ({ type: 'posts', platform, status, count: null }))
                     );
                 }
 
-                // Jobs for platform
                 for (const status of JOB_STATUSES) {
                     promises.push(
                         fetchCount('/jobs/count', { status, platform })
-                            .then(count => ({ type: 'platform', platform, category: 'jobs', status, count }))
-                            .catch(() => ({ type: 'platform', platform, category: 'jobs', status, count: null }))
+                            .then(count => ({ type: 'jobs', platform, status, count }))
+                            .catch(() => ({ type: 'jobs', platform, status, count: null }))
                     );
                 }
             }
 
-            // Execute all promises in parallel
-            const allResults = await Promise.all(promises);
+            const results = await Promise.all(promises);
 
-            // Organize results
-            for (const result of allResults) {
-                if (result.type === 'general') {
-                    results.general[result.category][result.status] = result.count;
-                } else if (result.type === 'platform') {
-                    results.platforms[result.platform][result.category][result.status] = result.count;
-                }
+            for (const result of results) {
+                const gridId = `${result.type}-${result.platform}-grid`;
+                updateKpiCard(gridId, result.status, result.count, result.count === null);
             }
 
-            return results;
-        }
-
-        function updateDashboard(data) {
-            // Update general section
-            for (const status of POST_STATUSES) {
-                const value = data.general.posts[status];
-                const isError = value === null;
-                updateKpiCard('posts-general-grid', status, value, isError);
-            }
-
-            for (const status of JOB_STATUSES) {
-                const value = data.general.jobs[status];
-                const isError = value === null;
-                updateKpiCard('jobs-general-grid', status, value, isError);
-            }
-
-            // Update platform sections
             for (const platform of PLATFORMS) {
-                const platformData = data.platforms[platform];
+                setAllLoading(`posts-${platform}-grid`, false);
+                setAllLoading(`jobs-${platform}-grid`, false);
+            }
+        }
 
-                // Posts
+        // Update Countries Tab
+        async function updateCountriesTab() {
+            const promises = [];
+
+            for (const country of COUNTRIES) {
+                setAllLoading(`posts-${country}-grid`, true);
+                setAllLoading(`jobs-${country}-grid`, true);
+
                 for (const status of POST_STATUSES) {
-                    const value = platformData.posts[status];
-                    const isError = value === null;
-                    updateKpiCard(`posts-${platform}-grid`, status, value, isError);
+                    promises.push(
+                        fetchCount('/posts/count', { status, country })
+                            .then(count => ({ type: 'posts', country, status, count }))
+                            .catch(() => ({ type: 'posts', country, status, count: null }))
+                    );
                 }
 
-                // Jobs
                 for (const status of JOB_STATUSES) {
-                    const value = platformData.jobs[status];
-                    const isError = value === null;
-                    updateKpiCard(`jobs-${platform}-grid`, status, value, isError);
+                    promises.push(
+                        fetchCount('/jobs/count', { status, country })
+                            .then(count => ({ type: 'jobs', country, status, count }))
+                            .catch(() => ({ type: 'jobs', country, status, count: null }))
+                    );
                 }
             }
-        }
 
-        function setAllLoadingState(loading = true) {
-            const containers = [
-                'posts-general-grid',
-                'jobs-general-grid',
-                'posts-twitter-grid',
-                'jobs-twitter-grid',
-                'posts-instagram-grid',
-                'jobs-instagram-grid',
-                'posts-youtube-grid',
-                'jobs-youtube-grid'
-            ];
+            const results = await Promise.all(promises);
 
-            containers.forEach(containerId => {
-                setAllLoading(containerId, loading);
-            });
-        }
+            for (const result of results) {
+                const gridId = `${result.type}-${result.country}-grid`;
+                updateKpiCard(gridId, result.status, result.count, result.count === null);
+            }
 
-        function updateLastUpdate() {
-            const now = new Date();
-            const timeString = now.toLocaleTimeString('es-ES', {
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit'
-            });
-            document.getElementById('last-update').textContent =
-                `Última actualización: ${timeString}`;
-        }
-
-        async function updateKPIs() {
-            const statusText = document.getElementById('status-text');
-
-            // Fetch quota first
-            const quotaData = await fetchQuota();
-            updateQuotaDisplay(quotaData);
-
-            setAllLoadingState(true);
-
-            try {
-                const data = await fetchAllKPIs();
-                updateDashboard(data);
-
-                statusText.textContent = 'Conectado';
-                statusText.style.color = '#27ae60';
-
-                updateLastUpdate();
-            } catch (error) {
-                console.error('Error updating KPIs:', error);
-
-                statusText.textContent = 'Error de conexión';
-                statusText.style.color = '#e74c3c';
-
-                // Mark all as error
-                setAllLoadingState(false);
-                const containers = [
-                    'posts-general-grid',
-                    'jobs-general-grid',
-                    'posts-twitter-grid',
-                    'jobs-twitter-grid',
-                    'posts-instagram-grid',
-                    'jobs-instagram-grid',
-                    'posts-youtube-grid',
-                    'jobs-youtube-grid'
-                ];
-                containers.forEach(containerId => {
-                    const container = document.getElementById(containerId);
-                    if (container) {
-                        container.querySelectorAll('.kpi-card').forEach(card => {
-                            const valueEl = card.querySelector('.kpi-value');
-                            if (valueEl) valueEl.textContent = 'Error';
-                            card.classList.add('error');
-                        });
-                    }
-                });
-            } finally {
-                setAllLoadingState(false);
+            for (const country of COUNTRIES) {
+                setAllLoading(`posts-${country}-grid`, false);
+                setAllLoading(`jobs-${country}-grid`, false);
             }
         }
 
-        /**
-         * Actualiza el dashboard manualmente.
-         * 
-         * Esta función es llamada cuando el usuario hace click en el botón "Actualizar Ahora".
-         * Muestra un spinner de carga mientras se actualizan los KPIs.
-         */
-        async function refreshDashboard() {
-            const spinner = document.getElementById('refresh-spinner');
-            spinner.style.display = 'inline-block';
-
-            try {
-                // Fetch quota first
-                const quotaData = await fetchQuota();
-                updateQuotaDisplay(quotaData);
-
-                await updateKPIs();
-            } finally {
-                spinner.style.display = 'none';
-            }
-        }
-
-        /**
-         * INICIALIZACIÓN DEL DASHBOARD
-         * 
-         * Comportamiento de actualización:
-         * - Carga inicial: Los KPIs se cargan automáticamente al abrir el dashboard
-         * - Actualización manual: El usuario debe hacer click en el botón "Actualizar Ahora"
-         *   para refrescar los datos
-         * 
-         * NO hay actualización automática (auto-refresh) para minimizar el uso de recursos
-         * del servidor y la API. Esto reduce la carga en los endpoints y en la base de datos.
-         * 
-         * Para ver datos actualizados, usa el botón "🔄 Actualizar Ahora" en la parte superior.
-         */
-        
-        // Carga inicial de KPIs al abrir el dashboard
+        // Initial load - only load General tab
         (async () => {
-            // Load quota first
-            const quotaData = await fetchQuota();
-            updateQuotaDisplay(quotaData);
-            // Then load all other KPIs
-            updateKPIs();
+            await updateGeneralTab();
         })();
     </script>
 </body>

@@ -26,13 +26,13 @@ variable "service_account_email" {
 variable "max_posts" {
   description = "Maximum number of posts to process per execution"
   type        = number
-  default     = 10
+  default     = 20
 }
 
 variable "schedule" {
-  description = "Cron schedule expression (default: every 30 minutes at minutes 0 and 30)"
+  description = "Cron schedule expression (default: every hour at minute 0)"
   type        = string
-  default     = "0,30 * * * *"
+  default     = "0 * * * *"
 }
 
 variable "job_name" {
@@ -54,9 +54,9 @@ variable "process_jobs_job_name" {
 }
 
 variable "process_jobs_schedule" {
-  description = "Cron schedule expression for process-jobs (default: every 30 minutes at minutes 15 and 45)"
+  description = "Cron schedule expression for process-jobs (default: every hour at minute 30, 30 minutes after process-posts)"
   type        = string
-  default     = "15,45 * * * *"
+  default     = "30 * * * *"
 }
 
 variable "json_to_parquet_job_name" {
@@ -100,7 +100,7 @@ data "google_cloud_run_service" "scrapping_tools" {
 resource "google_cloud_scheduler_job" "process_posts" {
   count            = var.enable_cloud_scheduler ? 1 : 0
   name             = var.job_name
-  description      = "Process posts every 30 minutes by calling /process-posts endpoint"
+  description      = "Process posts every hour by calling /process-posts endpoint"
   schedule         = var.schedule
   time_zone        = var.time_zone
   region           = var.region
@@ -137,11 +137,11 @@ output "endpoint_url" {
 }
 
 # Second scheduler for processing pending jobs
-# Runs every 30 minutes at minutes 15 and 45 (15 minutes after process-posts)
+# Runs every hour at minute 30 (30 minutes after process-posts)
 resource "google_cloud_scheduler_job" "process_jobs" {
   count            = var.enable_cloud_scheduler ? 1 : 0
   name             = var.process_jobs_job_name
-  description      = "Process pending jobs by calling /process-jobs endpoint"
+  description      = "Process pending jobs every hour by calling /process-jobs endpoint"
   schedule         = var.process_jobs_schedule
   time_zone        = var.time_zone
   region           = var.region

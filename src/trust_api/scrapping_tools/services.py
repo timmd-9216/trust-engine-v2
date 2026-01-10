@@ -3,6 +3,7 @@
 import io
 import json
 import logging
+import re
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
@@ -2165,7 +2166,11 @@ def _parse_gcs_path_for_parquet(blob_name: str) -> dict[str, str]:
     """
     Parse GCS blob path to extract metadata.
 
-    Expected format: raw/{country}/{platform}/{candidate_id}/{post_id}.json
+    Supports both formats:
+    1. raw/{country}/{platform}/{candidate_id}/{post_id}.json (with candidate_id subdirectory)
+    2. raw/{country}/{platform}/{post_id}.json (without candidate_id subdirectory)
+
+    For format 2, candidate_id may be extracted from filename or left empty.
     """
     parts = blob_name.replace(".json", "").split("/")
 
@@ -2173,14 +2178,36 @@ def _parse_gcs_path_for_parquet(blob_name: str) -> dict[str, str]:
     if parts[0] == "raw":
         parts = parts[1:]
 
+    # Minimum required: country, platform, post_id (len >= 3)
     if len(parts) >= 4:
+        # Format 1: raw/{country}/{platform}/{candidate_id}/{post_id}.json
         return {
             "country": parts[0],
             "platform": parts[1],
             "candidate_id": parts[2],
             "parent_post_id": parts[3],
         }
+    elif len(parts) >= 3:
+        # Format 2: raw/{country}/{platform}/{post_id}.json
+        # Try to extract candidate_id from filename if possible
+        filename = parts[-1] if parts else ""
+        candidate_id = ""
+        # Try to extract candidate_id from filename (e.g., "2512161744_tw_ownpost_hnd01monc")
+        # Look for patterns like "hnd01monc" in the filename
+        if filename:
+            # Simple heuristic: look for lowercase letters followed by digits
+            match = re.search(r"([a-z]{3,}\d{2,}[a-z]{3,})", filename.lower())
+            if match:
+                candidate_id = match.group(1)
+
+        return {
+            "country": parts[0],
+            "platform": parts[1],
+            "candidate_id": candidate_id,
+            "parent_post_id": parts[2],
+        }
     else:
+        # Invalid structure - minimum required parts not found
         return {
             "country": parts[0] if len(parts) > 0 else "",
             "platform": parts[1] if len(parts) > 1 else "",
@@ -2445,38 +2472,48 @@ def _get_parquet_max_ingestion_timestamp(
                 return max_ts_dt
             else:
                 # Fallback: if not datetime, try to convert
-                logger.warning(f"Max ingestion_timestamp is not datetime type: {type(max_ts_dt)}")
+                logger.warning(
+                    f"Max ingestion_timestamp is not datetime type: {type(max_ts_dt)}, value: {max_ts_dt}"
+                )
                 return None
         except ImportError:
             # Fallback if pyarrow.compute is not available: read all records and find max manually
             logger.debug(
                 "pyarrow.compute not available, falling back to reading all records to find max"
             )
-            records = table.to_pylist()
-            if not records:
-                return None
-            max_ts = None
-            for record in records:
-                ts = record.get("ingestion_timestamp")
-                if ts is None:
-                    continue
-                if isinstance(ts, datetime):
-                    if max_ts is None or ts > max_ts:
-                        max_ts = ts
-                elif hasattr(ts, "as_py"):  # PyArrow scalar
-                    try:
-                        ts_dt = ts.as_py()
-                        if isinstance(ts_dt, datetime):
-                            if max_ts is None or ts_dt > max_ts:
-                                max_ts = ts_dt
-                    except Exception:
-                        continue
+        except Exception as compute_error:
+            # Fallback if PyArrow compute fails: read all records and find max manually
+            logger.warning(
+                f"Error using PyArrow compute to get max ingestion_timestamp: {compute_error}. "
+                "Falling back to reading all records."
+            )
 
-            if max_ts is None:
-                return None
-            if max_ts.tzinfo is None:
-                return max_ts.replace(tzinfo=timezone.utc)
-            return max_ts
+        # Fallback method: read all records and find max manually (used if compute fails or not available)
+        records = table.to_pylist()
+        if not records:
+            return None
+        max_ts = None
+        for record in records:
+            ts = record.get("ingestion_timestamp")
+            if ts is None:
+                continue
+            if isinstance(ts, datetime):
+                if max_ts is None or ts > max_ts:
+                    max_ts = ts
+            elif hasattr(ts, "as_py"):  # PyArrow scalar
+                try:
+                    ts_dt = ts.as_py()
+                    if isinstance(ts_dt, datetime):
+                        if max_ts is None or ts_dt > max_ts:
+                            max_ts = ts_dt
+                except Exception:
+                    continue
+
+        if max_ts is None:
+            return None
+        if max_ts.tzinfo is None:
+            return max_ts.replace(tzinfo=timezone.utc)
+        return max_ts
 
     except Exception as e:
         logger.warning(f"Failed to get max ingestion_timestamp for Parquet file {blob_path}: {e}")
@@ -2716,11 +2753,24 @@ def json_to_parquet_service(
             parts = blob.name.split("/")
             path_parts = parts[1:] if parts[0] == "raw" else parts
 
-            if len(path_parts) < 4:
+            # Accept both structures:
+            # 1. raw/{country}/{platform}/{candidate_id}/{post_id}.json (len >= 4)
+            # 2. raw/{country}/{platform}/{post_id}.json (len == 3)
+            # Minimum required: country, platform, post_id (len >= 3)
+            if len(path_parts) < 3:
+                logger.debug(
+                    f"Skipping {blob.name}: Invalid structure (requires at least country/platform/post_id)"
+                )
                 continue
 
-            if candidate_id and candidate_id not in parts:
-                continue
+            # Apply candidate_id filter if specified
+            if candidate_id:
+                # Check if candidate_id is in the path (could be subdirectory or in filename)
+                if candidate_id not in parts:
+                    # Also check if candidate_id might be in the filename
+                    filename = parts[-1] if parts else ""
+                    if candidate_id not in filename:
+                        continue
 
             try:
                 # Get metadata only (blob.reload() reads headers, not content - lightweight)
@@ -2735,6 +2785,7 @@ def json_to_parquet_service(
 
                 # Determine partition based on ingestion date
                 date_str = ingestion_ts.strftime("%Y-%m-%d")
+                # Platform is always at index 1: raw/{country}/{platform}/...
                 platform_from_path = path_parts[1] if len(path_parts) > 1 else ""
                 partition_key = (date_str, platform_from_path)
 
@@ -2749,8 +2800,9 @@ def json_to_parquet_service(
                         )
                         if max_ts is not None:
                             parquet_file_timestamps[partition_key] = max_ts
-                            logger.debug(
-                                f"Loaded max ingestion_timestamp {max_ts} for partition {partition_key}"
+                            logger.info(
+                                f"Loaded max ingestion_timestamp {max_ts} for partition {partition_key} "
+                                f"(will skip JSONs more than 5 minutes older)"
                             )
                         else:
                             # Parquet exists but couldn't read it - skip filtering for this partition
@@ -2767,20 +2819,24 @@ def json_to_parquet_service(
                         and parquet_file_timestamps[partition_key] is not None
                     ):
                         parquet_max_ts = parquet_file_timestamps[partition_key]
-                        # Use a buffer (1 hour) to handle edge cases where Parquet was just updated
-                        buffer = timedelta(hours=1)
-                        # Skip if JSON ingestion_ts is significantly older than max ingestion_timestamp in Parquet
-                        # This means the Parquet already contains data newer than this JSON
+                        # Use a small buffer (5 minutes) to handle edge cases, but be more lenient
+                        # The buffer prevents skipping JSONs that were written just before the Parquet was updated
+                        buffer = timedelta(minutes=5)
+                        # Only skip if JSON ingestion_ts is clearly older (more than buffer) than max ingestion_timestamp in Parquet
+                        # This means the Parquet already contains data from this JSON or newer JSONs
+                        # But we need to be careful: if ingestion_ts == parquet_max_ts (same timestamp), we should still process
+                        # because the JSON might have been updated or we might need to reprocess
                         if ingestion_ts < (parquet_max_ts - buffer):
-                            logger.debug(
-                                f"Skipping {blob.name}: JSON ingestion_ts {ingestion_ts} is more than 1 hour older than "
+                            logger.info(
+                                f"Skipping {blob.name}: JSON ingestion_ts {ingestion_ts} is more than 5 minutes older than "
                                 f"Parquet max ingestion_timestamp {parquet_max_ts} for partition {partition_key}"
                             )
                             skipped_count += 1
                             continue
-                        # JSON is recent enough (within 1 hour of max or newer) → will process
+                        # JSON is recent enough (within 5 minutes of max or newer) → will process
+                        # This includes JSONs with timestamp equal to or newer than max, and those within 5 minutes
                         logger.debug(
-                            f"Processing {blob.name}: JSON ingestion_ts {ingestion_ts} is within 1 hour of or newer than "
+                            f"Processing {blob.name}: JSON ingestion_ts {ingestion_ts} is within 5 minutes of or newer than "
                             f"Parquet max ingestion_timestamp {parquet_max_ts} for partition {partition_key}"
                         )
                     # If parquet_file_timestamps[partition_key] is None, we couldn't read it, so process all JSONs
@@ -2808,13 +2864,14 @@ def json_to_parquet_service(
         )
         logger.info(
             f"Total JSON blobs found: {total_json_blobs}, "
-            f"Skipped: {skipped_count}, "
+            f"Skipped (older than Parquet max - 5min): {skipped_count}, "
             f"To process: {len(json_files)}"
         )
 
         if skipped_count > 0:
             logger.info(
-                f"Skipped {skipped_count} JSON files (older than or equal to Parquet max ingestion timestamp)"
+                f"Skipped {skipped_count} JSON files (more than 5 minutes older than Parquet max ingestion_timestamp). "
+                f"If new JSONs are not being processed, use skip_timestamp_filter=true to bypass this filter."
             )
 
         results["processed"] = len(json_files)
