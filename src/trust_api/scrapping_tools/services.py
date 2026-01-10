@@ -1,5 +1,6 @@
 """Services for scrapping-tools."""
 
+import io
 import json
 import logging
 import time
@@ -2391,12 +2392,25 @@ def _process_json_file_for_parquet(
     return flattened, platform
 
 
-def _get_parquet_last_modified(
+def _get_parquet_max_ingestion_timestamp(
     bucket: storage.Bucket,
     date_str: str,
     platform: str,
 ) -> datetime | None:
-    """Get the last modified timestamp of existing Parquet file, if it exists."""
+    """
+    Get the maximum ingestion_timestamp from existing Parquet file, if it exists.
+
+    This is more accurate than blob.updated because:
+    - blob.updated updates every time the Parquet is written (not when data was processed)
+    - ingestion_timestamp reflects the actual data timestamp in the Parquet
+    - This allows proper incremental loading based on actual data timestamps
+
+    Returns:
+        Maximum ingestion_timestamp from Parquet records, or None if file doesn't exist or can't be read
+    """
+    if not pa or not pq:
+        return None
+
     blob_path = f"marts/replies/ingestion_date={date_str}/platform={platform}/data.parquet"
     blob = bucket.blob(blob_path)
 
@@ -2404,11 +2418,68 @@ def _get_parquet_last_modified(
         return None
 
     try:
-        # Reload blob metadata to get updated timestamp
-        blob.reload()
-        return blob.updated
+        # Download Parquet file
+        parquet_data = blob.download_as_bytes()
+        parquet_file = io.BytesIO(parquet_data)
+        table = pq.read_table(parquet_file)
+
+        # Get max ingestion_timestamp from the 'ingestion_timestamp' column
+        # Try to use PyArrow compute for efficient aggregation, fallback to reading all records
+        try:
+            import pyarrow.compute as pc
+
+            ingestion_timestamp_col = table.column("ingestion_timestamp")
+            if ingestion_timestamp_col is None or len(ingestion_timestamp_col) == 0:
+                return None
+
+            # Get max value using PyArrow compute
+            max_ts_scalar = pc.max(ingestion_timestamp_col)
+            if max_ts_scalar.as_py() is None:
+                return None
+
+            # Convert PyArrow timestamp to datetime
+            max_ts_dt = max_ts_scalar.as_py()
+            if isinstance(max_ts_dt, datetime):
+                if max_ts_dt.tzinfo is None:
+                    return max_ts_dt.replace(tzinfo=timezone.utc)
+                return max_ts_dt
+            else:
+                # Fallback: if not datetime, try to convert
+                logger.warning(f"Max ingestion_timestamp is not datetime type: {type(max_ts_dt)}")
+                return None
+        except ImportError:
+            # Fallback if pyarrow.compute is not available: read all records and find max manually
+            logger.debug(
+                "pyarrow.compute not available, falling back to reading all records to find max"
+            )
+            records = table.to_pylist()
+            if not records:
+                return None
+            max_ts = None
+            for record in records:
+                ts = record.get("ingestion_timestamp")
+                if ts is None:
+                    continue
+                if isinstance(ts, datetime):
+                    if max_ts is None or ts > max_ts:
+                        max_ts = ts
+                elif hasattr(ts, "as_py"):  # PyArrow scalar
+                    try:
+                        ts_dt = ts.as_py()
+                        if isinstance(ts_dt, datetime):
+                            if max_ts is None or ts_dt > max_ts:
+                                max_ts = ts_dt
+                    except Exception:
+                        continue
+
+            if max_ts is None:
+                return None
+            if max_ts.tzinfo is None:
+                return max_ts.replace(tzinfo=timezone.utc)
+            return max_ts
+
     except Exception as e:
-        logger.warning(f"Failed to get timestamp for Parquet file {blob_path}: {e}")
+        logger.warning(f"Failed to get max ingestion_timestamp for Parquet file {blob_path}: {e}")
         return None
 
 
@@ -2565,15 +2636,16 @@ def json_to_parquet_service(
             if platform:
                 prefix = f"{prefix}/{platform}"
 
-        # OPTIMIZATION: Incremental loading - only process JSONs newer than Parquet for each ingestion date partition
-        # Strategy: Compare JSON.updated with Parquet.updated (file timestamp)
-        # - Use Parquet file timestamp (blob.updated) as reference - simpler and more reliable
-        # - Only download JSON content if JSON.updated > Parquet.updated for the same partition
-        # - This avoids downloading JSONs that were already processed
+        # OPTIMIZATION: Incremental loading - only process JSONs newer than max ingestion_timestamp in Parquet
+        # Strategy: Compare JSON ingestion_ts with MAX(ingestion_timestamp) from Parquet records
+        # - Use MAX(ingestion_timestamp) from Parquet records (not blob.updated) for accurate filtering
+        # - blob.updated updates every time Parquet is written, but ingestion_timestamp reflects actual data
+        # - Lazy-load max timestamps only when needed (when we encounter JSONs for that partition)
         # - Deduplication by (source_file, tweet_id) ensures no duplicates as final safety net
 
-        # Get Parquet file timestamps per partition (faster than reading all Parquet files)
-        parquet_file_timestamps: dict[tuple[str, str], datetime] = {}
+        # Get Parquet max ingestion_timestamps per partition (lazy-loaded when needed)
+        # Key: (date_str, platform) -> Value: max ingestion_timestamp from Parquet records (or None if can't read)
+        parquet_file_timestamps: dict[tuple[str, str], datetime | None] = {}
 
         if skip_timestamp_filter:
             logger.info(
@@ -2581,14 +2653,19 @@ def json_to_parquet_service(
             )
         else:
             logger.info(
-                "Timestamp filter enabled - will skip JSONs older than Parquet file timestamp (incremental loading)"
+                "Timestamp filter enabled - will skip JSONs older than Parquet max ingestion_timestamp (incremental loading)"
             )
 
+        # For incremental loading, we need to know the max ingestion_timestamp per partition
+        # We'll use lazy loading: only read Parquet files when we encounter JSONs for that partition
+        # This avoids reading all Parquet files upfront (expensive) but still provides accurate filtering
         parquet_prefix = "marts/replies/ingestion_date="
         print(f"[JSON-TO-PARQUET-SERVICE] Listing Parquet files with prefix: {parquet_prefix}")
         parquet_blobs = bucket.list_blobs(prefix=parquet_prefix)
         print("[JSON-TO-PARQUET-SERVICE] Starting iteration over Parquet blobs...")
 
+        # Build a set of existing partitions (for quick lookup without reading content)
+        existing_partitions: set[tuple[str, str]] = set()
         blob_count = 0
         for parquet_blob in parquet_blobs:
             blob_count += 1
@@ -2605,35 +2682,14 @@ def json_to_parquet_service(
                 if platform and platform_part != platform:
                     continue
 
-                try:
-                    # Use file timestamp (blob.updated) - simpler and more reliable for incremental loading
-                    if blob_count <= 5:  # Log first few for debugging
-                        print(
-                            f"[JSON-TO-PARQUET-SERVICE] Processing blob {blob_count}: {parquet_blob.name}"
-                        )
-                    parquet_blob.reload()  # Only metadata, not content
-                    if parquet_blob.updated:
-                        if parquet_blob.updated.tzinfo is None:
-                            parquet_file_timestamps[(date_part, platform_part)] = (
-                                parquet_blob.updated.replace(tzinfo=timezone.utc)
-                            )
-                        else:
-                            parquet_file_timestamps[(date_part, platform_part)] = (
-                                parquet_blob.updated
-                            )
-                except Exception as e:
-                    print(
-                        f"[JSON-TO-PARQUET-SERVICE] WARNING: Could not get timestamp for {parquet_blob.name}: {e}"
-                    )
-                    logger.warning(f"Could not get timestamp for {parquet_blob.name}: {e}")
-                    continue
+                existing_partitions.add((date_part, platform_part))
 
         print(
-            f"[JSON-TO-PARQUET-SERVICE] Finished processing {blob_count} Parquet blobs. "
-            f"Found {len(parquet_file_timestamps)} unique partitions"
+            f"[JSON-TO-PARQUET-SERVICE] Finished listing {blob_count} Parquet blobs. "
+            f"Found {len(existing_partitions)} unique partitions: {list(existing_partitions)}"
         )
         logger.info(
-            f"Found {len(parquet_file_timestamps)} Parquet partitions: {list(parquet_file_timestamps.keys())}"
+            f"Found {len(existing_partitions)} Parquet partitions (will lazy-load max timestamps when needed)"
         )
 
         # Process JSONs: only download content for those newer than Parquet
@@ -2682,31 +2738,52 @@ def json_to_parquet_service(
                 platform_from_path = path_parts[1] if len(path_parts) > 1 else ""
                 partition_key = (date_str, platform_from_path)
 
-                # Incremental loading: Skip if JSON is significantly older than Parquet file timestamp
-                # NOTE: This is an optimization - deduplication by (source_file, tweet_id) ensures correctness
-                # WARNING: Using blob.updated of Parquet can be problematic because it updates every time
-                # the Parquet is written, not when the data was actually processed. We use a large buffer
-                # (1 hour) to be less aggressive and avoid skipping JSONs that haven't been processed yet.
-                if not skip_timestamp_filter and partition_key in parquet_file_timestamps:
-                    parquet_file_ts = parquet_file_timestamps[partition_key]
-                    # Use a large buffer (1 hour) to handle cases where Parquet was updated recently
-                    # but JSONs from before that update haven't been processed yet.
-                    # This makes the filter less aggressive and more reliable.
-                    buffer = timedelta(hours=1)
-                    # Only skip if JSON is significantly older (more than 1 hour) than Parquet
-                    # This prevents skipping JSONs that were written before the Parquet was last updated
-                    if ingestion_ts < (parquet_file_ts - buffer):
-                        logger.debug(
-                            f"Skipping {blob.name}: JSON updated {ingestion_ts} is more than 1 hour older than "
-                            f"Parquet file timestamp {parquet_file_ts} for partition {partition_key}"
+                # Incremental loading: Use MAX(ingestion_timestamp) from Parquet records (not blob.updated)
+                # This is more accurate because blob.updated updates every time Parquet is written,
+                # but ingestion_timestamp reflects the actual data timestamps
+                if not skip_timestamp_filter and partition_key in existing_partitions:
+                    # Lazy-load max ingestion_timestamp for this partition if not already cached
+                    if partition_key not in parquet_file_timestamps:
+                        max_ts = _get_parquet_max_ingestion_timestamp(
+                            bucket, date_str, platform_from_path
                         )
-                        skipped_count += 1
-                        continue
-                    # JSON is recent enough (within 1 hour of Parquet or newer) → will process
-                    logger.debug(
-                        f"Processing {blob.name}: JSON updated {ingestion_ts} is within 1 hour of or newer than "
-                        f"Parquet file timestamp {parquet_file_ts} for partition {partition_key}"
-                    )
+                        if max_ts is not None:
+                            parquet_file_timestamps[partition_key] = max_ts
+                            logger.debug(
+                                f"Loaded max ingestion_timestamp {max_ts} for partition {partition_key}"
+                            )
+                        else:
+                            # Parquet exists but couldn't read it - skip filtering for this partition
+                            logger.warning(
+                                f"Could not read max ingestion_timestamp for partition {partition_key}, will process all JSONs"
+                            )
+                            parquet_file_timestamps[partition_key] = (
+                                None  # Mark as tried but failed
+                            )
+
+                    # Check if we have a valid max timestamp for comparison
+                    if (
+                        partition_key in parquet_file_timestamps
+                        and parquet_file_timestamps[partition_key] is not None
+                    ):
+                        parquet_max_ts = parquet_file_timestamps[partition_key]
+                        # Use a buffer (1 hour) to handle edge cases where Parquet was just updated
+                        buffer = timedelta(hours=1)
+                        # Skip if JSON ingestion_ts is significantly older than max ingestion_timestamp in Parquet
+                        # This means the Parquet already contains data newer than this JSON
+                        if ingestion_ts < (parquet_max_ts - buffer):
+                            logger.debug(
+                                f"Skipping {blob.name}: JSON ingestion_ts {ingestion_ts} is more than 1 hour older than "
+                                f"Parquet max ingestion_timestamp {parquet_max_ts} for partition {partition_key}"
+                            )
+                            skipped_count += 1
+                            continue
+                        # JSON is recent enough (within 1 hour of max or newer) → will process
+                        logger.debug(
+                            f"Processing {blob.name}: JSON ingestion_ts {ingestion_ts} is within 1 hour of or newer than "
+                            f"Parquet max ingestion_timestamp {parquet_max_ts} for partition {partition_key}"
+                        )
+                    # If parquet_file_timestamps[partition_key] is None, we couldn't read it, so process all JSONs
                 elif skip_timestamp_filter:
                     logger.debug(
                         f"Processing {blob.name} (timestamp filter disabled) for partition {partition_key}"

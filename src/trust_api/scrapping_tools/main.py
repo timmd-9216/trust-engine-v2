@@ -698,14 +698,17 @@ async def json_to_parquet_endpoint(
 
     OPTIMIZATIONS FOR EFFICIENCY:
 
-    a) Timestamp-based filtering:
-       - Pre-fetches last modified timestamps of existing Parquet files
-       - Only downloads and processes JSONs that are newer than the corresponding Parquet
-       - Skips JSONs that were already converted (based on blob.updated timestamp)
-       - This avoids unnecessary network I/O and CPU processing
+    a) Timestamp-based filtering (incremental loading):
+       - Uses MAX(ingestion_timestamp) from Parquet records (not blob.updated) for accurate filtering
+       - blob.updated updates every time Parquet is written, but ingestion_timestamp reflects actual data timestamps
+       - Only downloads and processes JSONs that are newer than the max ingestion_timestamp in Parquet
+       - Lazy-loads max timestamps only when encountering JSONs for that partition (avoids reading all Parquet upfront)
+       - Uses 1-hour buffer to handle edge cases where Parquet was just updated
+       - Skips JSONs that are more than 1 hour older than Parquet max ingestion_timestamp
+       - This avoids unnecessary network I/O and CPU processing while ensuring correct incremental behavior
 
     b) Incremental merging:
-       - Reads existing Parquet files only when needed (when new JSONs exist)
+       - Reads existing Parquet files only when needed (when new JSONs exist for that partition)
        - Merges new records with existing ones in memory
        - Deduplicates by (source_file, tweet_id) to avoid duplicates
 
@@ -725,8 +728,9 @@ async def json_to_parquet_endpoint(
         platform: Platform name to filter (e.g., 'twitter', 'instagram'). If None, processes all platforms.
         candidate_id: Candidate ID to filter. If None, processes all candidates.
         skip_timestamp_filter: If True, processes all JSONs regardless of timestamp (relies on deduplication).
-                              If False, uses timestamp-based optimization to skip already-processed JSONs.
-                              Use this if new JSONs are not being processed.
+                              If False, uses timestamp-based optimization comparing JSON ingestion_ts with
+                              MAX(ingestion_timestamp) from Parquet records to skip already-processed JSONs.
+                              Use skip_timestamp_filter=true if new JSONs are not being processed due to timestamp issues.
 
     Returns:
         JsonToParquetResponse with processing results including records processed, files written, etc.

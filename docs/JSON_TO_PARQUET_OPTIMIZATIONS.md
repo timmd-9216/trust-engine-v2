@@ -39,45 +39,70 @@ El endpoint `/json-to-parquet` convierte archivos JSON desde la capa `raw/` de G
 
 **Problema**: Sin esta optimización, el endpoint procesaría todos los JSONs del bucket en cada ejecución, incluso aquellos que ya fueron convertidos.
 
-**Solución**: Comparación de timestamps por partición con buffer de seguridad:
+**Problema adicional identificado**: Usar `blob.updated` del archivo Parquet es incorrecto porque este timestamp se actualiza cada vez que se reescribe el Parquet (incluso durante merge incremental), lo que hace que el filtro no funcione correctamente para carga incremental.
 
-1. **JSON dentro de 1 hora del Parquet o más nuevo** → Procesar (puede tener datos nuevos)
-2. **JSON más de 1 hora más antiguo que el Parquet** → Skip (probablemente ya procesado)
+**Solución**: Comparación usando **MAX(ingestion_timestamp) de los registros dentro del Parquet** (no `blob.updated`), con carga diferida (lazy loading) y buffer de seguridad:
+
+1. **JSON dentro de 1 hora del MAX(ingestion_timestamp) del Parquet o más nuevo** → Procesar (puede tener datos nuevos)
+2. **JSON más de 1 hora más antiguo que MAX(ingestion_timestamp) del Parquet** → Skip (probablemente ya procesado)
 3. **Deduplicación por `(source_file, tweet_id)`** → Respaldo final para evitar duplicados
 
 Esta estrategia es eficiente y correcta porque:
+- Usa MAX(ingestion_timestamp) de los registros del Parquet, que refleja el timestamp real de los datos procesados
+- `blob.updated` se actualiza cada vez que se escribe el Parquet (no refleja cuándo se procesaron los datos)
+- Carga diferida (lazy loading): solo lee Parquet cuando encuentra JSONs para esa partición, evitando leer todos los Parquet upfront
 - Usa un buffer de 1 hora para evitar saltar JSONs que aún no han sido procesados
 - Compara dentro de la misma partición `(ingestion_date, platform)`
 - La deduplicación asegura que no se creen duplicados como medida de seguridad adicional
-- Es menos agresiva que comparar directamente, evitando problemas cuando el Parquet se actualiza frecuentemente
 
 **Implementación**:
 
 ```python
-# Pre-fetch timestamps de Parquet existentes por partición
-parquet_timestamps = {}
-for parquet_blob in bucket.list_blobs(prefix="processed/replies/"):
-    parquet_blob.reload()  # Solo metadata
-    date_part, platform_part = extract_partition(parquet_blob.name)
-    parquet_timestamps[(date_part, platform_part)] = parquet_blob.updated
+# Build set of existing partitions (solo listar, sin leer contenido)
+existing_partitions: set[tuple[str, str]] = set()
+for parquet_blob in bucket.list_blobs(prefix="marts/replies/ingestion_date="):
+    if parquet_blob.name.endswith(".parquet"):
+        date_part, platform_part = extract_partition(parquet_blob.name)
+        existing_partitions.add((date_part, platform_part))
 
-# Filtrar JSONs: procesar si están dentro de 1 hora del Parquet o más nuevos
+# Cache para max ingestion_timestamps (lazy-loaded)
+parquet_max_timestamps: dict[tuple[str, str], datetime | None] = {}
+
+# Filtrar JSONs con carga diferida de timestamps
 for blob in json_blobs:
     blob.reload()  # Solo metadata
     ingestion_ts = blob.updated
     date_str = ingestion_ts.strftime("%Y-%m-%d")
-    partition_key = (date_str, platform)
+    partition_key = (date_str, platform_from_path)
     
-    if partition_key in parquet_timestamps:
-        parquet_ts = parquet_timestamps[partition_key]
-        buffer = timedelta(hours=1)
-        if ingestion_ts < (parquet_ts - buffer):
-            # JSON más de 1 hora más antiguo que Parquet → skip (probablemente ya procesado)
-            continue
+    if not skip_timestamp_filter and partition_key in existing_partitions:
+        # Lazy-load max ingestion_timestamp solo cuando se necesita
+        if partition_key not in parquet_max_timestamps:
+            max_ts = _get_parquet_max_ingestion_timestamp(bucket, date_str, platform)
+            parquet_max_timestamps[partition_key] = max_ts
+        
+        max_ts = parquet_max_timestamps[partition_key]
+        if max_ts is not None:
+            buffer = timedelta(hours=1)
+            if ingestion_ts < (max_ts - buffer):
+                # JSON más de 1 hora más antiguo que MAX(ingestion_timestamp) → skip
+                continue
     
-    # JSON dentro de 1 hora del Parquet o más nuevo (o Parquet no existe) → procesar
+    # JSON dentro de 1 hora del MAX o más nuevo (o Parquet no existe) → procesar
     data = blob.download_as_text()
     json_files.append((blob.name, data, ingestion_ts))
+
+# Función auxiliar para obtener MAX(ingestion_timestamp) del Parquet
+def _get_parquet_max_ingestion_timestamp(bucket, date_str, platform):
+    """Lee Parquet y retorna MAX(ingestion_timestamp) usando PyArrow compute."""
+    blob_path = f"marts/replies/ingestion_date={date_str}/platform={platform}/data.parquet"
+    parquet_data = bucket.blob(blob_path).download_as_bytes()
+    table = pq.read_table(io.BytesIO(parquet_data))
+    
+    # Usar PyArrow compute para obtener MAX eficientemente
+    import pyarrow.compute as pc
+    max_ts = pc.max(table.column("ingestion_timestamp")).as_py()
+    return max_ts if isinstance(max_ts, datetime) else None
 
 # Merge con deduplicación (respaldo final)
 for (date_str, platform), new_records in records_by_partition.items():
@@ -86,14 +111,17 @@ for (date_str, platform), new_records in records_by_partition.items():
 ```
 
 **Beneficios**:
-- **Eficiencia**: Solo descarga JSONs que son más nuevos que el Parquet (99% menos I/O en ejecuciones incrementales)
-- **Correctitud**: Compara dentro de la misma partición de ingesta
+- **Eficiencia**: Solo descarga JSONs que son más nuevos que el MAX(ingestion_timestamp) del Parquet (99% menos I/O en ejecuciones incrementales)
+- **Correctitud**: Usa el timestamp real de los datos (ingestion_timestamp) en lugar del timestamp del archivo (blob.updated)
+- **Carga diferida**: Solo lee Parquet cuando encuentra JSONs para esa partición, evitando leer todos los Parquet upfront
+- **Precisión**: MAX(ingestion_timestamp) refleja el dato más reciente procesado, no cuándo se escribió el archivo
 - **Simplicidad**: Lógica directa y fácil de entender
 - **Deduplicación eficiente**: O(1) lookup usando sets como respaldo final
 - **Escalabilidad**: Reduce procesamiento proporcionalmente con el volumen de datos
 
 **Métricas**:
-- **Filtrado**: Solo descarga JSONs dentro de 1 hora del Parquet o más nuevos para su fecha de ingesta
+- **Filtrado**: Solo descarga JSONs dentro de 1 hora del MAX(ingestion_timestamp) del Parquet o más nuevos para su fecha de ingesta
+- **Lectura Parquet**: Solo lee Parquet de particiones donde hay JSONs nuevos (lazy loading)
 - **Deduplicación**: O(1) lookup por registro (respaldo)
 - **Mejora**: Reduce significativamente las descargas en ejecuciones incrementales, evitando procesar JSONs muy antiguos
 
@@ -268,23 +296,27 @@ for (date_str, platform), new_records in records_by_partition.items():
 
 ## Limitaciones y Consideraciones
 
-### 1. Comparación por Partición de Ingesta
+### 1. Comparación por Partición de Ingesta con MAX(ingestion_timestamp)
 
-**Comportamiento**: Los JSONs se comparan con el Parquet de su misma partición `(ingestion_date, platform)`.
+**Comportamiento**: Los JSONs se comparan con el MAX(ingestion_timestamp) del Parquet de su misma partición `(ingestion_date, platform)`.
 
-**Razón**: Cada JSON tiene una fecha de ingesta (del `blob.updated`), y se compara solo con el Parquet correspondiente a esa fecha. Esto asegura que:
+**Razón**: Cada JSON tiene una fecha de ingesta (del `blob.updated`), y se compara con el máximo `ingestion_timestamp` de los registros dentro del Parquet correspondiente a esa fecha. Esto asegura que:
 - JSONs nuevos para una fecha se procesen correctamente
 - JSONs antiguos ya procesados se salten eficientemente
 - No se mezclen comparaciones entre diferentes fechas de ingesta
+- El filtro funciona correctamente incluso cuando el Parquet se reescribe frecuentemente (merge incremental)
 
 **Ejemplo**:
 ```python
 # Escenario:
-# 1. Parquet para 2026-01-05/twitter actualizado a las 7:00 AM
+# 1. Parquet para 2026-01-05/twitter contiene registros con MAX(ingestion_timestamp) = 2026-01-05 07:00:00
 # 2. JSON con ingestion_date=2026-01-05 creado a las 10:00 AM:
-#    - JSON.updated (10:00 AM) > Parquet.updated (7:00 AM) → Procesar ✅
+#    - JSON.updated (10:00 AM) > MAX(ingestion_timestamp) (7:00 AM) → Procesar ✅
 # 3. JSON con ingestion_date=2026-01-05 creado a las 6:00 AM:
-#    - JSON.updated (6:00 AM) <= Parquet.updated (7:00 AM) → Skip ✅
+#    - JSON.updated (6:00 AM) < MAX(ingestion_timestamp) - 1h (6:00 AM) → Skip ✅
+#    
+# Nota: blob.updated del Parquet podría ser 2026-01-05 15:00:00 (cuando se hizo merge),
+#       pero usamos MAX(ingestion_timestamp) = 2026-01-05 07:00:00 para la comparación
 ```
 
 ### 2. Eficiencia vs Correctitud
@@ -315,7 +347,7 @@ for (date_str, platform), new_records in records_by_partition.items():
 **Solución**: Parámetro `skip_timestamp_filter` que permite deshabilitar el filtro por timestamp y confiar solo en la deduplicación.
 
 **Comportamiento**:
-- `skip_timestamp_filter=false` (por defecto): Usa optimización de timestamp - procesa JSONs que están dentro de 1 hora del Parquet o más nuevos (evita procesar JSONs más de 1 hora más antiguos)
+- `skip_timestamp_filter=false` (por defecto): Usa optimización de timestamp - procesa JSONs que están dentro de 1 hora del MAX(ingestion_timestamp) del Parquet o más nuevos (evita procesar JSONs más de 1 hora más antiguos)
 - `skip_timestamp_filter=true`: Procesa todos los JSONs sin filtrar por timestamp, confía solo en deduplicación por `(source_file, tweet_id)`
 
 **Cuándo usar `skip_timestamp_filter=true`**:
@@ -425,7 +457,7 @@ Las optimizaciones implementadas hacen que el endpoint `/json-to-parquet` sea:
 3. **Confiable**: Deduplicación por `(source_file, tweet_id)` como respaldo final
 4. **Escalable**: Mejora proporcionalmente con el volumen de datos
 
-La optimización principal es el **filtrado por timestamp dentro de la misma partición de ingesta**: solo procesa JSONs que son más nuevos que el Parquet para su fecha de ingesta. La deduplicación actúa como respaldo final para garantizar que no se creen duplicados incluso en casos edge.
+La optimización principal es el **filtrado por timestamp usando MAX(ingestion_timestamp) dentro de la misma partición de ingesta**: solo procesa JSONs que son más nuevos que el máximo `ingestion_timestamp` de los registros en el Parquet para su fecha de ingesta. Esto es más preciso que usar `blob.updated` porque refleja el timestamp real de los datos procesados, no cuándo se escribió el archivo. La deduplicación actúa como respaldo final para garantizar que no se creen duplicados incluso en casos edge.
 
 ## Referencias
 

@@ -126,6 +126,7 @@ class TestSubmit:
     def test_submit_success(self, mock_post):
         """Test successful job submission."""
         mock_response = MagicMock()
+        mock_response.status_code = 200
         mock_response.json.return_value = {"id_hash256": "hash123"}
         mock_post.return_value = mock_response
 
@@ -148,6 +149,7 @@ class TestSubmit:
     def test_submit_no_job_id(self, mock_post):
         """Test that None is returned when no job ID is in response."""
         mock_response = MagicMock()
+        mock_response.status_code = 200
         mock_response.json.return_value = {"error": "Invalid request"}
         mock_post.return_value = mock_response
 
@@ -174,6 +176,7 @@ class TestCheckStatus:
     def test_check_status_finished(self, mock_sleep, mock_get):
         """Test that 'finished' is returned when job completes."""
         mock_response = MagicMock()
+        mock_response.status_code = 200
         mock_response.json.return_value = {"status": "finished"}
         mock_get.return_value = mock_response
 
@@ -185,11 +188,16 @@ class TestCheckStatus:
     @patch("trust_api.scrapping_tools.information_tracer.time.sleep")
     def test_check_status_polls_until_complete(self, mock_sleep, mock_get):
         """Test that check_status polls until job is complete."""
-        responses = [
-            MagicMock(json=MagicMock(return_value={"status": "running"})),
-            MagicMock(json=MagicMock(return_value={"status": "running"})),
-            MagicMock(json=MagicMock(return_value={"status": "finished"})),
-        ]
+        response1 = MagicMock()
+        response1.status_code = 200
+        response1.json.return_value = {"status": "running"}
+        response2 = MagicMock()
+        response2.status_code = 200
+        response2.json.return_value = {"status": "running"}
+        response3 = MagicMock()
+        response3.status_code = 200
+        response3.json.return_value = {"status": "finished"}
+        responses = [response1, response2, response3]
         mock_get.side_effect = responses
 
         status = information_tracer.check_status("job123", "test-token")
@@ -206,6 +214,7 @@ class TestCheckApiUsage:
     def test_check_api_usage(self, mock_get):
         """Test API usage check."""
         mock_response = MagicMock()
+        mock_response.status_code = 200
         mock_response.json.return_value = {
             "quota_used": 100,
             "quota_limit": 1000,
