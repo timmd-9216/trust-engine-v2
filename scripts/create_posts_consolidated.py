@@ -483,13 +483,14 @@ def main():
         print(f"Would create {len(records)} post records")
         return
 
-    # Group records by ingestion date and platform
+    # Group records by platform and ingestion date
+    # Order: platform first, then ingestion_date (to match BigQuery expectations)
     records_by_partition: dict[tuple[str, str], list[dict[str, Any]]] = {}
 
     for record in records:
         date_str = record["ingestion_date"].strftime("%Y-%m-%d")
         platform = record["platform"] or "unknown"
-        key = (date_str, platform)
+        key = (platform, date_str)  # platform first, then date
 
         if key not in records_by_partition:
             records_by_partition[key] = []
@@ -497,17 +498,17 @@ def main():
 
     # Summary
     print(f"\nPartitions: {len(records_by_partition)}")
-    for (date_str, platform), partition_records in sorted(records_by_partition.items()):
-        print(f"  ingestion_date={date_str}/platform={platform}: {len(partition_records)} records")
+    for (platform, date_str), partition_records in sorted(records_by_partition.items()):
+        print(f"  platform={platform}/ingestion_date={date_str}: {len(partition_records)} records")
 
     # Write Parquet files
     print("\nWriting Parquet files...")
     output_dir = Path(args.output_dir)
     written_files = []
 
-    for (date_str, platform), partition_records in records_by_partition.items():
-        # Create partition directory: ingestion_date first, then platform
-        partition_dir = output_dir / "posts" / f"ingestion_date={date_str}" / f"platform={platform}"
+    for (platform, date_str), partition_records in records_by_partition.items():
+        # Create partition directory: platform first, then ingestion_date
+        partition_dir = output_dir / "posts" / f"platform={platform}" / f"ingestion_date={date_str}"
         partition_dir.mkdir(parents=True, exist_ok=True)
 
         # Write Parquet file
@@ -515,13 +516,13 @@ def main():
         count = records_to_parquet(partition_records, POSTS_SCHEMA, str(parquet_path))
 
         print(f"  Wrote {count} records to {parquet_path}")
-        written_files.append((str(parquet_path), date_str, platform))
+        written_files.append((str(parquet_path), platform, date_str))
 
     # Upload to GCS if requested
     if args.upload:
         print("\nUploading to GCS...")
-        for local_path, date_str, platform in written_files:
-            blob_path = f"marts/posts/ingestion_date={date_str}/platform={platform}/data.parquet"
+        for local_path, platform, date_str in written_files:
+            blob_path = f"marts/posts/platform={platform}/ingestion_date={date_str}/data.parquet"
             uri = upload_to_gcs(local_path, args.bucket, blob_path)
             print(f"  Uploaded: {uri}")
 
@@ -534,8 +535,8 @@ def main():
     print(f"""
 CREATE EXTERNAL TABLE `your_project.your_dataset.posts`
 WITH PARTITION COLUMNS (
-  ingestion_date DATE,
-  platform STRING
+  platform STRING,
+  ingestion_date DATE
 )
 OPTIONS (
   format = 'PARQUET',

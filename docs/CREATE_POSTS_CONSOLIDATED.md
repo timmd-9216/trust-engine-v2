@@ -111,16 +111,19 @@ Los archivos Parquet se organizan en particiones:
 
 ```
 marts/posts/
-  ingestion_date=2026-01-15/
-    platform=twitter/
+  platform=twitter/
+    ingestion_date=2026-01-15/
       data.parquet
-    platform=instagram/
+    ingestion_date=2026-01-16/
       data.parquet
-  ingestion_date=2026-01-16/
-    platform=twitter/
+  platform=instagram/
+    ingestion_date=2026-01-15/
       data.parquet
-    ...
+    ingestion_date=2026-01-16/
+      data.parquet
 ```
+
+**Orden de particiones**: `platform` primero, luego `ingestion_date` (para consistencia con BigQuery).
 
 ## Optimizaciones
 
@@ -149,8 +152,8 @@ O manualmente:
 ```sql
 CREATE EXTERNAL TABLE `trust-481601.trust_analytics.posts`
 WITH PARTITION COLUMNS (
-  ingestion_date DATE,
-  platform STRING
+  platform STRING,
+  ingestion_date DATE
 )
 OPTIONS (
   format = 'PARQUET',
@@ -215,6 +218,38 @@ WHERE max_replies > 0
 ORDER BY missing_replies DESC
 LIMIT 50;
 ```
+
+## ⚠️ Importante: Orden de Particiones
+
+El orden de particiones es **crítico** para BigQuery. Los archivos deben estar organizados como:
+
+```
+marts/posts/platform={platform}/ingestion_date={date}/data.parquet
+```
+
+**NO** como:
+```
+marts/posts/ingestion_date={date}/platform={platform}/data.parquet  ❌
+```
+
+Si ya tienes archivos con el orden incorrecto en GCS, debes:
+
+1. **Eliminar los archivos antiguos** de `marts/posts/` con el orden incorrecto
+2. **Regenerar los archivos** con el script usando el orden correcto
+3. **Recrear la tabla** en BigQuery si es necesario
+
+### Error de particiones inconsistentes
+
+Si ves el error:
+```
+Partition keys should be invariant from table creation across all partitions
+```
+
+**Solución**:
+1. Verifica que todos los archivos en `marts/posts/` tengan el mismo orden de particiones
+2. Elimina archivos con orden incorrecto
+3. Regenera los archivos con el script
+4. Recrea la tabla en BigQuery
 
 ## Troubleshooting
 

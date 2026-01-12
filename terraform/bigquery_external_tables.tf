@@ -144,8 +144,8 @@ resource "google_bigquery_table" "posts" {
       { name = "ingestion_timestamp", type = "TIMESTAMP", mode = "NULLABLE" },
     ])
 
-    # Hive partitioning: order matches directory structure (ingestion_date first, then platform)
-    # Structure: marts/posts/ingestion_date={date}/platform={platform}/
+    # Hive partitioning: order matches directory structure (platform first, then ingestion_date)
+    # Structure: marts/posts/platform={platform}/ingestion_date={date}/
     hive_partitioning_options {
       mode                     = "AUTO"
       source_uri_prefix        = "gs://${var.gcs_bucket}/marts/posts/"
