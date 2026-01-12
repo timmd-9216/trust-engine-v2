@@ -295,12 +295,15 @@ elif status == "failed":
 
 ### Reset del Período Diario
 
-**La quota se resetea a las 00:00 UTC (medianoche UTC).**
+**La quota se resetea a las 00:00 UTC (medianoche UTC), independientemente del timezone del usuario.**
 
 Esto significa que:
 - El período diario comienza a las 00:00:00 UTC de cada día
 - El contador de `searches_used` se resetea a 0 a las 00:00 UTC
 - El `period_start` debería actualizarse a la nueva fecha a las 00:00 UTC
+- **Importante:** El reseteo ocurre siempre a las 00:00 UTC, no a medianoche en el timezone local del usuario
+  - Ejemplo: Si estás en UTC-3, el reseteo ocurre a las 21:00 de tu hora local (00:00 UTC)
+  - Ejemplo: Si estás en UTC+5, el reseteo ocurre a las 05:00 de tu hora local (00:00 UTC)
 
 ### Por qué `period_start` puede seguir siendo de ayer
 

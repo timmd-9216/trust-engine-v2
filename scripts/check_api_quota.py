@@ -105,11 +105,18 @@ def main() -> int:
                                 print("     - Possible issue with Information Tracer API")
                             elif days_diff == 1:
                                 print("\n  ℹ️  INFO: Daily period_start is from yesterday")
-                                print(f"     period_start: {period_start}")
+                                print(f"     period_start: {period_start} (UTC)")
                                 print(f"     Current date (UTC): {current_date}")
                                 print("     This is normal if:")
-                                print("     - No activity today yet (quota resets at 00:00 UTC)")
+                                print(
+                                    "     - No activity today yet (quota resets at 00:00 UTC, "
+                                    "regardless of your timezone)"
+                                )
                                 print("     - period_start updates when there's new activity")
+                                print(
+                                    "     Note: Quota resets at 00:00 UTC. "
+                                    "If you're in UTC-3, for example, this happens at 21:00 your local time."
+                                )
                         except ValueError:
                             # period_start format is not as expected, skip validation
                             pass

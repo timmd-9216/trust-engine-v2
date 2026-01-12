@@ -111,6 +111,56 @@ resource "google_bigquery_table" "replies" {
   deletion_protection = false
 }
 
+# External table for consolidated posts
+resource "google_bigquery_table" "posts" {
+  dataset_id = google_bigquery_dataset.analytics.dataset_id
+  project    = var.project_id
+  table_id   = "posts"
+
+  description = "External table for consolidated posts from Firestore with real replies count from Parquet"
+
+  external_data_configuration {
+    autodetect    = false
+    source_format = "PARQUET"
+    source_uris   = ["gs://${var.gcs_bucket}/marts/posts/*"]
+
+    # Explicit schema matching the posts schema from create_posts_consolidated.py
+    schema = jsonencode([
+      # Post identification
+      { name = "post_id", type = "STRING", mode = "NULLABLE" },
+      { name = "country", type = "STRING", mode = "NULLABLE" },
+      { name = "platform", type = "STRING", mode = "NULLABLE" },
+      { name = "candidate_id", type = "STRING", mode = "NULLABLE" },
+      # Post metadata
+      { name = "created_at", type = "TIMESTAMP", mode = "NULLABLE" },
+      { name = "replies_count", type = "INTEGER", mode = "NULLABLE" },
+      { name = "max_replies", type = "INTEGER", mode = "NULLABLE" },
+      { name = "status", type = "STRING", mode = "NULLABLE" },
+      { name = "updated_at", type = "TIMESTAMP", mode = "NULLABLE" },
+      # Real replies count (from Parquet)
+      { name = "real_replies_count", type = "INTEGER", mode = "NULLABLE" },
+      # Ingestion metadata
+      { name = "ingestion_date", type = "DATE", mode = "NULLABLE" },
+      { name = "ingestion_timestamp", type = "TIMESTAMP", mode = "NULLABLE" },
+    ])
+
+    # Hive partitioning: order matches directory structure (ingestion_date first, then platform)
+    # Structure: marts/posts/ingestion_date={date}/platform={platform}/
+    hive_partitioning_options {
+      mode                     = "AUTO"
+      source_uri_prefix        = "gs://${var.gcs_bucket}/marts/posts/"
+      require_partition_filter = false
+    }
+  }
+
+  labels = {
+    data_source = "firestore"
+    layer       = "marts"
+  }
+
+  deletion_protection = false
+}
+
 # View for Twitter replies only
 resource "google_bigquery_table" "twitter_replies" {
   dataset_id = google_bigquery_dataset.analytics.dataset_id
@@ -250,6 +300,11 @@ output "keywordpost_replies_table" {
   description = "Full reference to the keywordpost_replies external table"
 }
 
+output "posts_table" {
+  value       = "${var.project_id}.${var.bigquery_dataset}.${google_bigquery_table.posts.table_id}"
+  description = "Full reference to the posts consolidated external table"
+}
+
 # External table for YouTube keyword posts (videos)
 resource "google_bigquery_table" "keywordpost" {
   dataset_id = google_bigquery_dataset.analytics.dataset_id
@@ -369,6 +424,34 @@ output "example_queries" {
     WHERE country = 'honduras'
     ORDER BY published_at DESC
     LIMIT 100;
+    
+    -- Query consolidated posts with real replies count
+    SELECT 
+      post_id,
+      country,
+      platform,
+      candidate_id,
+      max_replies,
+      real_replies_count,
+      status,
+      created_at
+    FROM `${var.project_id}.${var.bigquery_dataset}.posts`
+    WHERE country = 'honduras'
+    ORDER BY ingestion_date DESC
+    LIMIT 100;
+    
+    -- Compare max_replies vs real_replies_count
+    SELECT 
+      country,
+      platform,
+      candidate_id,
+      COUNT(*) as total_posts,
+      SUM(max_replies) as total_max_replies,
+      SUM(real_replies_count) as total_real_replies,
+      AVG(real_replies_count) as avg_real_replies_per_post
+    FROM `${var.project_id}.${var.bigquery_dataset}.posts`
+    GROUP BY country, platform, candidate_id
+    ORDER BY country, platform, candidate_id;
     
   EOT
   description = "Example BigQuery queries"

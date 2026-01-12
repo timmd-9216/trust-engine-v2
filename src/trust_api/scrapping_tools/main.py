@@ -496,11 +496,14 @@ async def get_quota_status():
         usage = api_usage.get("usage", {})
         limits = api_usage.get("limits", {})
         daily_usage = usage.get("day", {}) if isinstance(usage, dict) else {}
-        daily_used = daily_usage.get("searches_used", 0) if isinstance(daily_usage, dict) else 0
+        daily_used_raw = daily_usage.get("searches_used", 0) if isinstance(daily_usage, dict) else 0
         daily_limit = limits.get("max_searches_per_day", 0) if isinstance(limits, dict) else 0
 
         # Check if period_start is outdated (quota resets at 00:00 UTC)
+        # If period_start is from a previous day, the counter should have reset
         period_start_info = None
+        daily_used = daily_used_raw
+        previous_period_used = None
         if isinstance(daily_usage, dict):
             period_start = daily_usage.get("period_start")
             if period_start:
@@ -511,18 +514,31 @@ async def get_quota_status():
                     period_date = datetime.strptime(period_start, "%Y-%m-%d").date()
                     current_date = datetime.now(timezone.utc).date()
 
-                    # Check if period_start is more than 1 day old
+                    # Check if period_start is from a previous day (in UTC)
+                    # Note: Quota resets at 00:00 UTC regardless of user's timezone
                     days_diff = (current_date - period_date).days
-                    if days_diff > 1:
-                        period_start_info = (
-                            f" ⚠️ period_start is {days_diff} days old ({period_start}). "
-                            f"Quota resets at 00:00 UTC, but period_start updates with new activity."
-                        )
-                    elif days_diff == 1:
-                        period_start_info = (
-                            f" ℹ️ period_start is from yesterday ({period_start}). "
-                            f"Quota resets at 00:00 UTC, but period_start updates with new activity."
-                        )
+                    if days_diff >= 1:
+                        # If period_start is from yesterday or older (in UTC), the quota counter should have reset at 00:00 UTC
+                        # The searches_used value from API is from the previous period, not the current one
+                        # Store the previous period value for reference
+                        previous_period_used = daily_used_raw
+                        # Since quota resets at 00:00 UTC (regardless of user timezone), show 0 for the current period
+                        # (unless there's been activity today in UTC, in which case the API would have updated period_start)
+                        daily_used = 0  # Counter reset at 00:00 UTC
+                        if days_diff > 1:
+                            period_start_info = (
+                                f"⚠️ period_start is {days_diff} days old ({period_start} UTC). "
+                                f"Quota resets daily at 00:00 UTC (regardless of your timezone). "
+                                f"Previous period ({period_start} UTC): {previous_period_used}/{daily_limit}. "
+                                f"Current period ({current_date} UTC): {daily_used}/{daily_limit}."
+                            )
+                        else:
+                            period_start_info = (
+                                f"ℹ️ period_start is from yesterday ({period_start} UTC). "
+                                f"Quota resets daily at 00:00 UTC (regardless of your timezone). "
+                                f"Previous period ({period_start} UTC): {previous_period_used}/{daily_limit}. "
+                                f"Current period ({current_date} UTC): {daily_used}/{daily_limit}."
+                            )
                 except (ValueError, TypeError):
                     # period_start format is not as expected, skip validation
                     pass
@@ -548,9 +564,12 @@ async def get_quota_status():
             else:
                 message = f"Quota available: {daily_used}/{daily_limit} ({percentage:.1f}%)"
 
-        # Append period_start info to message if available
-        if period_start_info and message:
-            message = message + period_start_info
+        # Prepend period_start info to message if available (more prominent)
+        if period_start_info:
+            if message:
+                message = period_start_info + " " + message
+            else:
+                message = period_start_info
 
         return QuotaResponse(
             usage=usage if isinstance(usage, dict) else None,
