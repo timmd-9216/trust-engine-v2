@@ -7,6 +7,7 @@ This helps understand if there are quota issues and plan accordingly.
 
 import os
 import sys
+from datetime import datetime, timezone
 
 from dotenv import load_dotenv
 
@@ -75,6 +76,43 @@ def main() -> int:
             if "error" in usage:
                 print(f"  ❌ Error: {usage['error']}")
                 return 1
+
+            # Check if period_start is outdated
+            usage_data = usage.get("usage", {})
+            if isinstance(usage_data, dict):
+                day_data = usage_data.get("day", {})
+                if isinstance(day_data, dict):
+                    period_start = day_data.get("period_start")
+                    if period_start:
+                        try:
+                            # Parse period_start date
+                            period_date = datetime.strptime(period_start, "%Y-%m-%d").date()
+                            current_date = datetime.now(timezone.utc).date()
+
+                            # Check if period_start is more than 1 day old
+                            days_diff = (current_date - period_date).days
+                            if days_diff > 1:
+                                print(
+                                    f"\n  ⚠️  WARNING: Daily period_start is {days_diff} days old!"
+                                )
+                                print(f"     period_start: {period_start}")
+                                print(f"     Current date (UTC): {current_date}")
+                                print("     This might indicate:")
+                                print(f"     - No activity since {period_start}")
+                                print(
+                                    "     - Daily quota resets at a specific time (not midnight UTC)"
+                                )
+                                print("     - Possible issue with Information Tracer API")
+                            elif days_diff == 1:
+                                print("\n  ℹ️  INFO: Daily period_start is from yesterday")
+                                print(f"     period_start: {period_start}")
+                                print(f"     Current date (UTC): {current_date}")
+                                print("     This is normal if:")
+                                print("     - No activity today yet (quota resets at 00:00 UTC)")
+                                print("     - period_start updates when there's new activity")
+                        except ValueError:
+                            # period_start format is not as expected, skip validation
+                            pass
 
         print("  ✓ API is accessible")
         print("\nRecommendations:")

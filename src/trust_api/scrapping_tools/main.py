@@ -499,6 +499,34 @@ async def get_quota_status():
         daily_used = daily_usage.get("searches_used", 0) if isinstance(daily_usage, dict) else 0
         daily_limit = limits.get("max_searches_per_day", 0) if isinstance(limits, dict) else 0
 
+        # Check if period_start is outdated (quota resets at 00:00 UTC)
+        period_start_info = None
+        if isinstance(daily_usage, dict):
+            period_start = daily_usage.get("period_start")
+            if period_start:
+                try:
+                    from datetime import datetime, timezone
+
+                    # Parse period_start date
+                    period_date = datetime.strptime(period_start, "%Y-%m-%d").date()
+                    current_date = datetime.now(timezone.utc).date()
+
+                    # Check if period_start is more than 1 day old
+                    days_diff = (current_date - period_date).days
+                    if days_diff > 1:
+                        period_start_info = (
+                            f" ⚠️ period_start is {days_diff} days old ({period_start}). "
+                            f"Quota resets at 00:00 UTC, but period_start updates with new activity."
+                        )
+                    elif days_diff == 1:
+                        period_start_info = (
+                            f" ℹ️ period_start is from yesterday ({period_start}). "
+                            f"Quota resets at 00:00 UTC, but period_start updates with new activity."
+                        )
+                except (ValueError, TypeError):
+                    # period_start format is not as expected, skip validation
+                    pass
+
         # Calculate percentage
         percentage = None
         if daily_limit > 0:
@@ -519,6 +547,10 @@ async def get_quota_status():
                 message = f"Quota usage high: {daily_used}/{daily_limit} ({percentage:.1f}%)"
             else:
                 message = f"Quota available: {daily_used}/{daily_limit} ({percentage:.1f}%)"
+
+        # Append period_start info to message if available
+        if period_start_info and message:
+            message = message + period_start_info
 
         return QuotaResponse(
             usage=usage if isinstance(usage, dict) else None,

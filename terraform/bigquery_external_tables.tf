@@ -264,7 +264,7 @@ resource "google_bigquery_table" "keywordpost" {
     # Match keyword post files (videos) - exclude replies files by using specific pattern
     # Pattern matches: yt_keywordpost_*.parquet but not *replies*.parquet
     source_uris   = [
-      "gs://${var.gcs_bucket}/processed/keywordpost/youtube/yt_keywordpost_*.parquet"
+      "gs://${var.gcs_bucket}/stg/keywordpost/youtube/yt_keywordpost_*.parquet"
     ]
 
     # Schema matching the YouTube keyword post Parquet files
@@ -308,7 +308,7 @@ resource "google_bigquery_table" "keywordpost_replies" {
   external_data_configuration {
     autodetect    = false
     source_format = "PARQUET"
-    source_uris   = ["gs://${var.gcs_bucket}/processed/keywordpost/*/*replies*.parquet"]
+    source_uris   = ["gs://${var.gcs_bucket}/stg/keywordpost/*/*replies*.parquet"]
 
     # Schema matching the YouTube keyword post replies Parquet files
     schema = jsonencode([

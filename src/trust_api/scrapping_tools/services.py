@@ -1008,6 +1008,86 @@ def increment_job_retry_count(doc_id: str) -> int:
     return new_retry_count
 
 
+def update_job_with_log_files(
+    doc_id: str,
+    execution_log_file: str | None = None,
+    error_log_file: str | None = None,
+) -> None:
+    """
+    Update job document with references to log files (optional feature).
+
+    This function only updates jobs if ENABLE_JOB_LOG_REFERENCES is enabled.
+    By default, this feature is disabled to minimize Firestore write operations.
+
+    Args:
+        doc_id: The Firestore document ID of the job to update
+        execution_log_file: GCS URI of the execution log file (optional)
+        error_log_file: GCS URI of the error log file (optional)
+
+    Note:
+        This is an optional feature controlled by ENABLE_JOB_LOG_REFERENCES env var.
+        When disabled (default), this function does nothing to avoid unnecessary Firestore writes.
+    """
+    # Check if feature is enabled
+    if not settings.enable_job_log_references:
+        return
+
+    if not doc_id:
+        return
+
+    try:
+        client = get_firestore_client()
+        doc_ref = client.collection(settings.firestore_jobs_collection).document(doc_id)
+
+        update_data: dict[str, str] = {}
+        if execution_log_file:
+            update_data["execution_log_file"] = execution_log_file
+        if error_log_file:
+            update_data["error_log_file"] = error_log_file
+
+        if update_data:
+            doc_ref.update(update_data)
+    except Exception as e:
+        # Silently fail to avoid breaking the main flow
+        # Log warning but don't raise exception
+        logger.warning(f"Could not update job {doc_id} with log file references: {str(e)}")
+
+
+def update_jobs_with_log_files(
+    job_doc_ids: list[str],
+    execution_log_file: str | None = None,
+    error_log_file: str | None = None,
+) -> None:
+    """
+    Update multiple job documents with references to log files (optional feature).
+
+    This is a batch version of update_job_with_log_files() for efficiency.
+
+    Args:
+        job_doc_ids: List of Firestore document IDs of jobs to update
+        execution_log_file: GCS URI of the execution log file (optional)
+        error_log_file: GCS URI of the error log file (optional)
+
+    Note:
+        This is an optional feature controlled by ENABLE_JOB_LOG_REFERENCES env var.
+        When disabled (default), this function does nothing to avoid unnecessary Firestore writes.
+    """
+    # Check if feature is enabled
+    if not settings.enable_job_log_references:
+        return
+
+    if not job_doc_ids:
+        return
+
+    # Update each job (Firestore doesn't support batch updates for different documents easily)
+    for doc_id in job_doc_ids:
+        update_job_with_log_files(
+            doc_id=doc_id,
+            execution_log_file=execution_log_file,
+            error_log_file=error_log_file,
+        )
+
+
 def retry_job_from_empty_result(doc_id: str) -> int:
     """
     Move a job from 'empty_result' status to 'pending' and increment retry_count.
@@ -1325,6 +1405,9 @@ def process_posts_service(
         "jobs_created": [],
     }
 
+    # Track job document IDs created during this execution (for optional log file references)
+    created_job_doc_ids: list[str] = []
+
     try:
         # Query all posts without replies
         all_posts = query_posts_without_replies(max_posts=None)
@@ -1433,6 +1516,9 @@ def process_posts_service(
                                 "post_id": post_id,
                             }
                         )
+                        # Track this job for optional log file references
+                        if job_doc_id:
+                            created_job_doc_ids.append(job_doc_id)
                         results["succeeded"] += 1
                         # Log successful job submission
                         add_log_entry(
@@ -1499,6 +1585,14 @@ def process_posts_service(
             if error_file_uri:
                 results["error_log_file"] = error_file_uri
 
+        # Update created jobs with log file references (optional feature)
+        if created_job_doc_ids:
+            update_jobs_with_log_files(
+                job_doc_ids=created_job_doc_ids,
+                execution_log_file=log_file_uri,
+                error_log_file=error_file_uri if _error_logs else None,
+            )
+
     return results
 
 
@@ -1537,6 +1631,9 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
         "empty_result_jobs": [],
         "saved_files": [],
     }
+
+    # Track job document IDs processed during this execution (for optional log file references)
+    processed_job_doc_ids: list[str] = []
 
     if not settings.information_tracer_api_key:
         results["errors"].append("INFORMATION_TRACER_API_KEY is not configured")
@@ -1602,6 +1699,10 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
             # Get retry_count from job document (if it exists, indicates a retry)
             current_retry_count = job.get("retry_count", 0)
 
+            # Track this job for optional log file references
+            if job_doc_id:
+                processed_job_doc_ids.append(job_doc_id)
+
             if not job_id or not job_doc_id:
                 error_msg = f"Job missing required fields: job_id={job_id}, job_doc_id={job_doc_id}"
                 results["errors"].append(error_msg)
@@ -1662,15 +1763,15 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
 
                         update_job_status(job_doc_id, final_status)
 
-                        # Log to error logs for quota_exceeded
-                        if final_status == "quota_exceeded":
+                        # Log to error logs for both quota_exceeded and failed
+                        if final_status in ("quota_exceeded", "failed"):
                             add_error_entry(
                                 job_id=job_id,
                                 post_id=post_id,
                                 platform=platform,
                                 country=country,
                                 candidate_id=candidate_id,
-                                error_type="quota_exceeded",
+                                error_type=final_status,
                                 error_message=error_msg,
                                 job_doc_id=job_doc_id,
                             )
@@ -1825,8 +1926,8 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
 
                     update_job_status(job_doc_id, final_status)
 
-                    # Log to error logs for quota_exceeded
-                    if final_status == "quota_exceeded":
+                    # Log to error logs for both quota_exceeded and failed
+                    if final_status in ("quota_exceeded", "failed"):
                         add_error_entry(
                             job_id=job_id,
                             post_id=post_id,
@@ -1887,6 +1988,20 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                 # Update job status
                 try:
                     update_job_status(job_doc_id, final_status)
+
+                    # Log to error logs for both quota_exceeded and failed
+                    if final_status in ("quota_exceeded", "failed"):
+                        add_error_entry(
+                            job_id=job_id,
+                            post_id=post_id,
+                            platform=platform,
+                            country=country,
+                            candidate_id=candidate_id,
+                            error_type=final_status,
+                            error_message=error_msg,
+                            job_doc_id=job_doc_id,
+                        )
+
                     # Update post status back to noreplies to allow retry
                     # (but only if there's no other pending/processing job for this post)
                     if post_doc_id:
@@ -1912,6 +2027,14 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
         )
         if error_file_uri:
             results["error_log_file"] = error_file_uri
+
+        # Update processed jobs with log file references (optional feature)
+        if processed_job_doc_ids:
+            update_jobs_with_log_files(
+                job_doc_ids=processed_job_doc_ids,
+                execution_log_file=log_file_uri,
+                error_log_file=error_file_uri,
+            )
 
     return results
 

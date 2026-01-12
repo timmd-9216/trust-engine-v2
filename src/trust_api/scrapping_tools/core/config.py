@@ -23,5 +23,15 @@ class Settings(BaseSettings):
     # GCS configuration
     gcs_bucket_name: str = os.getenv("GCS_BUCKET_NAME", "")
 
+    # Job logging configuration
+    # If True, jobs will be updated with references to execution_log_file and error_log_file
+    # This increases Firestore write operations but improves traceability
+    # Default: False (disabled) to minimize Firestore writes
+    enable_job_log_references: bool = os.getenv("ENABLE_JOB_LOG_REFERENCES", "false").lower() in (
+        "true",
+        "1",
+        "yes",
+    )
+
 
 settings = Settings()

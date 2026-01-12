@@ -283,6 +283,75 @@ elif status == "failed":
 
 ---
 
-**Última actualización:** 2026-01-09  
-**Status:** Monitoreo implementado, detección mejorada, verificación proactiva en `/process-jobs`
+---
+
+## Comportamiento del Período Diario (`period_start`)
+
+### Observación: `period_start` puede no coincidir con la fecha actual
+
+**Problema observado (2026-01-12):**
+- La API devuelve `period_start: "2026-01-11"` cuando la fecha actual es 2026-01-12
+- `last_activity_at: "2026-01-11T08:30:05.182254+00:00"` indica que no ha habido actividad desde ayer
+
+### Reset del Período Diario
+
+**La quota se resetea a las 00:00 UTC (medianoche UTC).**
+
+Esto significa que:
+- El período diario comienza a las 00:00:00 UTC de cada día
+- El contador de `searches_used` se resetea a 0 a las 00:00 UTC
+- El `period_start` debería actualizarse a la nueva fecha a las 00:00 UTC
+
+### Por qué `period_start` puede seguir siendo de ayer
+
+**Causa principal: Sin actividad desde el último período**
+
+Si no ha habido actividad desde ayer, el `period_start` puede no actualizarse hasta que haya nueva actividad. Esto es un comportamiento común en APIs donde:
+
+1. El `period_start` se actualiza cuando:
+   - Se hace una nueva búsqueda (nueva actividad)
+   - O cuando el sistema procesa el cambio de día
+
+2. Si no hay actividad, el `period_start` puede seguir mostrando la fecha anterior hasta que:
+   - Se haga una nueva búsqueda
+   - El sistema procese internamente el cambio de día (puede haber un delay)
+
+**Ejemplo:**
+- Fecha actual: 2026-01-12 13:32 UTC
+- `period_start: "2026-01-11"` (de ayer)
+- `last_activity_at: "2026-01-11T08:30:05.182254+00:00"` (última actividad ayer)
+- **Interpretación:** No ha habido actividad desde ayer, por lo que el `period_start` aún muestra la fecha anterior. Se actualizará cuando haya nueva actividad.
+
+### Validación Implementada
+
+El script `check_api_quota.py` ahora valida si el `period_start` está desactualizado:
+
+- **Si `period_start` es > 1 día anterior:** Muestra advertencia
+- **Si `period_start` es 1 día anterior:** Muestra información (normal si no hay actividad hoy)
+- **Si `period_start` coincide con fecha actual:** No muestra advertencia
+
+### Recomendaciones
+
+1. **No preocuparse si `period_start` es de ayer:**
+   - Es normal si no ha habido actividad hoy
+   - El período se actualizará automáticamente cuando haya nueva actividad (nueva búsqueda)
+   - El reset ocurre a las 00:00 UTC, pero el `period_start` puede no actualizarse hasta que haya actividad
+
+2. **Monitorear `last_activity_at`:**
+   - Si `last_activity_at` es reciente (hoy) pero `period_start` es antiguo (ayer), podría indicar un problema
+   - Si ambos son antiguos, simplemente no ha habido actividad desde ayer
+   - **Normal:** `last_activity_at` de ayer + `period_start` de ayer = Sin actividad hoy
+
+3. **Verificar el contador de búsquedas:**
+   - El `searches_used` se resetea a 0 a las 00:00 UTC independientemente del `period_start`
+   - Si `searches_used` es bajo (ej: 170/400) y `period_start` es de ayer, probablemente el contador ya se reseteó pero el `period_start` no se actualizó hasta que haya actividad
+
+4. **Contactar Information Tracer si es crítico:**
+   - Si el `period_start` está desactualizado por más de 2 días y hay actividad reciente, podría ser un problema de la API
+   - En ese caso, contactar al soporte de Information Tracer
+
+---
+
+**Última actualización:** 2026-01-12  
+**Status:** Monitoreo implementado, detección mejorada, verificación proactiva en `/process-jobs`, validación de `period_start` agregada
 
