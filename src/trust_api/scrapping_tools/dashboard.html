@@ -190,8 +190,10 @@
         }
 
         .kpi-card.posts-noreplies { border-left-color: #f39c12; }
+        .kpi-card.posts-processing { border-left-color: #9b59b6; }
         .kpi-card.posts-done { border-left-color: #27ae60; }
         .kpi-card.posts-skipped { border-left-color: #95a5a6; }
+        .kpi-card.posts-finished { border-left-color: #3498db; }
         .kpi-card.jobs-pending { border-left-color: #3498db; }
         .kpi-card.jobs-processing { border-left-color: #9b59b6; }
         .kpi-card.jobs-done { border-left-color: #27ae60; }
@@ -348,8 +350,16 @@
                     <div class="kpi-label">Noreplies</div>
                     <div class="kpi-value">-</div>
                 </div>
+                <div class="kpi-card posts-processing loading">
+                    <div class="kpi-label">Processing</div>
+                    <div class="kpi-value">-</div>
+                </div>
                 <div class="kpi-card posts-done loading">
                     <div class="kpi-label">Done</div>
+                    <div class="kpi-value">-</div>
+                </div>
+                <div class="kpi-card posts-finished loading">
+                    <div class="kpi-label">Finished</div>
                     <div class="kpi-value">-</div>
                 </div>
                 <div class="kpi-card posts-skipped loading">
@@ -407,8 +417,16 @@
                         <div class="kpi-label">Noreplies</div>
                         <div class="kpi-value">-</div>
                     </div>
+                    <div class="kpi-card posts-processing loading">
+                        <div class="kpi-label">Processing</div>
+                        <div class="kpi-value">-</div>
+                    </div>
                     <div class="kpi-card posts-done loading">
                         <div class="kpi-label">Done</div>
+                        <div class="kpi-value">-</div>
+                    </div>
+                    <div class="kpi-card posts-finished loading">
+                        <div class="kpi-label">Finished</div>
                         <div class="kpi-value">-</div>
                     </div>
                     <div class="kpi-card posts-skipped loading">
@@ -454,8 +472,16 @@
                         <div class="kpi-label">Noreplies</div>
                         <div class="kpi-value">-</div>
                     </div>
+                    <div class="kpi-card posts-processing loading">
+                        <div class="kpi-label">Processing</div>
+                        <div class="kpi-value">-</div>
+                    </div>
                     <div class="kpi-card posts-done loading">
                         <div class="kpi-label">Done</div>
+                        <div class="kpi-value">-</div>
+                    </div>
+                    <div class="kpi-card posts-finished loading">
+                        <div class="kpi-label">Finished</div>
                         <div class="kpi-value">-</div>
                     </div>
                     <div class="kpi-card posts-skipped loading">
@@ -559,8 +585,16 @@
                             <div class="kpi-label">Noreplies</div>
                             <div class="kpi-value">-</div>
                         </div>
+                        <div class="kpi-card posts-processing loading">
+                            <div class="kpi-label">Processing</div>
+                            <div class="kpi-value">-</div>
+                        </div>
                         <div class="kpi-card posts-done loading">
                             <div class="kpi-label">Done</div>
+                            <div class="kpi-value">-</div>
+                        </div>
+                        <div class="kpi-card posts-finished loading">
+                            <div class="kpi-label">Finished</div>
                             <div class="kpi-value">-</div>
                         </div>
                         <div class="kpi-card posts-skipped loading">
@@ -790,7 +824,7 @@
 
     <script>
         const API_BASE = window.location.origin;
-        const POST_STATUSES = ['noreplies', 'done', 'skipped'];
+        const POST_STATUSES = ['noreplies', 'processing', 'done', 'skipped', 'finished'];
         const JOB_STATUSES = ['pending', 'processing', 'done', 'failed', 'empty_result', 'verified'];
         const PLATFORMS = ['twitter', 'instagram', 'youtube'];
         const COUNTRIES = ['honduras', 'venezuela', 'chile', 'bolivia', 'argentina'];

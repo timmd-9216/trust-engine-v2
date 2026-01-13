@@ -6,13 +6,12 @@ Starter utilities for loading YouTube keywordpost parquet data from GCS.
 from __future__ import annotations
 
 import argparse
+import unicodedata
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Optional
 
 import pandas as pd
-import re
-import unicodedata
 
 try:
     import yaml  # type: ignore
@@ -28,10 +27,8 @@ def _normalize_prefix(prefix: str) -> str:
 
 def _strip_accents(s: str) -> str:
     """Remove diacritics (accents) from a string."""
-    return "".join(
-        ch for ch in unicodedata.normalize("NFKD", s)
-        if not unicodedata.combining(ch)
-    )
+    return "".join(ch for ch in unicodedata.normalize("NFKD", s) if not unicodedata.combining(ch))
+
 
 def _norm_text(s: Any) -> str:
     """Normalize text for robust 'exact substring' matching (case-insensitive, accent-insensitive)."""
@@ -40,6 +37,7 @@ def _norm_text(s: Any) -> str:
     txt = str(s)
     txt = _strip_accents(txt)
     return txt.casefold()
+
 
 def _has_any_variation(title: Any, desc: Any, variations: list[str]) -> bool:
     """Return True if any variation appears in title or description (after normalization)."""
@@ -258,19 +256,6 @@ def main() -> None:
 
     print(f"Loaded {len(df):,} rows from target parquet in gs://{args.bucket}/{args.prefix}")
 
-    cols = [
-        "id",
-        "url",
-        "channel_id",
-        "channel_title",
-        "candidate_id",
-        "candidate_name",
-        "title",
-        "description",
-        "tags",
-        "view_count",
-    ]
-
     # --- Non-relevant videos report ---
     # Rows where title+description do NOT contain any of the candidate's name_variations.
 
@@ -281,7 +266,14 @@ def main() -> None:
     df_nonrel = df.copy()
 
     # Ensure required columns exist
-    for c in ["title", "description", "url", "candidate_id", "candidate_name", "candidate_name_variations"]:
+    for c in [
+        "title",
+        "description",
+        "url",
+        "candidate_id",
+        "candidate_name",
+        "candidate_name_variations",
+    ]:
         if c not in df_nonrel.columns:
             df_nonrel[c] = pd.NA
 
@@ -304,7 +296,9 @@ def main() -> None:
     )
 
     # Mark relevant videos with few views
-    df_nonrel["_views"] = pd.to_numeric(df_nonrel.get("view_count"), errors="coerce").fillna(0).astype(int)
+    df_nonrel["_views"] = (
+        pd.to_numeric(df_nonrel.get("view_count"), errors="coerce").fillna(0).astype(int)
+    )
     df_nonrel["_is_relevant_few_views"] = mask_has_name & (df_nonrel["_views"] < VIEWS_THRESHOLD)
     df_nonrel["_is_relevant_strong"] = mask_has_name & (df_nonrel["_views"] >= VIEWS_THRESHOLD)
 
@@ -350,7 +344,9 @@ def main() -> None:
 
     summary = grp.apply(_count_block).reset_index()
     summary["relevant_pct"] = summary.apply(
-        lambda r: (r["relevant_videos_count"] / r["video_ids_count"]) if r["video_ids_count"] else 0.0,
+        lambda r: (r["relevant_videos_count"] / r["video_ids_count"])
+        if r["video_ids_count"]
+        else 0.0,
         axis=1,
     )
 
@@ -387,7 +383,9 @@ def main() -> None:
 
     out_nonrel = f"./out/yt_keywordpost_{args.country}_non_relevant.csv"
     df_nonrel.to_csv(out_nonrel, index=False)
-    print(f"\nExported NON-RELEVANT report (no name_variations match in title/description): {out_nonrel}")
+    print(
+        f"\nExported NON-RELEVANT report (no name_variations match in title/description): {out_nonrel}"
+    )
     print(f"Non-relevant rows: {len(df_nonrel):,} (of {len(df):,})")
 
 

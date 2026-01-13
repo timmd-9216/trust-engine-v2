@@ -1870,9 +1870,10 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                         results["empty_results"] += 1
                         update_job_status(job_doc_id, "empty_result")
 
-                        # Do NOT update post status to noreplies - empty_result jobs should be retried manually
-                        # via /empty-result-jobs/retry endpoint if needed, not automatically
-                        # This prevents automatic reprocessing and quota waste
+                        # Update post status to 'done' when job finishes with empty_result
+                        # This marks the post as completed, even if no replies were found
+                        if post_doc_id:
+                            update_post_status(post_doc_id, "done")
 
                         # Track empty result job (for reporting, not as error)
                         results["empty_result_jobs"].append(
