@@ -413,6 +413,32 @@ FROM `trust-481601.trust_analytics.replies`
 WHERE platform = 'twitter'
 GROUP BY lang
 ORDER BY count DESC;
+
+-- Una reply por parent_post_id (la más reciente)
+-- ⚠️ Nota: No puedes usar SELECT * con GROUP BY directamente
+-- Usa ROW_NUMBER() para obtener una fila por grupo
+SELECT * 
+FROM (
+  SELECT *,
+    ROW_NUMBER() OVER (PARTITION BY parent_post_id ORDER BY ingestion_date DESC) as rn
+  FROM `trust-481601.trust_analytics.replies`
+  WHERE platform = "twitter"
+)
+WHERE rn = 1
+ORDER BY ingestion_date;
+
+-- Alternativa: Datos agregados por parent_post_id
+SELECT 
+  parent_post_id,
+  COUNT(*) as reply_count,
+  MAX(ingestion_date) as latest_ingestion_date,
+  MIN(ingestion_date) as earliest_ingestion_date,
+  COUNT(DISTINCT user_screen_name) as unique_users,
+  SUM(COALESCE(favorite_count, 0)) as total_favorites
+FROM `trust-481601.trust_analytics.replies`
+WHERE platform = "twitter"
+GROUP BY parent_post_id
+ORDER BY latest_ingestion_date;
 ```
 
 ## Vistas Predefinidas
@@ -425,6 +451,58 @@ El Terraform crea estas vistas automáticamente:
 | `instagram_replies` | Solo replies de Instagram |
 | `daily_engagement` | Métricas diarias por candidato |
 | `candidate_summary` | Resumen total por candidato |
+
+## Errores Comunes en Queries SQL
+
+### Error: SELECT * con GROUP BY
+
+**Problema**: No puedes usar `SELECT *` cuando usas `GROUP BY` porque SQL requiere que todas las columnas seleccionadas estén en el GROUP BY o sean funciones de agregación.
+
+**Query incorrecta**:
+```sql
+-- ❌ Esto falla
+SELECT * 
+FROM `trust-481601.trust_analytics.replies`
+WHERE platform = "twitter"
+GROUP BY parent_post_id
+ORDER BY ingestion_date;
+```
+
+**Solución 1: Usar ROW_NUMBER() para obtener una fila por grupo**
+```sql
+-- ✅ Obtener la reply más reciente por parent_post_id
+SELECT * 
+FROM (
+  SELECT *,
+    ROW_NUMBER() OVER (PARTITION BY parent_post_id ORDER BY ingestion_date DESC) as rn
+  FROM `trust-481601.trust_analytics.replies`
+  WHERE platform = "twitter"
+)
+WHERE rn = 1
+ORDER BY ingestion_date;
+```
+
+**Solución 2: Usar funciones de agregación**
+```sql
+-- ✅ Obtener métricas agregadas por parent_post_id
+SELECT 
+  parent_post_id,
+  COUNT(*) as reply_count,
+  MAX(ingestion_date) as latest_ingestion_date
+FROM `trust-481601.trust_analytics.replies`
+WHERE platform = "twitter"
+GROUP BY parent_post_id
+ORDER BY latest_ingestion_date;
+```
+
+**Solución 3: Si no necesitas agrupar, quita el GROUP BY**
+```sql
+-- ✅ Obtener todas las replies ordenadas
+SELECT * 
+FROM `trust-481601.trust_analytics.replies`
+WHERE platform = "twitter"
+ORDER BY ingestion_date;
+```
 
 ## Costos
 

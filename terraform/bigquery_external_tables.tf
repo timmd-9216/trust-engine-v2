@@ -305,6 +305,11 @@ output "posts_table" {
   description = "Full reference to the posts consolidated external table"
 }
 
+output "ownpost_table" {
+  value       = "${var.project_id}.${var.bigquery_dataset}.${google_bigquery_table.ownpost.table_id}"
+  description = "Full reference to the ownpost external table"
+}
+
 # External table for YouTube keyword posts (videos)
 resource "google_bigquery_table" "keywordpost" {
   dataset_id = google_bigquery_dataset.analytics.dataset_id
@@ -395,6 +400,51 @@ resource "google_bigquery_table" "keywordpost_replies" {
   deletion_protection = false
 }
 
+# External table for ownposts (posts propios de candidatos)
+resource "google_bigquery_table" "ownpost" {
+  dataset_id = google_bigquery_dataset.analytics.dataset_id
+  project    = var.project_id
+  table_id   = "ownpost"
+
+  description = "External table for ownposts (posts propios de candidatos) stored as Parquet in GCS"
+
+  external_data_configuration {
+    autodetect    = false
+    source_format = "PARQUET"
+    source_uris   = ["gs://${var.gcs_bucket}/stg/ownpost/*"]
+
+    # Schema matching the ownpost Parquet files
+    schema = jsonencode([
+      { name = "created_at", type = "TIMESTAMP", mode = "NULLABLE" },
+      { name = "replies_count", type = "INTEGER", mode = "NULLABLE" },
+      { name = "post_id", type = "STRING", mode = "NULLABLE" },
+      { name = "file_datetime", type = "TIMESTAMP", mode = "NULLABLE" },
+      { name = "platform", type = "STRING", mode = "NULLABLE" },
+      { name = "posttype", type = "STRING", mode = "NULLABLE" },
+      { name = "country", type = "STRING", mode = "NULLABLE" },
+      { name = "candidate_id", type = "STRING", mode = "NULLABLE" },
+      { name = "reply_to", type = "STRING", mode = "NULLABLE" },
+      { name = "query_error", type = "BOOLEAN", mode = "NULLABLE" },
+      { name = "replies_count_capped", type = "INTEGER", mode = "NULLABLE" },
+    ])
+
+    # Hive partitioning: partition by platform
+    # Structure: stg/ownpost/platform={platform}/
+    hive_partitioning_options {
+      mode                     = "AUTO"
+      source_uri_prefix        = "gs://${var.gcs_bucket}/stg/ownpost/"
+      require_partition_filter = false
+    }
+  }
+
+  labels = {
+    data_source = "information_tracer"
+    layer       = "staging"
+  }
+
+  deletion_protection = false
+}
+
 output "example_queries" {
   value = <<-EOT
     
@@ -424,6 +474,25 @@ output "example_queries" {
     WHERE country = 'honduras'
     ORDER BY published_at DESC
     LIMIT 100;
+    
+    -- Query ownposts (posts propios de candidatos)
+    SELECT * FROM `${var.project_id}.${var.bigquery_dataset}.ownpost`
+    WHERE platform = 'twitter'
+    ORDER BY created_at DESC
+    LIMIT 100;
+    
+    -- Query ownposts by country and platform
+    SELECT 
+      country,
+      platform,
+      candidate_id,
+      COUNT(*) as total_posts,
+      SUM(replies_count) as total_replies,
+      AVG(replies_count) as avg_replies_per_post
+    FROM `${var.project_id}.${var.bigquery_dataset}.ownpost`
+    WHERE country = 'honduras'
+    GROUP BY country, platform, candidate_id
+    ORDER BY country, platform, candidate_id;
     
     -- Query consolidated posts with real replies count
     SELECT 
