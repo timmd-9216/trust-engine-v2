@@ -310,6 +310,11 @@ output "ownpost_table" {
   description = "Full reference to the ownpost external table"
 }
 
+output "keywordpost_filtered_table" {
+  value       = "${var.project_id}.${var.bigquery_dataset}.${google_bigquery_table.keywordpost_filtered.table_id}"
+  description = "Full reference to the keywordpost_filtered external table"
+}
+
 # External table for YouTube keyword posts (videos)
 resource "google_bigquery_table" "keywordpost" {
   dataset_id = google_bigquery_dataset.analytics.dataset_id
@@ -409,32 +414,45 @@ resource "google_bigquery_table" "ownpost" {
   description = "External table for ownposts (posts propios de candidatos) stored as Parquet in GCS"
 
   external_data_configuration {
-    autodetect    = false
+    autodetect    = true
     source_format = "PARQUET"
     source_uris   = ["gs://${var.gcs_bucket}/stg/ownpost/*"]
 
-    # Schema matching the ownpost Parquet files
-    schema = jsonencode([
-      { name = "created_at", type = "TIMESTAMP", mode = "NULLABLE" },
-      { name = "replies_count", type = "INTEGER", mode = "NULLABLE" },
-      { name = "post_id", type = "STRING", mode = "NULLABLE" },
-      { name = "file_datetime", type = "TIMESTAMP", mode = "NULLABLE" },
-      { name = "platform", type = "STRING", mode = "NULLABLE" },
-      { name = "posttype", type = "STRING", mode = "NULLABLE" },
-      { name = "country", type = "STRING", mode = "NULLABLE" },
-      { name = "candidate_id", type = "STRING", mode = "NULLABLE" },
-      { name = "reply_to", type = "STRING", mode = "NULLABLE" },
-      { name = "query_error", type = "BOOLEAN", mode = "NULLABLE" },
-      { name = "replies_count_capped", type = "INTEGER", mode = "NULLABLE" },
-    ])
+    # Using autodetect=true to automatically detect schema from Parquet files
+    # The Parquet files contain Twitter/Instagram post data with fields like:
+    # id_str, reply_count, favorite_count, full_text, created_at, etc.
+    # Plus metadata fields: posttype, country, candidate_id, error_*
 
-    # Hive partitioning: partition by platform
-    # Structure: stg/ownpost/platform={platform}/
-    hive_partitioning_options {
-      mode                     = "AUTO"
-      source_uri_prefix        = "gs://${var.gcs_bucket}/stg/ownpost/"
-      require_partition_filter = false
-    }
+    # Note: Files are organized as stg/ownpost/{platform}/*.parquet
+    # (not in Hive partition format: platform={platform}/)
+    # So we don't use hive_partitioning_options
+    # The platform field is available in the data itself for filtering
+  }
+
+  labels = {
+    data_source = "information_tracer"
+    layer       = "staging"
+  }
+
+  deletion_protection = false
+}
+
+# External table for filtered YouTube keyword posts (videos)
+resource "google_bigquery_table" "keywordpost_filtered" {
+  dataset_id = google_bigquery_dataset.analytics.dataset_id
+  project    = var.project_id
+  table_id   = "keywordpost_filtered"
+
+  description = "External table for filtered YouTube keyword posts (videos) stored as Parquet in GCS"
+
+  external_data_configuration {
+    autodetect    = true
+    source_format = "PARQUET"
+    source_uris   = ["gs://${var.gcs_bucket}/stg/keywordpost_filtered/youtube/*"]
+
+    # Using autodetect=true to automatically detect schema from Parquet files
+    # The Parquet files contain YouTube video data with fields similar to keywordpost
+    # but filtered/processed
   }
 
   labels = {
@@ -471,6 +489,12 @@ output "example_queries" {
     
     -- Query keyword post replies (comments)
     SELECT * FROM `${var.project_id}.${var.bigquery_dataset}.keywordpost_replies`
+    WHERE country = 'honduras'
+    ORDER BY published_at DESC
+    LIMIT 100;
+    
+    -- Query filtered keyword posts (videos)
+    SELECT * FROM `${var.project_id}.${var.bigquery_dataset}.keywordpost_filtered`
     WHERE country = 'honduras'
     ORDER BY published_at DESC
     LIMIT 100;
