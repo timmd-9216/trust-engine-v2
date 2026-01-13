@@ -344,57 +344,68 @@
         <div class="section">
                     <div class="section-title">📊 Vista General</div>
             
-            <div class="section-subtitle">Posts</div>
+            <div class="section-subtitle">Posts (Totales)</div>
             <div class="kpi-grid" id="posts-general-grid">
                 <div class="kpi-card posts-noreplies loading">
                     <div class="kpi-label">Noreplies</div>
                     <div class="kpi-value">-</div>
+                    <div class="kpi-today" style="font-size: 0.8em; color: #666; margin-top: 4px;">Hoy: -</div>
                 </div>
                 <div class="kpi-card posts-processing loading">
                     <div class="kpi-label">Processing</div>
                     <div class="kpi-value">-</div>
+                    <div class="kpi-today" style="font-size: 0.8em; color: #666; margin-top: 4px;">Hoy: -</div>
                 </div>
                 <div class="kpi-card posts-done loading">
                     <div class="kpi-label">Done</div>
                     <div class="kpi-value">-</div>
+                    <div class="kpi-today" style="font-size: 0.8em; color: #666; margin-top: 4px;">Hoy: -</div>
                 </div>
                 <div class="kpi-card posts-finished loading">
                     <div class="kpi-label">Finished</div>
                     <div class="kpi-value">-</div>
+                    <div class="kpi-today" style="font-size: 0.8em; color: #666; margin-top: 4px;">Hoy: -</div>
                 </div>
                 <div class="kpi-card posts-skipped loading">
                     <div class="kpi-label">Skipped</div>
                     <div class="kpi-value">-</div>
+                    <div class="kpi-today" style="font-size: 0.8em; color: #666; margin-top: 4px;">Hoy: -</div>
                 </div>
             </div>
 
-            <div class="section-subtitle">Jobs</div>
+            <div class="section-subtitle">Jobs (Totales)</div>
             <div class="kpi-grid" id="jobs-general-grid">
                 <div class="kpi-card jobs-pending loading">
                     <div class="kpi-label">Pending</div>
                     <div class="kpi-value">-</div>
+                    <div class="kpi-today" style="font-size: 0.8em; color: #666; margin-top: 4px;">Hoy: -</div>
                 </div>
                 <div class="kpi-card jobs-processing loading">
                     <div class="kpi-label">Processing</div>
                     <div class="kpi-value">-</div>
+                    <div class="kpi-today" style="font-size: 0.8em; color: #666; margin-top: 4px;">Hoy: -</div>
                 </div>
                 <div class="kpi-card jobs-done loading">
                     <div class="kpi-label">Done</div>
                     <div class="kpi-value">-</div>
+                    <div class="kpi-today" style="font-size: 0.8em; color: #666; margin-top: 4px;">Hoy: -</div>
                 </div>
                 <div class="kpi-card jobs-failed loading">
                     <div class="kpi-label">Failed</div>
                     <div class="kpi-value">-</div>
+                    <div class="kpi-today" style="font-size: 0.8em; color: #666; margin-top: 4px;">Hoy: -</div>
                 </div>
                 <div class="kpi-card jobs-empty-result loading">
                     <div class="kpi-label">Empty Result</div>
                     <div class="kpi-value">-</div>
+                    <div class="kpi-today" style="font-size: 0.8em; color: #666; margin-top: 4px;">Hoy: -</div>
                 </div>
                 <div class="kpi-card jobs-verified loading">
                     <div class="kpi-label">Verified</div>
                     <div class="kpi-value">-</div>
-                        </div>
+                    <div class="kpi-today" style="font-size: 0.8em; color: #666; margin-top: 4px;">Hoy: -</div>
                 </div>
+            </div>
             </div>
         </div>
 
@@ -909,7 +920,7 @@
             return num.toLocaleString('es-ES');
         }
 
-        function updateKpiCard(containerId, status, value, isError = false) {
+        function updateKpiCard(containerId, status, value, isError = false, todayValue = null) {
             const container = document.getElementById(containerId);
             if (!container) return;
             
@@ -920,6 +931,13 @@
                     const valueEl = card.querySelector('.kpi-value');
                     if (valueEl) {
                         valueEl.textContent = isError ? 'Error' : formatNumber(value);
+                    }
+                    // Update today value if provided
+                    if (todayValue !== null) {
+                        const todayEl = card.querySelector('.kpi-today');
+                        if (todayEl) {
+                            todayEl.textContent = `Hoy: ${formatNumber(todayValue)}`;
+                        }
                     }
                     card.classList.remove('loading');
                     if (isError) {
@@ -1053,7 +1071,8 @@
             for (const status of POST_STATUSES) {
                     try {
                         const count = await fetchCount('/posts/count', { status });
-                        updateKpiCard('posts-general-grid', status, count, false);
+                        const todayCount = await fetchCount('/posts/count', { status, updated_today: true });
+                        updateKpiCard('posts-general-grid', status, count, false, todayCount);
                     } catch (error) {
                         updateKpiCard('posts-general-grid', status, null, true);
                     }
@@ -1062,7 +1081,8 @@
             for (const status of JOB_STATUSES) {
                     try {
                         const count = await fetchCount('/jobs/count', { status });
-                        updateKpiCard('jobs-general-grid', status, count, false);
+                        const todayCount = await fetchCount('/jobs/count', { status, updated_today: true });
+                        updateKpiCard('jobs-general-grid', status, count, false, todayCount);
                     } catch (error) {
                         updateKpiCard('jobs-general-grid', status, null, true);
                     }

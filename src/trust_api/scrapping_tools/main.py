@@ -1,7 +1,8 @@
 from pathlib import Path
 from typing import Literal
 
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException
+from fastapi import status as http_status
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
@@ -90,13 +91,17 @@ class EmptyResultJobsResponse(BaseModel):
 class JobsCountResponse(BaseModel):
     count: int
     status: str  # Job status that was counted
-    filters: dict[str, str | None]  # Applied filters (candidate_id, platform, country)
+    filters: dict[
+        str, str | bool | None
+    ]  # Applied filters (candidate_id, platform, country, updated_today)
 
 
 class PostsCountResponse(BaseModel):
     count: int
     status: str  # Post status that was counted
-    filters: dict[str, str | None]  # Applied filters (candidate_id, platform, country)
+    filters: dict[
+        str, str | bool | None
+    ]  # Applied filters (candidate_id, platform, country, updated_today)
 
 
 class RetryEmptyResultJobsResponse(BaseModel):
@@ -153,7 +158,7 @@ async def dashboard():
     dashboard_path = Path(__file__).parent / "dashboard.html"
     if not dashboard_path.exists():
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Dashboard HTML file not found",
         )
     with open(dashboard_path, "r", encoding="utf-8") as f:
@@ -184,17 +189,17 @@ async def get_post_information(request: PostInformationRequest):
         return PostInformationResponse(post_id=request.post_id, data=data)
     except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=http_status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid request: {str(e)}",
         )
     except RuntimeError as e:
         raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
+            status_code=http_status.HTTP_502_BAD_GATEWAY,
             detail=f"Information Tracer service error: {str(e)}",
         )
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error fetching post information: {str(e)}",
         )
 
@@ -234,7 +239,7 @@ async def process_posts_endpoint(
         return ProcessPostsResponse(**results)
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error processing posts: {str(e)}",
         )
 
@@ -266,7 +271,7 @@ async def get_pending_jobs_endpoint(max_jobs: int | None = None):
         return PendingJobsResponse(total=len(jobs_clean), jobs=jobs_clean)
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error querying pending jobs: {str(e)}",
         )
 
@@ -316,7 +321,7 @@ async def process_jobs_endpoint(max_jobs: int | None = None):
         return ProcessJobsResponse(**results)
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error processing jobs: {str(e)}",
         )
 
@@ -347,7 +352,7 @@ async def fix_jobs_endpoint(max_jobs: int | None = None):
         return FixJobsResponse(**results)
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error fixing jobs: {str(e)}",
         )
 
@@ -391,7 +396,7 @@ async def count_empty_result_jobs_endpoint(
         )
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error counting empty result jobs: {str(e)}",
         )
 
@@ -402,6 +407,7 @@ async def count_jobs_by_status_endpoint(
     candidate_id: str | None = None,
     platform: str | None = None,
     country: str | None = None,
+    updated_today: bool = False,
 ):
     """
     Count jobs with a specific status in Firestore.
@@ -414,6 +420,7 @@ async def count_jobs_by_status_endpoint(
         candidate_id: Optional candidate_id to filter jobs
         platform: Optional platform to filter jobs (e.g., 'twitter', 'instagram')
         country: Optional country to filter jobs
+        updated_today: If True, only count jobs updated today (default: False)
 
     Returns:
         JobsCountResponse with count, status, and applied filters.
@@ -433,6 +440,9 @@ async def count_jobs_by_status_endpoint(
 
         # Count done jobs
         GET /jobs/count?status=done
+
+        # Count jobs updated today
+        GET /jobs/count?status=done&updated_today=true
     """
     try:
         count = count_jobs_by_status(
@@ -440,6 +450,7 @@ async def count_jobs_by_status_endpoint(
             candidate_id=candidate_id,
             platform=platform,
             country=country,
+            updated_today=updated_today,
         )
         return JobsCountResponse(
             count=count,
@@ -448,13 +459,14 @@ async def count_jobs_by_status_endpoint(
                 "candidate_id": candidate_id,
                 "platform": platform,
                 "country": country,
+                "updated_today": updated_today,
             },
         )
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error counting jobs by status: {str(e)}",
-        )
+        ) from None
 
 
 @app.get("/api/quota", response_model=QuotaResponse)
@@ -599,6 +611,7 @@ async def count_posts_by_status_endpoint(
     candidate_id: str | None = None,
     platform: str | None = None,
     country: str | None = None,
+    updated_today: bool = False,
 ):
     """
     Count posts with a specific status in Firestore.
@@ -616,6 +629,7 @@ async def count_posts_by_status_endpoint(
         candidate_id: Optional candidate_id to filter posts
         platform: Optional platform to filter posts (e.g., 'twitter', 'instagram')
         country: Optional country to filter posts
+        updated_today: If True, only count posts updated today (default: False)
 
     Returns:
         PostsCountResponse with count, status, and applied filters.
@@ -638,6 +652,9 @@ async def count_posts_by_status_endpoint(
 
         # Count with multiple filters
         GET /posts/count?status=noreplies&candidate_id=hnd09sosa&platform=twitter&country=honduras
+
+        # Count posts updated today
+        GET /posts/count?status=done&updated_today=true
     """
     try:
         count = count_posts_by_status(
@@ -645,6 +662,7 @@ async def count_posts_by_status_endpoint(
             candidate_id=candidate_id,
             platform=platform,
             country=country,
+            updated_today=updated_today,
         )
         return PostsCountResponse(
             count=count,
@@ -653,11 +671,12 @@ async def count_posts_by_status_endpoint(
                 "candidate_id": candidate_id,
                 "platform": platform,
                 "country": country,
+                "updated_today": updated_today,
             },
         )
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error counting posts by status: {str(e)}",
         )
 
@@ -725,7 +744,7 @@ async def retry_empty_result_jobs_endpoint(
         return RetryEmptyResultJobsResponse(**results)
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error retrying empty result jobs: {str(e)}",
         )
 
@@ -814,6 +833,6 @@ async def json_to_parquet_endpoint(
         return JsonToParquetResponse(**results)
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error converting JSON to Parquet: {str(e)}",
         )

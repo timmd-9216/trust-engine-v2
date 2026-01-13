@@ -913,6 +913,7 @@ def count_jobs_by_status(
     candidate_id: str | None = None,
     platform: str | None = None,
     country: str | None = None,
+    updated_today: bool = False,
 ) -> int:
     """
     Count jobs with a specific status in Firestore.
@@ -922,6 +923,7 @@ def count_jobs_by_status(
         candidate_id: Optional candidate_id to filter jobs
         platform: Optional platform to filter jobs (e.g., 'twitter', 'instagram')
         country: Optional country to filter jobs
+        updated_today: If True, only count jobs updated today (based on updated_at field)
 
     Returns:
         Total count of jobs with the specified status matching the filters
@@ -938,9 +940,29 @@ def count_jobs_by_status(
         query = query.where("country", "==", country.lower())
 
     # Count documents (Firestore doesn't have a direct count, so we iterate)
+    # Note: For updated_today queries, we'll filter in Python to avoid index requirements
     count = 0
-    for _ in query.stream():
-        count += 1
+    if updated_today:
+        now = datetime.now(timezone.utc)
+        start_of_day = datetime(now.year, now.month, now.day, 0, 0, 0, tzinfo=timezone.utc)
+        end_of_day = datetime(now.year, now.month, now.day, 23, 59, 59, 999999, tzinfo=timezone.utc)
+        # Filter in Python to avoid composite index requirement
+        for doc in query.stream():
+            doc_data = doc.to_dict()
+            updated_at = doc_data.get("updated_at")
+            if updated_at:
+                if hasattr(updated_at, "timestamp"):
+                    updated_dt = updated_at
+                elif isinstance(updated_at, datetime):
+                    updated_dt = updated_at
+                else:
+                    continue
+
+                if start_of_day <= updated_dt <= end_of_day:
+                    count += 1
+    else:
+        for _ in query.stream():
+            count += 1
 
     return count
 
@@ -976,6 +998,7 @@ def count_posts_by_status(
     candidate_id: str | None = None,
     platform: str | None = None,
     country: str | None = None,
+    updated_today: bool = False,
 ) -> int:
     """
     Count posts with a specific status in Firestore.
@@ -985,6 +1008,7 @@ def count_posts_by_status(
         candidate_id: Optional candidate_id to filter posts
         platform: Optional platform to filter posts (e.g., 'twitter', 'instagram')
         country: Optional country to filter posts
+        updated_today: If True, only count posts updated today (based on updated_at field)
 
     Returns:
         Total count of posts with the specified status matching the filters
@@ -1001,9 +1025,29 @@ def count_posts_by_status(
         query = query.where("country", "==", country.lower())
 
     # Count documents (Firestore doesn't have a direct count, so we iterate)
+    # Note: For updated_today queries, we'll filter in Python to avoid index requirements
     count = 0
-    for _ in query.stream():
-        count += 1
+    if updated_today:
+        now = datetime.now(timezone.utc)
+        start_of_day = datetime(now.year, now.month, now.day, 0, 0, 0, tzinfo=timezone.utc)
+        end_of_day = datetime(now.year, now.month, now.day, 23, 59, 59, 999999, tzinfo=timezone.utc)
+        # Filter in Python to avoid composite index requirement
+        for doc in query.stream():
+            doc_data = doc.to_dict()
+            updated_at = doc_data.get("updated_at")
+            if updated_at:
+                if hasattr(updated_at, "timestamp"):
+                    updated_dt = updated_at
+                elif isinstance(updated_at, datetime):
+                    updated_dt = updated_at
+                else:
+                    continue
+
+                if start_of_day <= updated_dt <= end_of_day:
+                    count += 1
+    else:
+        for _ in query.stream():
+            count += 1
 
     return count
 
