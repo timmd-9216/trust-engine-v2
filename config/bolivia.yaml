@@ -3,243 +3,307 @@ election_date: '2025-08-17'
 start_date: '2025-07-30'
 end_date: '2025-08-22'
 candidates:
-- candidate_id: bol01prie
-  name: Amanda Prieto Quiroga
-  keywords:
-  - Amanda Prieto Quiroga
-  youtube_profile_url: null
-  instagram_profile_url: https://www.instagram.com/amandaprietoquiroga?igsh=MTJjMnRnY2t5ZGc1dA==
-  twitter_profile_url: https://x.com/amandapriqui?s=21
-  twitter_username: amandapriqui
-  instagram_username: amandaprietoquiroga
-  youtube_username: null
-  youtube_channel_id: null
-  youtube_uploads_playlist_id: null
-- candidate_id: bol02chav
-  name: Ericka Chavez Aguilera
-  keywords:
-  - Ericka Chavez Aguilera
-  youtube_profile_url: null
-  instagram_profile_url: 'https://www.instagram.com/erickachavezdipc45?igsh=MThkamo3M2hrOTVkdg== '
-  twitter_profile_url: 'https://x.com/erickachavezscz?s=21 '
-  twitter_username: erickachavezscz
-  instagram_username: erickachavezdipc45
-  youtube_username: null
-  youtube_channel_id: null
-  youtube_uploads_playlist_id: null
-- candidate_id: bol03quir
-  name: Kathia Quiroga
-  keywords:
-  - Kathia Quiroga
-  youtube_profile_url: null
-  instagram_profile_url: https://www.instagram.com/quirogakathia?igsh=MXNjeDI4ZWYyaGY0aQ==
-  twitter_profile_url: https://x.com/kathiaquiroga?s=21
-  twitter_username: kathiaquiroga
-  instagram_username: quirogakathia
-  youtube_username: null
-  youtube_channel_id: null
-  youtube_uploads_playlist_id: null
-- candidate_id: bol04requ
-  name: Cecilia Requena Zarate
-  keywords:
-  - Cecilia Requena Zarate
-  youtube_profile_url: null
-  instagram_profile_url: 'https://www.instagram.com/asambleista.ceciliarequena/ '
-  twitter_profile_url: 'https://x.com/CeciRequena '
-  twitter_username: CeciRequena
-  instagram_username: asambleista.ceciliarequena
-  youtube_username: null
-  youtube_channel_id: null
-  youtube_uploads_playlist_id: null
-- candidate_id: bol05bald
-  name: Mariela Baldiviedo Castillo
-  keywords:
-  - Mariela Baldiviedo Castillo
-  youtube_profile_url: null
-  instagram_profile_url: https://www.instagram.com/diputadamarielabaldivieso/
-  twitter_profile_url: https://x.com/baldmariela?ref_src=twsrc%5Egoogle%7Ctwcamp%5Eserp%7Ctwgr%5Eauthor
-  twitter_username: baldmariela
-  instagram_username: diputadamarielabaldivieso
-  youtube_username: null
-  youtube_channel_id: null
-  youtube_uploads_playlist_id: null
-- candidate_id: bol06chap
-  name: Soledad Chapeton Tancara
-  keywords:
-  - Soledad Chapeton Tancara
-  youtube_profile_url: null
-  instagram_profile_url: 'https://www.instagram.com/sole.chapeton?igsh=aDkzamN5aTdvd3Bt '
-  twitter_profile_url: 'https://x.com/warmialcalde?s=21 '
-  twitter_username: warmialcalde
-  instagram_username: sole.chapeton
-  youtube_username: null
-  youtube_channel_id: null
-  youtube_uploads_playlist_id: null
-- candidate_id: bol07anez
-  name: Tatiana Añez Carrasco
-  keywords:
-  - Tatiana Añez Carrasco
-  youtube_profile_url: null
-  instagram_profile_url: https://www.instagram.com/tatianaanez_dip?igsh=MWFjdnpncjFidTRhZw==
-  twitter_profile_url: https://x.com/aeztatiana?s=21
-  twitter_username: aeztatiana
-  instagram_username: tatianaanez_dip
-  youtube_username: null
-  youtube_channel_id: null
-  youtube_uploads_playlist_id: null
-- candidate_id: bol08medr
-  name: Wanda Medrano Hervas
-  keywords:
-  - Wanda Medrano Hervas
-  youtube_profile_url: null
-  instagram_profile_url: https://www.instagram.com/wandamedrano.oficial?igsh=eW04eTgwaXIxOXF5
-  twitter_profile_url: null
-  twitter_username: null
-  instagram_username: wandamedrano.oficial
-  youtube_username: null
-  youtube_channel_id: null
-  youtube_uploads_playlist_id: null
-- candidate_id: bol09vill
-  name: Liliana Villena Romero
-  keywords:
-  - Liliana Villena Romero
-  youtube_profile_url: null
-  instagram_profile_url: https://www.instagram.com/lilianavillenadiputada?igsh=c2tkaHdwaGl3b3o3
-  twitter_profile_url: null
-  twitter_username: null
-  instagram_username: lilianavillenadiputada
-  youtube_username: null
-  youtube_channel_id: null
-  youtube_uploads_playlist_id: null
-- candidate_id: bol10rome
-  name: Rosalva Romero Gutiérrez
-  keywords:
-  - Rosalva Romero Gutiérrez
-  youtube_profile_url: null
-  instagram_profile_url: https://www.instagram.com/rosalvaromero3?igsh=MW9qcWd3MWJweXIwcg==
-  twitter_profile_url: null
-  twitter_username: null
-  instagram_username: rosalvaromero3
-  youtube_username: null
-  youtube_channel_id: null
-  youtube_uploads_playlist_id: null
-- candidate_id: bol11copa
-  name: Eva Copa Murga
-  keywords:
-  - Eva Copa Murga
-  youtube_profile_url: null
-  instagram_profile_url: https://www.instagram.com/evacopabo?igsh=YXk2OG5kazN4bnV0
-  twitter_profile_url: https://x.com/evacopa01?s=21
-  twitter_username: evacopa01
-  instagram_username: evacopabo
-  youtube_username: null
-  youtube_channel_id: null
-  youtube_uploads_playlist_id: null
-- candidate_id: bol12robl
-  name: Karla Robledo Guardia
-  keywords:
-  - Karla Robledo Guardia
-  youtube_profile_url: null
-  instagram_profile_url: https://www.instagram.com/karlarobledog?igsh=MWJvZDNmd2FydWt4Mw==
-  twitter_profile_url: https://x.com/karla_robledog?s=21
-  twitter_username: karla_robledog
-  instagram_username: karlarobledog
-  youtube_username: null
-  youtube_channel_id: null
-  youtube_uploads_playlist_id: null
-- candidate_id: bol13lero
-  name: Toribia Lero Quispe
-  keywords:
-  - Toribia Lero Quispe
-  youtube_profile_url: null
-  instagram_profile_url: https://www.instagram.com/toribia_lero_q?igsh=MXF3ajNzOHF3a2hpNA==
-  twitter_profile_url: https://x.com/lerotoribia?s=21
-  twitter_username: lerotoribia
-  instagram_username: toribia_lero_q
-  youtube_username: null
-  youtube_channel_id: null
-  youtube_uploads_playlist_id: null
-- candidate_id: bol14prad
-  name: Mariana Prado Noya
-  keywords:
-  - Mariana Prado Noya
-  youtube_profile_url: null
-  instagram_profile_url: https://www.instagram.com/marianapradonoya?igsh=MXRlcHZ2cmJ5Njg5bg==
-  twitter_profile_url: null
-  twitter_username: null
-  instagram_username: marianapradonoya
-  youtube_username: null
-  youtube_channel_id: null
-  youtube_uploads_playlist_id: null
-- candidate_id: bol15beja
-  name: Susana Bejarano Auad
-  keywords:
-  - Susana Bejarano Auad
-  youtube_profile_url: null
-  instagram_profile_url: https://www.instagram.com/susanabejarano__?igsh=MXAycWw0a3Foenl4Yw==
-  twitter_profile_url: https://x.com/susanabejarano?s=21
-  twitter_username: susanabejarano
-  instagram_username: susanabejarano__
-  youtube_username: null
-  youtube_channel_id: null
-  youtube_uploads_playlist_id: null
-- candidate_id: bol16paz
-  name: Rodrigo Paz
-  keywords:
-  - Rodrigo Paz
-  youtube_profile_url: null
-  instagram_profile_url: https://www.instagram.com/rodrigopazpereira?igsh=NWpnNmkwZzF5Y2Jl
-  twitter_profile_url: https://x.com/rodrigo_pazp?s=21
-  twitter_username: rodrigo_pazp
-  instagram_username: rodrigopazpereira
-  youtube_username: null
-  youtube_channel_id: null
-  youtube_uploads_playlist_id: null
-- candidate_id: bol17quir
-  name: Jorge Quiroga
-  keywords:
-  - Jorge Quiroga
-  youtube_profile_url: null
-  instagram_profile_url: https://www.instagram.com/tutoquiroga?igsh=Yml1ZTdwYjBraHVw
-  twitter_profile_url: https://x.com/tutoquiroga?s=21
-  twitter_username: tutoquiroga
-  instagram_username: tutoquiroga
-  youtube_username: null
-  youtube_channel_id: null
-  youtube_uploads_playlist_id: null
-- candidate_id: bol18rodr
-  name: Andrónico Rodríguez
-  keywords:
-  - Andrónico Rodríguez
-  youtube_profile_url: null
-  instagram_profile_url: https://www.instagram.com/andronico.rodriguez?igsh=ZHBwamZ3eHN4OTQ5
-  twitter_profile_url: https://x.com/andronicorod?s=21
-  twitter_username: andronicorod
-  instagram_username: andronico.rodriguez
-  youtube_username: null
-  youtube_channel_id: null
-  youtube_uploads_playlist_id: null
-- candidate_id: bol19dori
-  name: Samuel Doria Medina
-  keywords:
-  - Samuel Doria Medina
-  youtube_profile_url: null
-  instagram_profile_url: https://www.instagram.com/doriamedinasamuel?igsh=MTZwa3NyZHJudXA1aw==
-  twitter_profile_url: https://x.com/sdoriamedina?s=21
-  twitter_username: sdoriamedina
-  instagram_username: doriamedinasamuel
-  youtube_username: null
-  youtube_channel_id: null
-  youtube_uploads_playlist_id: null
-- candidate_id: bol20mari
-  name: Branko Marinkovic Jovicevic
-  keywords:
-  - Branko Marinkovic Jovicevic
-  youtube_profile_url: null
-  instagram_profile_url: https://www.instagram.com/brankoscz?igsh=MXNpYXJyMHg4Mmcybg==
-  twitter_profile_url: https://x.com/brankoscz?s=21
-  twitter_username: brankoscz
-  instagram_username: brankoscz
-  youtube_username: null
-  youtube_channel_id: null
-  youtube_uploads_playlist_id: null
+  - candidate_id: bol01prie
+    name: Amanda Prieto Quiroga
+    name_variations:
+      - Amanda Prieto
+    keywords:
+      - Amanda Prieto Quiroga
+    youtube_profile_url: null
+    instagram_profile_url: https://www.instagram.com/amandaprietoquiroga?igsh=MTJjMnRnY2t5ZGc1dA==
+    twitter_profile_url: https://x.com/amandapriqui?s=21
+    twitter_username: amandapriqui
+    instagram_username: amandaprietoquiroga
+    youtube_username: null
+    youtube_channel_id: null
+    youtube_uploads_playlist_id: null
+
+  - candidate_id: bol02chav
+    name: Ericka Chavez Aguilera
+    name_variations:
+      - Ericka Chavez
+    keywords:
+      - Ericka Chavez Aguilera
+    youtube_profile_url: null
+    instagram_profile_url: https://www.instagram.com/erickachavezdipc45?igsh=MThkamo3M2hrOTVkdg==
+    twitter_profile_url: https://x.com/erickachavezscz?s=21
+    twitter_username: erickachavezscz
+    instagram_username: erickachavezdipc45
+    youtube_username: null
+    youtube_channel_id: null
+    youtube_uploads_playlist_id: null
+
+  - candidate_id: bol03quir
+    name: Kathia Quiroga
+    name_variations:
+      - Kathia Quiroga
+    keywords:
+      - Kathia Quiroga
+    youtube_profile_url: null
+    instagram_profile_url: https://www.instagram.com/quirogakathia?igsh=MXNjeDI4ZWYyaGY0aQ==
+    twitter_profile_url: https://x.com/kathiaquiroga?s=21
+    twitter_username: kathiaquiroga
+    instagram_username: quirogakathia
+    youtube_username: null
+    youtube_channel_id: null
+    youtube_uploads_playlist_id: null
+
+  - candidate_id: bol04requ
+    name: Cecilia Requena Zarate
+    name_variations:
+      - Cecilia Requena
+      - Ceci Requena
+    keywords:
+      - Cecilia Requena Zarate
+    youtube_profile_url: null
+    instagram_profile_url: https://www.instagram.com/asambleista.ceciliarequena/
+    twitter_profile_url: https://x.com/CeciRequena
+    twitter_username: CeciRequena
+    instagram_username: asambleista.ceciliarequena
+    youtube_username: null
+    youtube_channel_id: null
+    youtube_uploads_playlist_id: null
+
+  - candidate_id: bol05bald
+    name: Mariela Baldiviedo Castillo
+    name_variations:
+      - Mariela Baldiviedo
+      - Mariela Baldivieso
+    keywords:
+      - Mariela Baldiviedo Castillo
+    youtube_profile_url: null
+    instagram_profile_url: https://www.instagram.com/diputadamarielabaldivieso/
+    twitter_profile_url: https://x.com/baldmariela?ref_src=twsrc%5Egoogle%7Ctwcamp%5Eserp%7Ctwgr%5Eauthor
+    twitter_username: baldmariela
+    instagram_username: diputadamarielabaldivieso
+    youtube_username: null
+    youtube_channel_id: null
+    youtube_uploads_playlist_id: null
+
+  - candidate_id: bol06chap
+    name: Soledad Chapeton Tancara
+    name_variations:
+      - Soledad Chapeton
+    keywords:
+      - Soledad Chapeton Tancara
+    youtube_profile_url: null
+    instagram_profile_url: https://www.instagram.com/sole.chapeton?igsh=aDkzamN5aTdvd3Bt
+    twitter_profile_url: https://x.com/warmialcalde?s=21
+    twitter_username: warmialcalde
+    instagram_username: sole.chapeton
+    youtube_username: null
+    youtube_channel_id: null
+    youtube_uploads_playlist_id: null
+
+  - candidate_id: bol07anez
+    name: Tatiana Añez Carrasco
+    name_variations:
+      - Tatiana Añez
+      - Tatiana Anez
+    keywords:
+      - Tatiana Añez Carrasco
+    youtube_profile_url: null
+    instagram_profile_url: https://www.instagram.com/tatianaanez_dip?igsh=MWFjdnpncjFidTRhZw==
+    twitter_profile_url: https://x.com/aeztatiana?s=21
+    twitter_username: aeztatiana
+    instagram_username: tatianaanez_dip
+    youtube_username: null
+    youtube_channel_id: null
+    youtube_uploads_playlist_id: null
+
+  - candidate_id: bol08medr
+    name: Wanda Medrano Hervas
+    name_variations:
+      - Wanda Medrano
+    keywords:
+      - Wanda Medrano Hervas
+    youtube_profile_url: null
+    instagram_profile_url: https://www.instagram.com/wandamedrano.oficial?igsh=eW04eTgwaXIxOXF5
+    twitter_profile_url: null
+    twitter_username: null
+    instagram_username: wandamedrano.oficial
+    youtube_username: null
+    youtube_channel_id: null
+    youtube_uploads_playlist_id: null
+
+  - candidate_id: bol09vill
+    name: Liliana Villena Romero
+    name_variations:
+      - Liliana Villena
+    keywords:
+      - Liliana Villena Romero
+    youtube_profile_url: null
+    instagram_profile_url: https://www.instagram.com/lilianavillenadiputada?igsh=c2tkaHdwaGl3b3o3
+    twitter_profile_url: null
+    twitter_username: null
+    instagram_username: lilianavillenadiputada
+    youtube_username: null
+    youtube_channel_id: null
+    youtube_uploads_playlist_id: null
+
+  - candidate_id: bol10rome
+    name: Rosalva Romero Gutiérrez
+    name_variations:
+      - Rosalva Romero
+    keywords:
+      - Rosalva Romero Gutiérrez
+    youtube_profile_url: null
+    instagram_profile_url: https://www.instagram.com/rosalvaromero3?igsh=MW9qcWd3MWJweXIwcg==
+    twitter_profile_url: null
+    twitter_username: null
+    instagram_username: rosalvaromero3
+    youtube_username: null
+    youtube_channel_id: null
+    youtube_uploads_playlist_id: null
+
+  - candidate_id: bol11copa
+    name: Eva Copa Murga
+    name_variations:
+      - Eva Copa
+    keywords:
+      - Eva Copa Murga
+    youtube_profile_url: null
+    instagram_profile_url: https://www.instagram.com/evacopabo?igsh=YXk2OG5kazN4bnV0
+    twitter_profile_url: https://x.com/evacopa01?s=21
+    twitter_username: evacopa01
+    instagram_username: evacopabo
+    youtube_username: null
+    youtube_channel_id: null
+    youtube_uploads_playlist_id: null
+
+  - candidate_id: bol12robl
+    name: Karla Robledo Guardia
+    name_variations:
+      - Karla Robledo
+    keywords:
+      - Karla Robledo Guardia
+    youtube_profile_url: null
+    instagram_profile_url: https://www.instagram.com/karlarobledog?igsh=MWJvZDNmd2FydWt4Mw==
+    twitter_profile_url: https://x.com/karla_robledog?s=21
+    twitter_username: karla_robledog
+    instagram_username: karlarobledog
+    youtube_username: null
+    youtube_channel_id: null
+    youtube_uploads_playlist_id: null
+
+  - candidate_id: bol13lero
+    name: Toribia Lero Quispe
+    name_variations:
+      - Toribia Lero
+    keywords:
+      - Toribia Lero Quispe
+    youtube_profile_url: null
+    instagram_profile_url: https://www.instagram.com/toribia_lero_q?igsh=MXF3ajNzOHF3a2hpNA==
+    twitter_profile_url: https://x.com/lerotoribia?s=21
+    twitter_username: lerotoribia
+    instagram_username: toribia_lero_q
+    youtube_username: null
+    youtube_channel_id: null
+    youtube_uploads_playlist_id: null
+
+  - candidate_id: bol14prad
+    name: Mariana Prado Noya
+    name_variations:
+      - Mariana Prado
+    keywords:
+      - Mariana Prado Noya
+    youtube_profile_url: null
+    instagram_profile_url: https://www.instagram.com/marianapradonoya?igsh=MXRlcHZ2cmJ5Njg5bg==
+    twitter_profile_url: null
+    twitter_username: null
+    instagram_username: marianapradonoya
+    youtube_username: null
+    youtube_channel_id: null
+    youtube_uploads_playlist_id: null
+
+  - candidate_id: bol15beja
+    name: Susana Bejarano Auad
+    name_variations:
+      - Susana Bejarano
+    keywords:
+      - Susana Bejarano Auad
+    youtube_profile_url: null
+    instagram_profile_url: https://www.instagram.com/susanabejarano__?igsh=MXAycWw0a3Foenl4Yw==
+    twitter_profile_url: https://x.com/susanabejarano?s=21
+    twitter_username: susanabejarano
+    instagram_username: susanabejarano__
+    youtube_username: null
+    youtube_channel_id: null
+    youtube_uploads_playlist_id: null
+
+  - candidate_id: bol16paz
+    name: Rodrigo Paz
+    name_variations:
+      - Rodrigo Paz
+    keywords:
+      - Rodrigo Paz
+    youtube_profile_url: null
+    instagram_profile_url: https://www.instagram.com/rodrigopazpereira?igsh=NWpnNmkwZzF5Y2Jl
+    twitter_profile_url: https://x.com/rodrigo_pazp?s=21
+    twitter_username: rodrigo_pazp
+    instagram_username: rodrigopazpereira
+    youtube_username: null
+    youtube_channel_id: null
+    youtube_uploads_playlist_id: null
+
+  - candidate_id: bol17quir
+    name: Jorge Quiroga
+    name_variations:
+      - Jorge Quiroga
+      - Tuto Quiroga
+    keywords:
+      - Jorge Quiroga
+    youtube_profile_url: null
+    instagram_profile_url: https://www.instagram.com/tutoquiroga?igsh=Yml1ZTdwYjBraHVw
+    twitter_profile_url: https://x.com/tutoquiroga?s=21
+    twitter_username: tutoquiroga
+    instagram_username: tutoquiroga
+    youtube_username: null
+    youtube_channel_id: null
+    youtube_uploads_playlist_id: null
+
+  - candidate_id: bol18rodr
+    name: Andrónico Rodríguez
+    name_variations:
+      - Andrónico Rodríguez
+      - Andronico Rodriguez
+    keywords:
+      - Andrónico Rodríguez
+    youtube_profile_url: null
+    instagram_profile_url: https://www.instagram.com/andronico.rodriguez?igsh=ZHBwamZ3eHN4OTQ5
+    twitter_profile_url: https://x.com/andronicorod?s=21
+    twitter_username: andronicorod
+    instagram_username: andronico.rodriguez
+    youtube_username: null
+    youtube_channel_id: null
+    youtube_uploads_playlist_id: null
+
+  - candidate_id: bol19dori
+    name: Samuel Doria Medina
+    name_variations:
+      - Doria Medina
+    keywords:
+      - Samuel Doria Medina
+    youtube_profile_url: null
+    instagram_profile_url: https://www.instagram.com/doriamedinasamuel?igsh=MTZwa3NyZHJudXA1aw==
+    twitter_profile_url: https://x.com/sdoriamedina?s=21
+    twitter_username: sdoriamedina
+    instagram_username: doriamedinasamuel
+    youtube_username: null
+    youtube_channel_id: null
+    youtube_uploads_playlist_id: null
+
+  - candidate_id: bol20mari
+    name: Branko Marinkovic Jovicevic
+    name_variations:
+      - Branko Marinkovic Jovicevic
+    keywords:
+      - Branko Marinkovic Jovicevic
+    youtube_profile_url: null
+    instagram_profile_url: https://www.instagram.com/brankoscz?igsh=MXNpYXJyMHg4Mmcybg==
+    twitter_profile_url: https://x.com/brankoscz?s=21
+    twitter_username: brankoscz
+    instagram_username: brankoscz
+    youtube_username: null
+    youtube_channel_id: null
+    youtube_uploads_playlist_id: null
