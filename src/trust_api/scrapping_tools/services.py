@@ -561,6 +561,71 @@ def read_from_gcs_if_exists(
         return None
 
 
+def rename_existing_gcs_file(
+    country: str,
+    platform: str,
+    candidate_id: str,
+    post_id: str,
+) -> str | None:
+    """
+    Rename an existing GCS file by adding 'old-[timestamp]-' prefix to the filename.
+
+    Args:
+        country: Country name
+        platform: Platform name
+        candidate_id: Candidate ID
+        post_id: Post ID (used for filename)
+
+    Returns:
+        New blob path if file was renamed, None if file didn't exist or rename failed.
+
+    Raises:
+        ValueError: If GCS_BUCKET_NAME is not configured
+    """
+    if not settings.gcs_bucket_name:
+        raise ValueError("GCS_BUCKET_NAME is not configured")
+
+    try:
+        client = get_gcs_client()
+        bucket = client.bucket(settings.gcs_bucket_name)
+
+        # Get original blob path
+        original_blob_path = _get_gcs_blob_path(country, platform, candidate_id, post_id)
+        original_blob = bucket.blob(original_blob_path)
+
+        # Check if blob exists
+        if not original_blob.exists():
+            return None
+
+        # Generate new blob path with 'old-[timestamp]-' prefix
+        # Format: raw/{country}/{platform}/{candidate_id}/old-{timestamp}-{post_id}.json
+        now = datetime.now(timezone.utc)
+        timestamp_str = now.strftime("%Y%m%d-%H%M%S")
+
+        # Normalize path components
+        safe_country = country.replace("/", "_").replace("\\", "_")
+        safe_platform = platform.replace("/", "_").replace("\\", "_")
+        safe_candidate_id = str(candidate_id).replace("/", "_").replace("\\", "_")
+        safe_post_id = str(post_id).replace("/", "_").replace("\\", "_")
+
+        new_filename = f"old-{timestamp_str}-{safe_post_id}.json"
+        new_blob_path = f"raw/{safe_country}/{safe_platform}/{safe_candidate_id}/{new_filename}"
+
+        # Copy blob to new location
+        bucket.copy_blob(original_blob, bucket, new_blob_path)
+
+        # Delete original blob
+        original_blob.delete()
+
+        logger.info(f"Renamed existing GCS file: {original_blob_path} -> {new_blob_path}")
+
+        return new_blob_path
+    except Exception as e:
+        logger.error(f"Error renaming GCS file for post_id={post_id}: {str(e)}")
+        # Return None on error - we'll continue processing anyway
+        return None
+
+
 def _is_result_empty(result: dict[str, Any] | list[Any]) -> bool:
     """
     Check if a result is empty or contains no useful data.
@@ -1468,7 +1533,7 @@ def process_posts_service(
                     )
                     continue
 
-                # Check if JSON already exists in GCS to avoid duplicate requests
+                # Check if JSON already exists in GCS
                 info_data = read_from_gcs_if_exists(
                     country=country,
                     platform=platform,
@@ -1476,89 +1541,111 @@ def process_posts_service(
                     post_id=post_id,
                 )
 
-                if info_data is None:
-                    # Check if there's already a pending or processing job for this post
-                    if has_existing_job_for_post(post_id):
-                        results["skipped"] += 1
+                if info_data is not None:
+                    # File already exists - rename it with 'old-[timestamp]-' prefix
+                    old_file_path = rename_existing_gcs_file(
+                        country=country,
+                        platform=platform,
+                        candidate_id=candidate_id,
+                        post_id=post_id,
+                    )
+                    if old_file_path:
+                        logger.info(
+                            f"Renamed existing file for post_id={post_id} to {old_file_path}. "
+                            f"Will create new job to reprocess."
+                        )
                         add_log_entry(
                             post_id=post_id,
                             url="N/A",
-                            success=False,
-                            skipped=True,
-                            skip_reason="Job already exists (pending or processing)",
-                        )
-                        continue
-
-                    # Submit job to Information Tracer
-                    job_id = submit_post_job(
-                        post_id=post_id,
-                        platform=platform,
-                        max_posts=max_posts_to_fetch,
-                        sort_by=sort_by,
-                    )
-
-                    if job_id:
-                        # Save job to pending_jobs collection
-                        job_doc_id = save_pending_job(
-                            job_id=job_id,
-                            post_doc_id=doc_id,
-                            post_id=post_id,
-                            platform=platform,
-                            country=country,
-                            candidate_id=candidate_id,
-                            max_posts=max_posts_to_fetch,
-                            sort_by=sort_by,
-                        )
-                        results["jobs_created"].append(
-                            {
-                                "job_id": job_id,
-                                "job_doc_id": job_doc_id,
-                                "post_id": post_id,
-                            }
-                        )
-                        # Track this job for optional log file references
-                        if job_doc_id:
-                            created_job_doc_ids.append(job_doc_id)
-                        results["succeeded"] += 1
-                        # Log successful job submission
-                        add_log_entry(
-                            post_id=post_id,
-                            url=f"https://informationtracer.com/submit (reply:{post_id})",
                             success=True,
-                            status_code=200,
-                            job_id=job_id,
+                            skipped=False,
+                            skip_reason=f"Renamed existing file to {old_file_path}",
                             max_replies=max_posts_to_fetch,
                         )
                     else:
-                        error_msg = f"Failed to submit job for post_id={post_id}"
-                        results["errors"].append(error_msg)
-                        results["failed"] += 1
-                        # Log the failed submission in execution logs
-                        add_log_entry(
-                            post_id=post_id,
-                            url=f"https://informationtracer.com/submit (reply:{post_id})",
-                            success=False,
-                            error_message="Failed to submit job to Information Tracer",
-                            max_replies=max_posts_to_fetch,
+                        # If rename failed, log warning but continue anyway
+                        logger.warning(
+                            f"Failed to rename existing file for post_id={post_id}. "
+                            f"Will attempt to create new job anyway."
                         )
-                        # Also add to error logs
-                        add_error_entry(
-                            job_id=None,  # No job_id since submit failed
-                            post_id=post_id,
-                            platform=platform,
-                            country=country,
-                            candidate_id=candidate_id,
-                            error_type="submit_failed",
-                            error_message="Failed to submit job to Information Tracer API",
-                            job_doc_id=None,
-                        )
-                        # Stop processing when submit fails - likely API quota/rate limit issue
-                        break
-                else:
-                    # File already exists, skip job creation and update status
-                    if doc_id:
-                        update_post_status(doc_id, "done")
+
+                # Check if there's already a pending or processing job for this post
+                if has_existing_job_for_post(post_id):
                     results["skipped"] += 1
+                    add_log_entry(
+                        post_id=post_id,
+                        url="N/A",
+                        success=False,
+                        skipped=True,
+                        skip_reason="Job already exists (pending or processing)",
+                    )
+                    continue
+
+                # Submit job to Information Tracer
+                job_id = submit_post_job(
+                    post_id=post_id,
+                    platform=platform,
+                    max_posts=max_posts_to_fetch,
+                    sort_by=sort_by,
+                )
+
+                if job_id:
+                    # Save job to pending_jobs collection
+                    job_doc_id = save_pending_job(
+                        job_id=job_id,
+                        post_doc_id=doc_id,
+                        post_id=post_id,
+                        platform=platform,
+                        country=country,
+                        candidate_id=candidate_id,
+                        max_posts=max_posts_to_fetch,
+                        sort_by=sort_by,
+                    )
+                    results["jobs_created"].append(
+                        {
+                            "job_id": job_id,
+                            "job_doc_id": job_doc_id,
+                            "post_id": post_id,
+                        }
+                    )
+                    # Track this job for optional log file references
+                    if job_doc_id:
+                        created_job_doc_ids.append(job_doc_id)
+                    results["succeeded"] += 1
+                    # Log successful job submission
+                    add_log_entry(
+                        post_id=post_id,
+                        url=f"https://informationtracer.com/submit (reply:{post_id})",
+                        success=True,
+                        status_code=200,
+                        job_id=job_id,
+                        max_replies=max_posts_to_fetch,
+                    )
+                else:
+                    error_msg = f"Failed to submit job for post_id={post_id}"
+                    results["errors"].append(error_msg)
+                    results["failed"] += 1
+                    # Log the failed submission in execution logs
+                    add_log_entry(
+                        post_id=post_id,
+                        url=f"https://informationtracer.com/submit (reply:{post_id})",
+                        success=False,
+                        error_message="Failed to submit job to Information Tracer",
+                        max_replies=max_posts_to_fetch,
+                    )
+                    # Also add to error logs
+                    add_error_entry(
+                        job_id=None,  # No job_id since submit failed
+                        post_id=post_id,
+                        platform=platform,
+                        country=country,
+                        candidate_id=candidate_id,
+                        error_type="submit_failed",
+                        error_message="Failed to submit job to Information Tracer API",
+                        job_doc_id=None,
+                    )
+                    # Stop processing when submit fails - likely API quota/rate limit issue
+                    break
 
             except Exception as e:
                 error_msg = f"Error processing post_id={post_id}: {str(e)}"
