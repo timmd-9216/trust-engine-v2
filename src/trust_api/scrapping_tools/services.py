@@ -666,7 +666,7 @@ def _is_result_empty(result: dict[str, Any] | list[Any]) -> bool:
 
 
 def save_to_gcs(
-    data: dict[str, Any],
+    data: dict[str, Any] | list[Any],
     country: str,
     platform: str,
     candidate_id: str,
@@ -677,7 +677,7 @@ def save_to_gcs(
     Save JSON data to GCS bucket with structure: country/platform/candidate_id/{post_id}.json
 
     Args:
-        data: JSON data to save
+        data: JSON data to save (can be a dict or list)
         country: Country name
         platform: Platform name
         candidate_id: Candidate ID
@@ -702,8 +702,16 @@ def save_to_gcs(
 
     blob_path = _get_gcs_blob_path(country, platform, candidate_id, post_id)
 
-    # Prepare data to save (add metadata if provided)
-    data_to_save = data.copy()
+    # Prepare data to save
+    # If data is a list, convert it to a dict with "data" key
+    # This ensures we can add metadata consistently
+    if isinstance(data, list):
+        data_to_save: dict[str, Any] = {"data": data}
+    else:
+        # data is already a dict
+        data_to_save = data.copy()
+
+    # Add metadata if provided
     if metadata:
         # Add metadata at the top level of the JSON
         data_to_save["_metadata"] = metadata
