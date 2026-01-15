@@ -1849,6 +1849,40 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                 continue
 
             try:
+                # Check if file already exists in GCS before processing
+                # Only reprocess if the existing file is empty (None or [])
+                existing_file = read_from_gcs_if_exists(country, platform, candidate_id, post_id)
+
+                # If file exists and is not empty, skip processing and mark as done
+                if existing_file is not None and not _is_result_empty(existing_file):
+                    # File exists and has valid content - no need to reprocess
+                    logger.info(
+                        f"Skipping job {job_id} for post_id={post_id}: "
+                        f"JSON file already exists in GCS with valid content"
+                    )
+
+                    # Update post status to done if not already
+                    if post_doc_id:
+                        update_post_status(post_doc_id, "done")
+
+                    # Update job status to done
+                    update_job_status(job_doc_id, "done")
+
+                    # Log as skipped (but successful since file exists)
+                    add_log_entry(
+                        post_id=post_id,
+                        url=f"https://informationtracer.com/rawdata (job_id:{job_id})",
+                        success=True,
+                        status_code=200,
+                        job_id=job_id,
+                        skipped=True,
+                        skip_reason="JSON file already exists in GCS with valid content",
+                    )
+
+                    results["succeeded"] += 1
+                    results["still_pending"] += 1  # Track that we skipped processing
+                    continue
+
                 # Update job status to processing
                 update_job_status(job_doc_id, "processing")
 
@@ -1960,12 +1994,12 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                         )
                         continue
 
-                    # Check if file already exists in GCS (indicates a retry)
-                    existing_file = read_from_gcs_if_exists(
-                        country, platform, candidate_id, post_id
-                    )
-                    # Detect retry: either file exists in GCS OR retry_count > 0 (e.g., from empty_result)
-                    is_retry = existing_file is not None or current_retry_count > 0
+                    # Detect retry: either file existed but was empty OR retry_count > 0 (e.g., from empty_result)
+                    # Note: existing_file was already checked above, so if we reach here,
+                    # either the file didn't exist (None) or it was empty
+                    is_retry = (
+                        existing_file is not None and _is_result_empty(existing_file)
+                    ) or current_retry_count > 0
                     retry_count = current_retry_count
 
                     # Prepare metadata for retry information
@@ -1981,14 +2015,15 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                             "retry_timestamp": now.isoformat(),
                             "previous_file_existed": existing_file is not None,
                         }
-                        if existing_file:
+                        if existing_file is not None:
+                            # existing_file was empty, so we're reprocessing
                             metadata["older_version"] = (
-                                existing_file  # Include the previous version
+                                f"raw/{country}/{platform}/{candidate_id}/{post_id}.json"
                             )
 
                         retry_reason = (
-                            "file existed in GCS"
-                            if existing_file
+                            "reprocessing empty JSON file from GCS"
+                            if (existing_file is not None and _is_result_empty(existing_file))
                             else "reprocessing from empty_result"
                         )
                         logger.info(
