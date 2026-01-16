@@ -606,17 +606,32 @@ curl -X POST "http://localhost:8082/empty-result-jobs/retry?limit=10&candidate_i
 
 **Limitación**: Solo funciona si NO hay otros jobs activos para el post (previene duplicados).
 
-#### 4. Reintento Implícito por Archivo Existente
+#### 4. Verificación de Archivo Existente en GCS (antes de procesar)
 
-**Cuándo**: Cuando se procesa un job exitosamente pero ya existe un archivo en GCS para el mismo post
+**Cuándo**: Antes de procesar un job (`status == 'finished'`), el sistema verifica si ya existe un JSON en GCS
 
-**Acción**: 
-- Se detecta como retry (`is_retry=True`)
-- Se guarda metadata con información del retry
-- Se incluye referencia al archivo anterior en metadata
-- Se incrementa `retry_count`
+**Comportamiento**:
 
-**Propósito**: Rastrear cuando un job se reprocesa y sobreescribe un archivo existente.
+1. **Si el JSON existe y tiene contenido válido (no vacío)**:
+   - Se salta el procesamiento completamente
+   - No se consulta Information Tracer (ahorra quota)
+   - El job se marca como `done`
+   - El post se actualiza a `done` si no lo estaba
+   - Se logea como skipped con razón: "JSON file already exists in GCS with valid content"
+
+2. **Si el JSON no existe o está vacío (None o [])**:
+   - Se procesa normalmente
+   - Se consulta Information Tracer para obtener resultados
+   - Si el archivo existía pero estaba vacío, se detecta como retry:
+     - `is_retry=True`
+     - Se incrementa `retry_count`
+     - Se guarda metadata con información del retry
+     - `previous_file_existed: true` en metadata
+
+**Propósito**: 
+- Evitar reprocesar jobs innecesariamente cuando ya hay datos válidos en GCS
+- Ahorrar quota de Information Tracer API
+- Solo reprocesar cuando es necesario (archivo vacío o inexistente)
 
 ### Tracking de Reintentos
 
@@ -880,6 +895,9 @@ El sistema registra eventos de quota en logs:
    ↓
 4. /process-jobs ejecutado (cada 30 minutos)
    - Query pending_jobs
+   - **Verifica si existe JSON en GCS**
+     - Si existe y NO está vacío → Skip processing, marca job/post como 'done'
+     - Si no existe o está vacío → Continúa procesamiento
    - Check status → 'finished'
    - Get result → datos de respuestas
    - Save to GCS (raw/ layer)
