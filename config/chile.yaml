@@ -5,6 +5,9 @@ end_date: '2025-11-21'
 candidates:
 - candidate_id: chl01musa
   name: Camila Musante
+  name_variations:
+  - Camila Musante
+  - Musante
   keywords:
   - Camila Musante
   youtube_profile_url: null
@@ -17,6 +20,9 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: chl02mart
   name: Constanza Martinez
+  name_variations:
+  - Constanza Martinez
+  - Constanza Martínez
   keywords:
   - Constanza Martinez
   youtube_profile_url: null
@@ -29,6 +35,11 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: chl03lonc
   name: Elisa Loncón
+  name_variations:
+  - Elisa Loncón
+  - Elisa Loncon
+  - Loncón
+  - Loncon
   keywords:
   - Elisa Loncón
   youtube_profile_url: null
@@ -41,6 +52,9 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: chl04schn
   name: Emilia Schneider
+  name_variations:
+  - Emilia Schneider
+  - Schneider
   keywords:
   - Emilia Schneider
   youtube_profile_url: null
@@ -53,6 +67,10 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: chl05hass
   name: Irací Hassler
+  name_variations:
+  - Irací Hassler
+  - Iraci Hassler
+  - Hassler
   keywords:
   - Irací Hassler
   youtube_profile_url: null
@@ -65,6 +83,8 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: chl06alca
   name: Isidora Alcalde
+  name_variations:
+  - Isidora Alcalde
   keywords:
   - Isidora Alcalde
   youtube_profile_url: null
@@ -77,6 +97,9 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: chl07sedi
   name: Mara Sedini
+  name_variations:
+  - Mara Sedini
+  - Sedini
   keywords:
   - Mara Sedini
   youtube_profile_url: null
@@ -89,6 +112,9 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: chl08cubi
   name: Marcela Cubillos
+  name_variations:
+  - Marcela Cubillos
+  - Cubillos
   keywords:
   - Marcela Cubillos
   youtube_profile_url: null
@@ -101,6 +127,9 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: chl09cand
   name: María Candelaria
+  name_variations:
+  - María Candelaria
+  - Maria Candelaria
   keywords:
   - María Candelaria
   youtube_profile_url: null
@@ -113,6 +142,9 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: chl10jile
   name: Pamela Jiles
+  name_variations:
+  - Pamela Jiles
+  - Jiles
   keywords:
   - Pamela Jiles
   youtube_profile_url: null
@@ -125,6 +157,9 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: chl11kais
   name: Vanessa Kaiser
+  name_variations:
+  - Vanessa Kaiser
+  - Kaiser
   keywords:
   - Vanessa Kaiser
   youtube_profile_url: https://www.youtube.com/@ElNacionalLibertario
@@ -137,6 +172,8 @@ candidates:
   youtube_uploads_playlist_id: UU2tdSec2KF32KGz6E9YWRQA
 - candidate_id: chl12delg
   name: Viviana Delgado
+  name_variations:
+  - Viviana Delgado
   keywords:
   - Viviana Delgado
   youtube_profile_url: null
@@ -149,6 +186,10 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: chl13jara
   name: Jeannette Jara
+  name_variations:
+  - Jeannette Jara
+  - Jeannette Jara Roman
+  - Jeannette Jara Román
   keywords:
   - Jeannette Jara
   youtube_profile_url: https://www.youtube.com/@Jeannette-Jara
@@ -161,6 +202,10 @@ candidates:
   youtube_uploads_playlist_id: UUac2nS68J7voeJeTA6mr4rQ
 - candidate_id: chl14muno
   name: Francesca Muñoz Gonzalez
+  name_variations:
+  - Francesca Muñoz Gonzalez
+  - Francesca Muñoz González
+  - Francesca Munoz
   keywords:
   - Francesca Muñoz Gonzalez
   youtube_profile_url: null
@@ -173,6 +218,11 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: chl15merb
   name: Magdalena Merbilháa
+  name_variations:
+  - Magdalena Merbilháa
+  - Magdalena Merbilhaa
+  - Merbilháa
+  - Merbilhaa
   keywords:
   - Magdalena Merbilháa
   youtube_profile_url: null
@@ -185,6 +235,10 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: chl16iban
   name: Diego Ibañez
+  name_variations:
+  - Diego Ibañez
+  - Diego Ibanez
+  - Diego Ibáñez
   keywords:
   - Diego Ibañez
   youtube_profile_url: null
@@ -197,6 +251,10 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: chl17kast
   name: José Antonio Kast
+  name_variations:
+  - José Antonio Kast
+  - Jose Antonio Kast
+  - Kast
   keywords:
   - José Antonio Kast
   youtube_profile_url: https://www.youtube.com/c/JoséAntonioKastOficial
@@ -209,6 +267,9 @@ candidates:
   youtube_uploads_playlist_id: UUGLRRRKMp4K1AKJabf8OeEg
 - candidate_id: chl18wint
   name: Gonzalo Winter
+  name_variations:
+  - Gonzalo Winter
+  - Winter
   keywords:
   - Gonzalo Winter
   youtube_profile_url: null
@@ -221,6 +282,10 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: chl19podu
   name: Iván Poduje
+  name_variations:
+  - Iván Poduje
+  - Ivan Poduje
+  - Poduje
   keywords:
   - Iván Poduje
   youtube_profile_url: null
@@ -233,6 +298,8 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: chl20cart
   name: Rodolfo Carter
+  name_variations:
+  - Rodolfo Carter
   keywords:
   - Rodolfo Carter
   youtube_profile_url: null
@@ -245,6 +312,9 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: chl21matt
   name: Evelyn Matthei
+  name_variations:
+  - Evelyn Matthei
+  - Matthei
   keywords:
   - Evelyn Matthei
   youtube_profile_url: null
