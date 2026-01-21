@@ -399,7 +399,7 @@ def get_post_replies(
     enable_ai = False
     # sort_by is passed as parameter (default: "time")
     start_date = "2020-01-01"  # Default start date (may be ignored for reply searches)
-    end_date = "2025-12-31"  # Default end date
+    end_date = "2026-12-31"  # Default end date
 
     logger.info(
         f"Submitting reply collection job for post_id={post_id}, platform={platform}, max_post={max_post}"
