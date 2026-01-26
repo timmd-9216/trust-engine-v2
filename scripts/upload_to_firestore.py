@@ -66,6 +66,7 @@ def upload_to_firestore(
     limit: int | None = 10,
     skip: int = 0,
     skip_existing: bool = False,
+    max_replies_limit: int | None = None,
 ):
     """
     Upload records from CSV to Firestore.
@@ -78,6 +79,7 @@ def upload_to_firestore(
         limit: Number of records to upload (default: 10, None to upload all)
         skip: Number of records to skip from the beginning (default: 0)
         skip_existing: If True, skip records where post_id already exists in Firestore (default: False)
+        max_replies_limit: Maximum value for max_replies field (if None, no limit is applied)
     """
     # Initialize Firestore client
     if project_id:
@@ -175,7 +177,11 @@ def upload_to_firestore(
                     doc_data["replies_count"] = replies_count
             if max_replies:
                 try:
-                    doc_data["max_replies"] = int(max_replies)
+                    max_replies_int = int(max_replies)
+                    # Apply max_replies_limit if specified
+                    if max_replies_limit is not None and max_replies_int > max_replies_limit:
+                        max_replies_int = max_replies_limit
+                    doc_data["max_replies"] = max_replies_int
                 except (ValueError, TypeError):
                     doc_data["max_replies"] = max_replies
 
@@ -305,6 +311,12 @@ Examples:
         action="store_true",
         help="Skip records where post_id already exists in Firestore",
     )
+    parser.add_argument(
+        "--max-replies-limit",
+        type=int,
+        default=None,
+        help="Maximum value for max_replies field (if CSV value exceeds this, it will be capped)",
+    )
 
     args = parser.parse_args()
 
@@ -339,6 +351,8 @@ Examples:
     print(f"Project ID: {project_id or 'default from gcloud'}")
     if args.skip_existing:
         print("Skip existing: Enabled (records with existing post_id will be skipped)")
+    if args.max_replies_limit:
+        print(f"Max replies limit: {args.max_replies_limit} (max_replies values will be capped)")
     print()
 
     upload_to_firestore(
@@ -349,4 +363,5 @@ Examples:
         limit,
         args.skip,
         args.skip_existing,
+        args.max_replies_limit,
     )

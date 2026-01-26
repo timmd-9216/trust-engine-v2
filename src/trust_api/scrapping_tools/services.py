@@ -1835,6 +1835,8 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
             platform = job.get("platform", "unknown")
             country = job.get("country", "unknown")
             candidate_id = job.get("candidate_id", "unknown")
+            # Persisted at submit time (save_pending_job). Useful for audit logs.
+            job_max_posts = job.get("max_posts")
             # Get retry_count from job document (if it exists, indicates a retry)
             current_retry_count = job.get("retry_count", 0)
 
@@ -1874,6 +1876,7 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                         url=f"https://informationtracer.com/rawdata (job_id:{job_id})",
                         success=True,
                         status_code=200,
+                        max_replies=job_max_posts,
                         job_id=job_id,
                         skipped=True,
                         skip_reason="JSON file already exists in GCS with valid content",
@@ -1979,6 +1982,7 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                             url=f"https://informationtracer.com/rawdata (job_id:{job_id})",
                             success=False,
                             error_message="Result is empty",
+                            max_replies=job_max_posts,
                             job_id=job_id,
                         )
                         # Also save to error logs file (for historical tracking, aunque no sea error técnico)
@@ -2050,6 +2054,7 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                         url=f"https://informationtracer.com/rawdata (job_id:{job_id})",
                         success=True,
                         status_code=200,
+                        max_replies=job_max_posts,
                         job_id=job_id,
                         is_retry=is_retry,
                         retry_count=retry_count,
@@ -2310,6 +2315,7 @@ def fix_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                         url=f"https://informationtracer.com/rawdata (job_id:{job_id})",
                         success=False,
                         error_message="Failed to retrieve results on retry",
+                        max_replies=job.get("max_posts"),
                         job_id=job_id,
                     )
                     # Also save to error logs file
@@ -2345,6 +2351,7 @@ def fix_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                         url=f"https://informationtracer.com/rawdata (job_id:{job_id})",
                         success=False,
                         error_message="Result is still empty after retry",
+                        max_replies=job.get("max_posts"),
                         job_id=job_id,
                     )
                     # Also save to error logs file
@@ -2378,6 +2385,7 @@ def fix_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                     url=f"https://informationtracer.com/rawdata (job_id:{job_id})",
                     success=True,
                     status_code=200,
+                    max_replies=job.get("max_posts"),
                     job_id=job_id,
                 )
 
