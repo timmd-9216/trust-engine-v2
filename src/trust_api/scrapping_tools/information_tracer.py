@@ -55,6 +55,7 @@ def submit(
     platform: PlatformType | list[PlatformType],
     timeline_only: bool,
     enable_ai: bool,
+    comment_depth: int = 1,
 ) -> tuple[str | None, dict]:
     """Submit a data collection job to Information Tracer API.
 
@@ -84,7 +85,10 @@ def submit(
         timeline_only: If True, uses account search (includes retweets).
                       If False, uses keyword search (excludes retweets).
         enable_ai: Enable AI features for the collection.
-
+        comment_depth: Depth of comment threads to collect from Instagram (default in this function is 1). 
+                       The default value for the API is 2, where replies to comments are also collected. Other
+                       values set will be ignored.
+        
     Returns:
         A tuple containing:
             - The job ID (id_hash256) if submission is successful, None otherwise
@@ -119,6 +123,7 @@ def submit(
     # threads: 200
     # bluesky: 500
     # max_post = 20
+    # comment_depth = 1
 
     # sort_by = 'time' # time or engagement, only applies to keyword search
 
@@ -166,6 +171,7 @@ def submit(
         "end_date": end_date,
         "max_post": max_post,
         "sort_by": sort_by,
+        "comment_depth": comment_depth,
     }
 
     try:
@@ -182,6 +188,7 @@ def submit(
                 "platform_to_collect": [platform],
                 "timeline_only": timeline_only,
                 "enable_ai": enable_ai,
+                "comment_depth": comment_depth,
             },
         )
         # Check HTTP status code
@@ -335,6 +342,7 @@ def get_post_replies(
     max_post: int = 100,
     token: str | None = None,
     sort_by: Literal["time", "engagement"] = "time",
+    comment_depth: int = 1,
 ) -> dict:
     """Get replies for a specific post using Information Tracer API.
 
@@ -357,6 +365,8 @@ def get_post_replies(
         token: API authentication token. If None, uses API_KEY from environment variables.
         sort_by: Sort order for replies ('time' or 'engagement'). Default is 'time'.
                  Note: Only applies to keyword search, not account search.
+        comment_depth: Depth of comment threads to collect from Instagram (default in this function is 1). 
+                       The default value for the API is 2, where replies to comments are also collected.
 
     Returns:
         dict: Dictionary containing:
@@ -389,7 +399,7 @@ def get_post_replies(
     enable_ai = False
     # sort_by is passed as parameter (default: "time")
     start_date = "2020-01-01"  # Default start date (may be ignored for reply searches)
-    end_date = "2025-12-31"  # Default end date
+    end_date = "2026-12-31"  # Default end date
 
     logger.info(
         f"Submitting reply collection job for post_id={post_id}, platform={platform}, max_post={max_post}"
@@ -406,6 +416,7 @@ def get_post_replies(
         platform=platform,
         timeline_only=timeline_only,
         enable_ai=enable_ai,
+        comment_depth=comment_depth,
     )
 
     if not id_hash256:

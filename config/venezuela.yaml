@@ -5,6 +5,10 @@ end_date: '2025-05-30'
 candidates:
 - candidate_id: ven01vill
   name: Asia Villegas Poljack
+  name_variations:
+  - Asia Villegas Poljack
+  - Asia Villegas
+  - Poljack
   keywords:
   - Asia Villegas Poljack
   youtube_profile_url: null
@@ -17,6 +21,9 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: ven02eekh
   name: Blanca Eekhout
+  name_variations:
+  - Blanca Eekhout
+  - Eekhout
   keywords:
   - Blanca Eekhout
   youtube_profile_url: null
@@ -29,6 +36,9 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: ven03rome
   name: Blanca Romero Vargas
+  name_variations:
+  - Blanca Romero Vargas
+  - Blanca Romero
   keywords:
   - Blanca Romero Vargas
   youtube_profile_url: null
@@ -41,6 +51,9 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: ven04flor
   name: Cilia Flores de Maduro
+  name_variations:
+  - Cilia Flores de Maduro
+  - Cilia Flores
   keywords:
   - Cilia Flores de Maduro
   youtube_profile_url: null
@@ -53,6 +66,11 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: ven05pena
   name: Erika Farías Peña
+  name_variations:
+  - Erika Farías Peña
+  - Erika Farias Pena
+  - Erika Farías
+  - Erika Farias
   keywords:
   - Erika Farías Peña
   youtube_profile_url: null
@@ -65,6 +83,11 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: ven06fari
   name: Jackeline Farías
+  name_variations:
+  - Jackeline Farías
+  - Jackeline Farias
+  - Jacqueline Farías
+  - Jacqueline Farias
   keywords:
   - Jackeline Farías
   youtube_profile_url: null
@@ -77,6 +100,9 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: ven07mill
   name: Karen Millán
+  name_variations:
+  - Karen Millán
+  - Karen Millan
   keywords:
   - Karen Millán
   youtube_profile_url: null
@@ -89,6 +115,8 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: ven08quin
   name: Liseth Quintero
+  name_variations:
+  - Liseth Quintero
   keywords:
   - Liseth Quintero
   youtube_profile_url: null
@@ -101,6 +129,9 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: ven09vall
   name: María Gabriela Vallenilla
+  name_variations:
+  - María Gabriela Vallenilla
+  - Maria Gabriela Vallenilla
   keywords:
   - María Gabriela Vallenilla
   youtube_profile_url: null
@@ -113,6 +144,9 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: ven10vega
   name: María Gabriela Vega
+  name_variations:
+  - María Gabriela Vega
+  - Maria Gabriela Vega
   keywords:
   - María Gabriela Vega
   youtube_profile_url: null
@@ -125,6 +159,9 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: ven11sanc
   name: Mercedes Sánchez
+  name_variations:
+  - Mercedes Sánchez
+  - Mercedes Sanchez
   keywords:
   - Mercedes Sánchez
   youtube_profile_url: null
@@ -137,6 +174,8 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: ven12marc
   name: Milagros Marcano
+  name_variations:
+  - Milagros Marcano
   keywords:
   - Milagros Marcano
   youtube_profile_url: null
@@ -149,6 +188,9 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: ven13pere
   name: América Pérez
+  name_variations:
+  - América Pérez
+  - America Perez
   keywords:
   - América Pérez
   youtube_profile_url: null
@@ -161,6 +203,8 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: ven14moro
   name: Camila Moros
+  name_variations:
+  - Camila Moros
   keywords:
   - Camila Moros
   youtube_profile_url: null
@@ -173,6 +217,8 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: ven15colm
   name: Grecia Colmenares
+  name_variations:
+  - Grecia Colmenares
   keywords:
   - Grecia Colmenares
   youtube_profile_url: null
@@ -185,6 +231,9 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: ven16rodr
   name: Jorge Rodríguez
+  name_variations:
+  - Jorge Rodríguez
+  - Jorge Rodriguez
   keywords:
   - Jorge Rodríguez
   youtube_profile_url: null
@@ -197,6 +246,9 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: ven17guzm
   name: Jehyson Guzman
+  name_variations:
+  - Jehyson Guzman
+  - Jehyson Guzmán
   keywords:
   - Jehyson Guzman
   youtube_profile_url: null
@@ -209,6 +261,9 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: ven18capr
   name: Henrique Capriles Radonski
+  name_variations:
+  - Henrique Capriles Radonski
+  - Henrique Capriles
   keywords:
   - Henrique Capriles Radonski
   youtube_profile_url: null
@@ -221,6 +276,9 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: ven19gonz
   name: Stalin González
+  name_variations:
+  - Stalin González
+  - Stalin Gonzalez
   keywords:
   - Stalin González
   youtube_profile_url: null
@@ -233,6 +291,9 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: ven20brit
   name: José Brito
+  name_variations:
+  - José Brito
+  - Jose Brito
   keywords:
   - José Brito
   youtube_profile_url: null
