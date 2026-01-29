@@ -397,6 +397,8 @@ def fetch_post_information(
     max_posts: int = 100,
     sort_by: Literal["time", "engagement"] = "time",
     comment_depth: int = 1,
+    start_date: str = "2020-01-01",
+    end_date: str = "2026-12-31",
 ) -> dict[str, Any]:
     """
     Fetch replies for a post using Information Tracer API.
@@ -410,6 +412,8 @@ def fetch_post_information(
                  Note: Only applies to keyword search, not account search.
         comment_depth: Depth of comment threads to collect (default: 1).
                        Only applies to Instagram.
+        start_date: Start date for filtering replies in YYYY-MM-DD format. Default is "2020-01-01".
+        end_date: End date for filtering replies in YYYY-MM-DD format. Default is "2026-12-31".
 
     Returns:
         Dictionary containing the collected replies from Information Tracer
@@ -455,6 +459,8 @@ def fetch_post_information(
             token=settings.information_tracer_api_key,
             sort_by=sort_by,
             comment_depth=comment_depth,
+            start_date=start_date,
+            end_date=end_date,
         )
 
         # Extract data and job_id from result
@@ -1438,6 +1444,8 @@ def submit_post_job(
     platform: str,
     max_posts: int = 100,
     sort_by: Literal["time", "engagement"] = "time",
+    start_date: str = "2020-01-01",
+    end_date: str = "2026-12-31",
 ) -> str | None:
     """
     Submit a post replies job to Information Tracer API and return the job ID (hash_id).
@@ -1449,6 +1457,8 @@ def submit_post_job(
         max_posts: Maximum number of replies to collect (default: 100)
         sort_by: Sort order for replies ('time' or 'engagement'). Default is 'time'.
                  Note: Only applies to keyword search, not account search.
+        start_date: Start date for filtering replies in YYYY-MM-DD format. Default is "2020-01-01".
+        end_date: End date for filtering replies in YYYY-MM-DD format. Default is "2026-12-31".
 
     Returns:
         The job ID (id_hash256) if submission is successful, None otherwise
@@ -1483,8 +1493,7 @@ def submit_post_job(
     # Default parameters for reply collection
     timeline_only = False
     enable_ai = False
-    start_date = "2020-01-01"
-    end_date = "2026-12-31"
+    # start_date and end_date are passed as parameters
 
     # Submit the job
     id_hash256, _ = submit(
@@ -1505,6 +1514,8 @@ def submit_post_job(
 def process_posts_service(
     max_posts: int | None = None,
     sort_by: Literal["time", "engagement"] = "time",
+    start_date: str = "2020-01-01",
+    end_date: str = "2026-12-31",
 ) -> dict[str, Any]:
     """
     Submit jobs to Information Tracer API and save hash_ids to pending_jobs collection.
@@ -1514,6 +1525,8 @@ def process_posts_service(
         max_posts: Maximum number of posts to process. If None, processes all posts with status='noreplies'.
         sort_by: Sort order for replies ('time' or 'engagement'). Default is 'time'.
                  Note: Only applies to keyword search, not account search.
+        start_date: Start date for filtering replies in YYYY-MM-DD format. Default is "2020-01-01".
+        end_date: End date for filtering replies in YYYY-MM-DD format. Default is "2026-12-31".
 
     Returns:
         Dictionary with processing results including success count, errors, jobs created, etc.
@@ -1647,6 +1660,8 @@ def process_posts_service(
                     platform=platform,
                     max_posts=max_posts_to_fetch,
                     sort_by=sort_by,
+                    start_date=start_date,
+                    end_date=end_date,
                 )
 
                 if job_id:
