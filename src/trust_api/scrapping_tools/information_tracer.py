@@ -343,6 +343,8 @@ def get_post_replies(
     token: str | None = None,
     sort_by: Literal["time", "engagement"] = "time",
     comment_depth: int = 1,
+    start_date: str = "2020-01-01",
+    end_date: str = "2026-12-31",
 ) -> dict:
     """Get replies for a specific post using Information Tracer API.
 
@@ -365,8 +367,10 @@ def get_post_replies(
         token: API authentication token. If None, uses API_KEY from environment variables.
         sort_by: Sort order for replies ('time' or 'engagement'). Default is 'time'.
                  Note: Only applies to keyword search, not account search.
-        comment_depth: Depth of comment threads to collect from Instagram (default in this function is 1). 
+        comment_depth: Depth of comment threads to collect from Instagram (default in this function is 1).
                        The default value for the API is 2, where replies to comments are also collected.
+        start_date: Start date for filtering replies in YYYY-MM-DD format. Default is "2020-01-01".
+        end_date: End date for filtering replies in YYYY-MM-DD format. Default is "2026-12-31".
 
     Returns:
         dict: Dictionary containing:
@@ -397,9 +401,7 @@ def get_post_replies(
     # timeline_only must be False for reply searches
     timeline_only = False
     enable_ai = False
-    # sort_by is passed as parameter (default: "time")
-    start_date = "2020-01-01"  # Default start date (may be ignored for reply searches)
-    end_date = "2026-12-31"  # Default end date
+    # sort_by, start_date, and end_date are passed as parameters
 
     logger.info(
         f"Submitting reply collection job for post_id={post_id}, platform={platform}, max_post={max_post}"
