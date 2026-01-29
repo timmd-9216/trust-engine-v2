@@ -396,6 +396,7 @@ def fetch_post_information(
     platform: str,
     max_posts: int = 100,
     sort_by: Literal["time", "engagement"] = "time",
+    comment_depth: int = 1,
 ) -> dict[str, Any]:
     """
     Fetch replies for a post using Information Tracer API.
@@ -407,6 +408,8 @@ def fetch_post_information(
         max_posts: Maximum number of replies to collect (default: 100)
         sort_by: Sort order for replies ('time' or 'engagement'). Default is 'time'.
                  Note: Only applies to keyword search, not account search.
+        comment_depth: Depth of comment threads to collect (default: 1).
+                       Only applies to Instagram.
 
     Returns:
         Dictionary containing the collected replies from Information Tracer
@@ -451,6 +454,7 @@ def fetch_post_information(
             max_post=max_posts,
             token=settings.information_tracer_api_key,
             sort_by=sort_by,
+            comment_depth=comment_depth,
         )
 
         # Extract data and job_id from result

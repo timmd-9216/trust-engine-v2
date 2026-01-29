@@ -25,6 +25,7 @@ class PostInformationRequest(BaseModel):
     post_id: str
     platform: str
     max_posts: int = 100
+    comment_depth: int = 1
 
 
 class PostInformationResponse(BaseModel):
@@ -185,6 +186,7 @@ async def get_post_information(request: PostInformationRequest):
             post_id=request.post_id,
             platform=request.platform,
             max_posts=request.max_posts,
+            comment_depth=request.comment_depth,
         )
         return PostInformationResponse(post_id=request.post_id, data=data)
     except ValueError as e:
