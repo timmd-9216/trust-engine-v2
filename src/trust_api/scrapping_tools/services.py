@@ -130,6 +130,8 @@ def add_log_entry(
     job_id: str | None = None,
     is_retry: bool = False,
     retry_count: int = 0,
+    start_date: str | None = None,
+    end_date: str | None = None,
 ) -> None:
     """
     Add a log entry to the execution logs (in-memory).
@@ -147,6 +149,8 @@ def add_log_entry(
         job_id: Information Tracer job ID (id_hash256) if available
         is_retry: Whether this is a retry attempt (default: False)
         retry_count: Number of retry attempt (default: 0)
+        start_date: Start date used for the Information Tracer call (if applicable)
+        end_date: End date used for the Information Tracer call (if applicable)
     """
     now = datetime.now(timezone.utc)
     log_entry = {
@@ -164,6 +168,10 @@ def add_log_entry(
         "is_retry": is_retry,
         "retry_count": retry_count,
     }
+    if start_date is not None:
+        log_entry["start_date"] = start_date
+    if end_date is not None:
+        log_entry["end_date"] = end_date
     _execution_logs.append(log_entry)
 
 
@@ -1734,6 +1742,8 @@ def process_posts_service(
                         status_code=200,
                         job_id=job_id,
                         max_replies=max_posts_to_fetch,
+                        start_date=start_date,
+                        end_date=end_date,
                     )
                 else:
                     error_msg = f"Failed to submit job for post_id={post_id}"
@@ -1746,6 +1756,8 @@ def process_posts_service(
                         success=False,
                         error_message="Failed to submit job to Information Tracer",
                         max_replies=max_posts_to_fetch,
+                        start_date=start_date,
+                        end_date=end_date,
                     )
                     # Also add to error logs
                     add_error_entry(
