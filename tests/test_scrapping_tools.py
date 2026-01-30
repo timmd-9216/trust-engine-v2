@@ -22,7 +22,7 @@ class TestAddLogEntry:
             success=True,
             status_code=200,
             response_time_ms=100.5,
-            max_replies=50,
+            max_posts_replies=50,
             job_id="abc123",
         )
 
@@ -33,7 +33,7 @@ class TestAddLogEntry:
         assert entry["success"] is True
         assert entry["status_code"] == 200
         assert entry["response_time_ms"] == 100.5
-        assert entry["max_replies"] == 50
+        assert entry["max_posts_replies"] == 50
         assert entry["job_id"] == "abc123"
         assert entry["skipped"] is False
         assert entry["skip_reason"] is None
@@ -61,16 +61,16 @@ class TestAddLogEntry:
             url="N/A",
             success=False,
             skipped=True,
-            skip_reason="max_replies=0 (no replies expected)",
-            max_replies=0,
+            skip_reason="max_posts_replies=0 (no replies expected)",
+            max_posts_replies=0,
         )
 
         assert len(services._execution_logs) == 1
         entry = services._execution_logs[0]
         assert entry["post_id"] == "789"
         assert entry["skipped"] is True
-        assert entry["skip_reason"] == "max_replies=0 (no replies expected)"
-        assert entry["max_replies"] == 0
+        assert entry["skip_reason"] == "max_posts_replies=0 (no replies expected)"
+        assert entry["max_posts_replies"] == 0
 
     def test_add_log_entry_with_job_id(self):
         """Test that job_id is properly logged."""
@@ -133,7 +133,7 @@ class TestFetchPostInformation:
             services.fetch_post_information(
                 post_id="123",
                 platform="instagram",
-                max_posts=100,
+                max_posts_replies=100,
             )
 
     @patch("trust_api.scrapping_tools.services.settings")
@@ -145,7 +145,7 @@ class TestFetchPostInformation:
             services.fetch_post_information(
                 post_id="123",
                 platform="instagram",
-                max_posts=100,
+                max_posts_replies=100,
                 start_date="2020-01-01",
                 end_date="2027-12-31",
             )
@@ -159,7 +159,7 @@ class TestFetchPostInformation:
             services.fetch_post_information(
                 post_id="123",
                 platform="invalid_platform",
-                max_posts=100,
+                max_posts_replies=100,
                 start_date="2020-01-01",
                 end_date="2027-12-31",
             )
@@ -177,7 +177,7 @@ class TestFetchPostInformation:
         result = services.fetch_post_information(
             post_id="123",
             platform="instagram",
-            max_posts=100,
+            max_posts_replies=100,
             start_date="2020-01-01",
             end_date="2027-12-31",
         )
@@ -203,7 +203,7 @@ class TestFetchPostInformation:
             services.fetch_post_information(
                 post_id="123",
                 platform="instagram",
-                max_posts=100,
+                max_posts_replies=100,
                 start_date="2020-01-01",
                 end_date="2027-12-31",
             )
@@ -310,14 +310,14 @@ class TestProcessPostsService:
     @patch("trust_api.scrapping_tools.services.query_posts_without_replies")
     @patch("trust_api.scrapping_tools.services.save_execution_logs")
     def test_process_posts_skips_zero_replies(self, mock_save_logs, mock_query_posts):
-        """Test that posts with max_replies <= 0 are skipped."""
+        """Test that posts with max_posts_replies <= 0 are skipped."""
         mock_query_posts.return_value = [
             {
                 "post_id": "123",
                 "platform": "instagram",
                 "country": "argentina",
                 "candidate_id": "cand1",
-                "max_replies": 0,
+                "max_posts_replies": 0,
                 "_doc_id": "doc1",
             },
             {
@@ -325,7 +325,7 @@ class TestProcessPostsService:
                 "platform": "instagram",
                 "country": "argentina",
                 "candidate_id": "cand1",
-                "max_replies": -5,
+                "max_posts_replies": -5,
                 "_doc_id": "doc2",
             },
         ]
@@ -348,7 +348,7 @@ class TestProcessPostsService:
         assert len(services._execution_logs) == 2
         for entry in services._execution_logs:
             assert entry["skipped"] is True
-            assert "max_replies" in entry["skip_reason"]
+            assert "no replies expected" in entry["skip_reason"]
 
     @patch("trust_api.scrapping_tools.services.query_posts_without_replies")
     @patch("trust_api.scrapping_tools.services.submit_post_job")
@@ -374,7 +374,7 @@ class TestProcessPostsService:
                 "platform": "instagram",
                 "country": "argentina",
                 "candidate_id": "cand1",
-                "max_replies": 100,
+                "max_posts_replies": 100,
                 "start_date": "2025-01-01",
                 "end_date": "2025-12-31",
                 "_doc_id": "doc1",
@@ -397,6 +397,52 @@ class TestProcessPostsService:
         assert len(result["jobs_created"]) == 1
         assert result["jobs_created"][0]["job_id"] == "job123"
         assert result["jobs_created"][0]["post_id"] == "123"
+
+    @patch("trust_api.scrapping_tools.services.query_posts_without_replies")
+    @patch("trust_api.scrapping_tools.services.submit_post_job")
+    @patch("trust_api.scrapping_tools.services.save_pending_job")
+    @patch("trust_api.scrapping_tools.services.read_from_gcs_if_exists")
+    @patch("trust_api.scrapping_tools.services.has_existing_job_for_post")
+    @patch("trust_api.scrapping_tools.services.save_execution_logs")
+    @patch("trust_api.scrapping_tools.services.update_post_status")
+    def test_process_posts_uses_max_posts_replies_fallback(
+        self,
+        mock_update_post_status,
+        mock_save_execution_logs,
+        mock_has_existing_job,
+        mock_read_gcs,
+        mock_save_job,
+        mock_submit_job,
+        mock_query_posts,
+    ):
+        """Test that post with max_posts_replies is used."""
+        mock_query_posts.return_value = [
+            {
+                "post_id": "999",
+                "platform": "twitter",
+                "country": "argentina",
+                "candidate_id": "cand1",
+                "max_posts_replies": 50,
+                "start_date": "2025-01-01",
+                "end_date": "2025-12-31",
+                "_doc_id": "doc99",
+            },
+        ]
+        mock_read_gcs.return_value = None
+        mock_has_existing_job.return_value = False
+        mock_submit_job.return_value = "job999"
+        mock_save_job.return_value = "job_doc_999"
+        mock_save_execution_logs.return_value = None
+
+        result = services.process_posts_service(max_posts_to_process=10)
+
+        assert result["succeeded"] == 1
+        mock_submit_job.assert_called_once()
+        call_kwargs = mock_submit_job.call_args[1]
+        assert call_kwargs["max_posts_replies"] == 50
+        mock_save_job.assert_called_once()
+        save_job_kwargs = mock_save_job.call_args[1]
+        assert save_job_kwargs["max_posts_replies"] == 50
 
 
 class TestSaveExecutionLogs:

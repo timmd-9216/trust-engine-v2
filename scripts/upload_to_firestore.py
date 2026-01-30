@@ -12,12 +12,12 @@ Uploads records with indexed fields:
 The CSV field 'created_at' is renamed to 'post_created_at' in Firestore (original post creation date).
 A new 'created_at' field is created with the current timestamp (when the record is inserted).
 
-Required CSV columns: platform, post_id, country, candidate_id, max_replies.
+Required CSV columns: platform, post_id, country, candidate_id, max_posts_replies.
 All rows are validated before any upload; missing required column or empty value aborts with error.
 
 Non-indexed fields:
 - replies_count
-- max_replies
+- max_posts_replies
 - start_date, end_date (optional; written if present in CSV)
 
 The script reads GCP_PROJECT_ID from .env file (or command line argument).
@@ -26,7 +26,7 @@ Create a .env file in the project root with:
 
 IMPORTANT:
 - Before running queries, create composite indexes in Firestore console or using gcloud commands if needed for complex queries.
-- To exclude replies_count and max_replies from indexes, configure single-field index exemptions in the Firestore console.
+- To exclude replies_count and max_posts_replies from indexes, configure single-field index exemptions in the Firestore console.
 
 Examples:
   # Upload first 50 records
@@ -70,7 +70,7 @@ def upload_to_firestore(
     limit: int | None = 10,
     skip: int = 0,
     skip_existing: bool = False,
-    max_replies_limit: int | None = None,
+    max_posts_replies_limit: int | None = None,
 ):
     """
     Upload records from CSV to Firestore.
@@ -83,7 +83,7 @@ def upload_to_firestore(
         limit: Number of records to upload (default: 10, None to upload all)
         skip: Number of records to skip from the beginning (default: 0)
         skip_existing: If True, skip records where post_id already exists in Firestore (default: False)
-        max_replies_limit: Maximum value for max_replies field (if None, no limit is applied)
+        max_posts_replies_limit: Maximum value for max_posts_replies field (if None, no limit is applied)
     """
     # Initialize Firestore client
     if project_id:
@@ -97,7 +97,7 @@ def upload_to_firestore(
         print(f"Error: CSV file not found at {csv_path}")
         sys.exit(1)
 
-    REQUIRED_COLUMNS = ("platform", "post_id", "country", "candidate_id", "max_replies")
+    REQUIRED_COLUMNS = ("platform", "post_id", "country", "candidate_id", "max_posts_replies")
 
     with open(csv_file, "r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
@@ -118,7 +118,7 @@ def upload_to_firestore(
             if col not in row:
                 print(f"Error: CSV row {row_num}: missing column '{col}'")
                 sys.exit(1)
-            val = (row[col] or "").strip()
+            val = (row.get(col) or "").strip()
             if not val:
                 print(f"Error: CSV row {row_num}: missing value for required column '{col}'")
                 sys.exit(1)
@@ -132,7 +132,7 @@ def upload_to_firestore(
         replies_count = row.get("replies_count", "")
         country = row.get("country", "")
         candidate_id = row.get("candidate_id", "")
-        max_replies = row.get("max_replies", "")
+        max_posts_replies_raw = row.get("max_posts_replies", "")
         post_created_at_str = row.get("created_at", "")
         start_date = row.get("start_date", "")
         end_date = row.get("end_date", "")
@@ -182,12 +182,15 @@ def upload_to_firestore(
             except (ValueError, TypeError):
                 doc_data["replies_count"] = replies_count
         try:
-            max_replies_int = int(max_replies)
-            if max_replies_limit is not None and max_replies_int > max_replies_limit:
-                max_replies_int = max_replies_limit
-            doc_data["max_replies"] = max_replies_int
+            max_posts_replies_int = int(max_posts_replies_raw)
+            if (
+                max_posts_replies_limit is not None
+                and max_posts_replies_int > max_posts_replies_limit
+            ):
+                max_posts_replies_int = max_posts_replies_limit
+            doc_data["max_posts_replies"] = max_posts_replies_int
         except (ValueError, TypeError):
-            doc_data["max_replies"] = max_replies
+            doc_data["max_posts_replies"] = max_posts_replies_raw
         if start_date:
             doc_data["start_date"] = start_date.strip()
         if end_date:
@@ -315,10 +318,11 @@ Examples:
         help="Skip records where post_id already exists in Firestore",
     )
     parser.add_argument(
-        "--max-replies-limit",
+        "--max-posts-replies-limit",
         type=int,
         default=None,
-        help="Maximum value for max_replies field (if CSV value exceeds this, it will be capped)",
+        dest="max_posts_replies_limit",
+        help="Maximum value for max_posts_replies field (if CSV value exceeds this, it will be capped)",
     )
 
     args = parser.parse_args()
@@ -354,8 +358,11 @@ Examples:
     print(f"Project ID: {project_id or 'default from gcloud'}")
     if args.skip_existing:
         print("Skip existing: Enabled (records with existing post_id will be skipped)")
-    if args.max_replies_limit:
-        print(f"Max replies limit: {args.max_replies_limit} (max_replies values will be capped)")
+    if args.max_posts_replies_limit:
+        print(
+            f"Max posts replies limit: {args.max_posts_replies_limit} "
+            "(max_posts_replies values will be capped)"
+        )
     print()
 
     upload_to_firestore(
@@ -366,5 +373,5 @@ Examples:
         limit,
         args.skip,
         args.skip_existing,
-        args.max_replies_limit,
+        args.max_posts_replies_limit,
     )

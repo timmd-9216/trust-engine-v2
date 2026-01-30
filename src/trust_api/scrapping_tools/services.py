@@ -38,6 +38,16 @@ def get_gcs_client() -> storage.Client:
     return storage.Client()
 
 
+def _get_post_max_posts_replies(post: dict[str, Any]) -> int | None:
+    """Return max_posts_replies from post (max replies to fetch)."""
+    return post.get("max_posts_replies")
+
+
+def _get_job_max_posts_replies(job: dict[str, Any]) -> int | None:
+    """Return max_posts_replies from job (max replies to fetch)."""
+    return job.get("max_posts_replies")
+
+
 def query_posts_without_replies(max_posts: int | None = None) -> list[dict[str, Any]]:
     """
     Query Firestore for posts with status='noreplies'.
@@ -124,7 +134,7 @@ def add_log_entry(
     status_code: int | None = None,
     error_message: str | None = None,
     response_time_ms: float | None = None,
-    max_replies: int | None = None,
+    max_posts_replies: int | None = None,
     skipped: bool = False,
     skip_reason: str | None = None,
     job_id: str | None = None,
@@ -132,6 +142,7 @@ def add_log_entry(
     retry_count: int = 0,
     start_date: str | None = None,
     end_date: str | None = None,
+    api_params: dict | None = None,
 ) -> None:
     """
     Add a log entry to the execution logs (in-memory).
@@ -143,7 +154,7 @@ def add_log_entry(
         status_code: HTTP status code (if available)
         error_message: Error message (if call failed)
         response_time_ms: Response time in milliseconds (if available)
-        max_replies: Maximum number of replies requested for this post (if available)
+        max_posts_replies: Maximum number of replies requested for this post (if available)
         skipped: Whether the post was skipped (not queried)
         skip_reason: Reason for skipping (if skipped)
         job_id: Information Tracer job ID (id_hash256) if available
@@ -151,6 +162,7 @@ def add_log_entry(
         retry_count: Number of retry attempt (default: 0)
         start_date: Start date used for the Information Tracer call (if applicable)
         end_date: End date used for the Information Tracer call (if applicable)
+        api_params: Full set of parameters sent to the API (sort_by, platform, query, etc.)
     """
     now = datetime.now(timezone.utc)
     log_entry = {
@@ -161,7 +173,7 @@ def add_log_entry(
         "status_code": status_code,
         "error_message": error_message,
         "response_time_ms": response_time_ms,
-        "max_replies": max_replies,
+        "max_posts_replies": max_posts_replies,
         "skipped": skipped,
         "skip_reason": skip_reason,
         "job_id": job_id,
@@ -172,6 +184,8 @@ def add_log_entry(
         log_entry["start_date"] = start_date
     if end_date is not None:
         log_entry["end_date"] = end_date
+    if api_params is not None:
+        log_entry["api_params"] = api_params
     _execution_logs.append(log_entry)
 
 
@@ -407,7 +421,7 @@ def save_error_logs(
 def fetch_post_information(
     post_id: str,
     platform: str,
-    max_posts: int = 100,
+    max_posts_replies: int = 100,
     sort_by: Literal["time", "engagement"] = "time",
     comment_depth: int = 1,
     start_date: str | None = None,
@@ -420,7 +434,7 @@ def fetch_post_information(
     Args:
         post_id: The post ID to get replies for
         platform: The platform where the post is located (twitter, facebook, instagram, etc.)
-        max_posts: Maximum number of replies to collect (default: 100)
+        max_posts_replies: Maximum number of replies to collect (default: 100)
         sort_by: Sort order for replies ('time' or 'engagement'). Default is 'time'.
                  Note: Only applies to keyword search, not account search.
         comment_depth: Depth of comment threads to collect (default: 1).
@@ -476,7 +490,7 @@ def fetch_post_information(
         result = get_post_replies(
             post_id=post_id,
             platform=platform.lower(),  # type: ignore
-            max_post=max_posts,
+            max_post=max_posts_replies,
             token=settings.information_tracer_api_key,
             sort_by=sort_by,
             comment_depth=comment_depth,
@@ -496,8 +510,21 @@ def fetch_post_information(
             success=True,
             status_code=200,
             response_time_ms=response_time_ms,
-            max_replies=max_posts,
+            max_posts_replies=max_posts_replies,
             job_id=job_id,
+            start_date=start_date,
+            end_date=end_date,
+            api_params={
+                "query": f"reply:{post_id}",
+                "platform": platform,
+                "max_post": max_posts_replies,
+                "sort_by": sort_by,
+                "start_date": start_date,
+                "end_date": end_date,
+                "comment_depth": comment_depth,
+                "timeline_only": False,
+                "enable_ai": False,
+            },
         )
 
         return data
@@ -513,7 +540,20 @@ def fetch_post_information(
             status_code=None,
             error_message=error_message,
             response_time_ms=response_time_ms,
-            max_replies=max_posts,
+            max_posts_replies=max_posts_replies,
+            start_date=start_date,
+            end_date=end_date,
+            api_params={
+                "query": f"reply:{post_id}",
+                "platform": platform,
+                "max_post": max_posts_replies,
+                "sort_by": sort_by,
+                "start_date": start_date,
+                "end_date": end_date,
+                "comment_depth": comment_depth,
+                "timeline_only": False,
+                "enable_ai": False,
+            },
         )
         raise
 
@@ -528,7 +568,20 @@ def fetch_post_information(
             status_code=None,
             error_message=error_message,
             response_time_ms=response_time_ms,
-            max_replies=max_posts,
+            max_posts_replies=max_posts_replies,
+            start_date=start_date,
+            end_date=end_date,
+            api_params={
+                "query": f"reply:{post_id}",
+                "platform": platform,
+                "max_post": max_posts_replies,
+                "sort_by": sort_by,
+                "start_date": start_date,
+                "end_date": end_date,
+                "comment_depth": comment_depth,
+                "timeline_only": False,
+                "enable_ai": False,
+            },
         )
         raise
 
@@ -542,7 +595,20 @@ def fetch_post_information(
             success=False,
             error_message=error_message,
             response_time_ms=response_time_ms,
-            max_replies=max_posts,
+            max_posts_replies=max_posts_replies,
+            start_date=start_date,
+            end_date=end_date,
+            api_params={
+                "query": f"reply:{post_id}",
+                "platform": platform,
+                "max_post": max_posts_replies,
+                "sort_by": sort_by,
+                "start_date": start_date,
+                "end_date": end_date,
+                "comment_depth": comment_depth,
+                "timeline_only": False,
+                "enable_ai": False,
+            },
         )
         raise
 
@@ -830,7 +896,7 @@ def save_pending_job(
     platform: str,
     country: str,
     candidate_id: str,
-    max_posts: int,
+    max_posts_replies: int,
     sort_by: Literal["time", "engagement"] = "time",
 ) -> str:
     """
@@ -843,7 +909,7 @@ def save_pending_job(
         platform: The platform name
         country: The country name
         candidate_id: The candidate ID
-        max_posts: Maximum number of posts to fetch
+        max_posts_replies: Maximum number of replies to fetch
         sort_by: Sort order for replies ('time' or 'engagement'). Default is 'time'.
 
     Returns:
@@ -865,7 +931,7 @@ def save_pending_job(
         "platform": platform,
         "country": country,
         "candidate_id": candidate_id,
-        "max_posts": max_posts,
+        "max_posts_replies": max_posts_replies,
         "sort_by": sort_by,
         "status": "pending",
         "created_at": now,
@@ -1463,7 +1529,7 @@ def retry_empty_result_jobs_service(
 def submit_post_job(
     post_id: str,
     platform: str,
-    max_posts: int = 100,
+    max_posts_replies: int = 100,
     sort_by: Literal["time", "engagement"] = "time",
     start_date: str | None = None,
     end_date: str | None = None,
@@ -1475,7 +1541,7 @@ def submit_post_job(
     Args:
         post_id: The post ID to get replies for
         platform: The platform where the post is located (twitter, facebook, instagram, etc.)
-        max_posts: Maximum number of replies to collect (default: 100)
+        max_posts_replies: Maximum number of replies to collect (default: 100)
         sort_by: Sort order for replies ('time' or 'engagement'). Default is 'time'.
                  Note: Only applies to keyword search, not account search.
         start_date: Start date for filtering replies in YYYY-MM-DD format. Required.
@@ -1526,7 +1592,7 @@ def submit_post_job(
     id_hash256, _ = submit(
         token=settings.information_tracer_api_key,
         query=query,
-        max_post=max_posts,
+        max_post=max_posts_replies,
         sort_by=sort_by,
         start_date=start_date,
         end_date=end_date,
@@ -1547,7 +1613,7 @@ def process_posts_service(
     This function only submits the jobs, it does not wait for completion.
 
     For each post, start_date and end_date are read from the post document (same as platform,
-    max_replies, etc.). Posts without both start_date and end_date are recorded as processing
+    max_posts_replies, etc.). Posts without both start_date and end_date are recorded as processing
     errors (failed) and added to results["errors"].
 
     Args:
@@ -1600,24 +1666,24 @@ def process_posts_service(
 
             try:
                 # Determine maximum posts to fetch from Information Tracer
-                # Priority: max_replies > replies_count > default (100)
+                # Priority: max_posts_replies > replies_count > default (100)
                 replies_count = post.get("replies_count")
-                max_replies = post.get("max_replies")
+                max_posts_replies_val = _get_post_max_posts_replies(post)
 
-                # Use max_replies if available and valid (has priority)
-                if max_replies is not None and max_replies > 0:
-                    max_posts_to_fetch = max_replies
-                # Fallback to replies_count if max_replies is not available
+                # Use max_posts_replies if available and valid (has priority)
+                if max_posts_replies_val is not None and max_posts_replies_val > 0:
+                    max_posts_to_fetch = max_posts_replies_val
+                # Fallback to replies_count if max_posts_replies is not available
                 elif replies_count is not None and replies_count > 0:
                     max_posts_to_fetch = replies_count
                 else:
                     # Default to 100 if neither is available or both are invalid
                     max_posts_to_fetch = 100
 
-                # Skip when max_replies=0 (sufficient) or when both indicate no replies
-                if (max_replies is not None and max_replies <= 0) or (
+                # Skip when max_posts_replies=0 (sufficient) or when both indicate no replies
+                if (max_posts_replies_val is not None and max_posts_replies_val <= 0) or (
                     (replies_count is None or replies_count <= 0)
-                    and (max_replies is None or max_replies <= 0)
+                    and (max_posts_replies_val is None or max_posts_replies_val <= 0)
                 ):
                     results["skipped"] += 1
                     # Update status to "skipped" in Firestore
@@ -1629,8 +1695,11 @@ def process_posts_service(
                         url="N/A",
                         success=False,
                         skipped=True,
-                        skip_reason=f"max_replies={max_replies}, replies_count={replies_count} (no replies expected)",
-                        max_replies=max_replies or replies_count or 0,
+                        skip_reason=(
+                            f"max_posts_replies={max_posts_replies_val}, "
+                            f"replies_count={replies_count} (no replies expected)"
+                        ),
+                        max_posts_replies=max_posts_replies_val or replies_count or 0,
                     )
                     continue
 
@@ -1661,7 +1730,7 @@ def process_posts_service(
                             success=True,
                             skipped=False,
                             skip_reason=f"Renamed existing file to {old_file_path}",
-                            max_replies=max_posts_to_fetch,
+                            max_posts_replies=max_posts_to_fetch,
                         )
                     else:
                         # If rename failed, log warning but continue anyway
@@ -1704,7 +1773,7 @@ def process_posts_service(
                         success=False,
                         skipped=False,
                         skip_reason=error_msg,
-                        max_replies=max_posts_to_fetch,
+                        max_posts_replies=max_posts_to_fetch,
                     )
                     continue
 
@@ -1712,7 +1781,7 @@ def process_posts_service(
                 job_id = submit_post_job(
                     post_id=post_id,
                     platform=platform,
-                    max_posts=max_posts_to_fetch,
+                    max_posts_replies=max_posts_to_fetch,
                     sort_by=sort_by,
                     start_date=start_date,
                     end_date=end_date,
@@ -1727,7 +1796,7 @@ def process_posts_service(
                         platform=platform,
                         country=country,
                         candidate_id=candidate_id,
-                        max_posts=max_posts_to_fetch,
+                        max_posts_replies=max_posts_to_fetch,
                         sort_by=sort_by,
                     )
                     results["jobs_created"].append(
@@ -1748,9 +1817,20 @@ def process_posts_service(
                         success=True,
                         status_code=200,
                         job_id=job_id,
-                        max_replies=max_posts_to_fetch,
+                        max_posts_replies=max_posts_to_fetch,
                         start_date=start_date,
                         end_date=end_date,
+                        api_params={
+                            "query": f"reply:{post_id}",
+                            "platform": platform,
+                            "max_post": max_posts_to_fetch,
+                            "sort_by": sort_by,
+                            "start_date": start_date,
+                            "end_date": end_date,
+                            "timeline_only": False,
+                            "enable_ai": False,
+                            "comment_depth": 1,
+                        },
                     )
                 else:
                     error_msg = f"Failed to submit job for post_id={post_id}"
@@ -1762,9 +1842,20 @@ def process_posts_service(
                         url=f"https://informationtracer.com/submit (reply:{post_id})",
                         success=False,
                         error_message="Failed to submit job to Information Tracer",
-                        max_replies=max_posts_to_fetch,
+                        max_posts_replies=max_posts_to_fetch,
                         start_date=start_date,
                         end_date=end_date,
+                        api_params={
+                            "query": f"reply:{post_id}",
+                            "platform": platform,
+                            "max_post": max_posts_to_fetch,
+                            "sort_by": sort_by,
+                            "start_date": start_date,
+                            "end_date": end_date,
+                            "timeline_only": False,
+                            "enable_ai": False,
+                            "comment_depth": 1,
+                        },
                     )
                     # Also add to error logs
                     add_error_entry(
@@ -1915,7 +2006,7 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
             country = job.get("country", "unknown")
             candidate_id = job.get("candidate_id", "unknown")
             # Persisted at submit time (save_pending_job). Useful for audit logs.
-            job_max_posts = job.get("max_posts")
+            job_max_posts_replies = _get_job_max_posts_replies(job)
             # Get retry_count from job document (if it exists, indicates a retry)
             current_retry_count = job.get("retry_count", 0)
 
@@ -1955,10 +2046,15 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                         url=f"https://informationtracer.com/rawdata (job_id:{job_id})",
                         success=True,
                         status_code=200,
-                        max_replies=job_max_posts,
+                        max_posts_replies=job_max_posts_replies,
                         job_id=job_id,
                         skipped=True,
                         skip_reason="JSON file already exists in GCS with valid content",
+                        api_params={
+                            "platform": job.get("platform"),
+                            "sort_by": job.get("sort_by"),
+                            "max_post": job_max_posts_replies,
+                        },
                     )
 
                     results["succeeded"] += 1
@@ -2061,8 +2157,13 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                             url=f"https://informationtracer.com/rawdata (job_id:{job_id})",
                             success=False,
                             error_message="Result is empty",
-                            max_replies=job_max_posts,
+                            max_posts_replies=job_max_posts_replies,
                             job_id=job_id,
+                            api_params={
+                                "platform": job.get("platform"),
+                                "sort_by": job.get("sort_by"),
+                                "max_post": job_max_posts_replies,
+                            },
                         )
                         # Also save to error logs file (for historical tracking, aunque no sea error técnico)
                         add_error_entry(
@@ -2133,10 +2234,15 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                         url=f"https://informationtracer.com/rawdata (job_id:{job_id})",
                         success=True,
                         status_code=200,
-                        max_replies=job_max_posts,
+                        max_posts_replies=job_max_posts_replies,
                         job_id=job_id,
                         is_retry=is_retry,
                         retry_count=retry_count,
+                        api_params={
+                            "platform": job.get("platform"),
+                            "sort_by": job.get("sort_by"),
+                            "max_post": job_max_posts_replies,
+                        },
                     )
 
                     results["succeeded"] += 1
@@ -2347,6 +2453,7 @@ def fix_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
             platform = job.get("platform", "unknown")
             country = job.get("country", "unknown")
             candidate_id = job.get("candidate_id", "unknown")
+            job_max_posts_replies = _get_job_max_posts_replies(job)
 
             if not job_id or not job_doc_id or not post_id:
                 error_msg = (
@@ -2395,8 +2502,13 @@ def fix_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                         url=f"https://informationtracer.com/rawdata (job_id:{job_id})",
                         success=False,
                         error_message="Failed to retrieve results on retry",
-                        max_replies=job.get("max_posts"),
+                        max_posts_replies=job_max_posts_replies,
                         job_id=job_id,
+                        api_params={
+                            "platform": job.get("platform"),
+                            "sort_by": job.get("sort_by"),
+                            "max_post": job_max_posts_replies,
+                        },
                     )
                     # Also save to error logs file
                     add_error_entry(
@@ -2431,8 +2543,13 @@ def fix_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                         url=f"https://informationtracer.com/rawdata (job_id:{job_id})",
                         success=False,
                         error_message="Result is still empty after retry",
-                        max_replies=job.get("max_posts"),
+                        max_posts_replies=job_max_posts_replies,
                         job_id=job_id,
+                        api_params={
+                            "platform": job.get("platform"),
+                            "sort_by": job.get("sort_by"),
+                            "max_post": job_max_posts_replies,
+                        },
                     )
                     # Also save to error logs file
                     add_error_entry(
@@ -2465,8 +2582,13 @@ def fix_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                     url=f"https://informationtracer.com/rawdata (job_id:{job_id})",
                     success=True,
                     status_code=200,
-                    max_replies=job.get("max_posts"),
+                    max_posts_replies=job_max_posts_replies,
                     job_id=job_id,
+                    api_params={
+                        "platform": job.get("platform"),
+                        "sort_by": job.get("sort_by"),
+                        "max_post": job_max_posts_replies,
+                    },
                 )
 
             except Exception as e:

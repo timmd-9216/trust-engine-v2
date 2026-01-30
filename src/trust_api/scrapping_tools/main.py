@@ -24,7 +24,7 @@ from trust_api.scrapping_tools.services import (
 class PostInformationRequest(BaseModel):
     post_id: str
     platform: str
-    max_posts: int = 100
+    max_posts_replies: int = 100
     comment_depth: int = 1
     start_date: str | None = None
     end_date: str | None = None
@@ -187,7 +187,7 @@ async def get_post_information(request: PostInformationRequest):
         data = fetch_post_information(
             post_id=request.post_id,
             platform=request.platform,
-            max_posts=request.max_posts,
+            max_posts_replies=request.max_posts_replies,
             comment_depth=request.comment_depth,
             start_date=request.start_date,
             end_date=request.end_date,
@@ -227,7 +227,7 @@ async def process_posts_endpoint(
 
     This is a fast operation that only submits jobs. To retrieve results, use /process-jobs endpoint.
 
-    start_date and end_date are read from each post document (like platform, max_replies, etc.).
+    start_date and end_date are read from each post document (like platform, max_posts_replies, etc.).
     Posts without both start_date and end_date are recorded as processing errors (failed).
 
     Args:
@@ -634,7 +634,7 @@ async def count_posts_by_status_endpoint(
     Note: Posts do NOT have a 'pending' status. Valid post statuses are:
     - 'noreplies': Post pendiente de procesar (default)
     - 'done': Post procesado exitosamente
-    - 'skipped': Post saltado porque max_replies <= 0
+    - 'skipped': Post saltado porque max_posts_replies <= 0
 
     Args:
         status: Post status to count. Default is 'noreplies'. Valid values: 'noreplies', 'done', 'skipped'
