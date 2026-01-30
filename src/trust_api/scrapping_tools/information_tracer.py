@@ -50,8 +50,8 @@ def submit(
     query: str,
     max_post: int,
     sort_by: Literal["time", "engagement"],
-    start_date: str,
-    end_date: str,
+    start_date: str | None,
+    end_date: str | None,
     platform: PlatformType | list[PlatformType],
     timeline_only: bool,
     enable_ai: bool,
@@ -79,20 +79,23 @@ def submit(
             - Threads: 200
             - Bluesky: 500
         sort_by: Sort order ('time' or 'engagement'). Only applies to keyword search.
-        start_date: Start date in 'YYYY-MM-DD' format (ignored for account search).
-        end_date: End date in 'YYYY-MM-DD' format (earliest date to collect from).
+        start_date: Start date in 'YYYY-MM-DD' format (ignored for account search). Required.
+        end_date: End date in 'YYYY-MM-DD' format (earliest date to collect from). Required.
         platform: Single platform or list of platforms to collect from.
         timeline_only: If True, uses account search (includes retweets).
                       If False, uses keyword search (excludes retweets).
         enable_ai: Enable AI features for the collection.
-        comment_depth: Depth of comment threads to collect from Instagram (default in this function is 1). 
+        comment_depth: Depth of comment threads to collect from Instagram (default in this function is 1).
                        The default value for the API is 2, where replies to comments are also collected. Other
                        values set will be ignored.
-        
+
     Returns:
         A tuple containing:
             - The job ID (id_hash256) if submission is successful, None otherwise
             - Dictionary with the request parameters used
+
+    Raises:
+        ValueError: If start_date or end_date are not provided
 
     Examples:
         Collect posts from Twitter account (including retweets):
@@ -104,6 +107,11 @@ def submit(
         Collect replies from Twitter post:
             >>> submit(token, 'reply:2000043080984998363', 100, 'time', '2025-01-01', '2025-12-01', 'twitter', False, False)
     """
+    # Validate required date parameters
+    if not start_date or not end_date:
+        error_msg = "start_date and end_date are required parameters"
+        logger.error(error_msg)
+        raise ValueError(error_msg)
     # for account search, we always get data in reverse chronologicall order.
     # for account search, start_date is IRNORED
     # start_date = '2020-01-01'
@@ -343,8 +351,8 @@ def get_post_replies(
     token: str | None = None,
     sort_by: Literal["time", "engagement"] = "time",
     comment_depth: int = 1,
-    start_date: str = "2020-01-01",
-    end_date: str = "2026-12-31",
+    start_date: str | None = None,
+    end_date: str | None = None,
 ) -> dict:
     """Get replies for a specific post using Information Tracer API.
 
@@ -369,8 +377,8 @@ def get_post_replies(
                  Note: Only applies to keyword search, not account search.
         comment_depth: Depth of comment threads to collect from Instagram (default in this function is 1).
                        The default value for the API is 2, where replies to comments are also collected.
-        start_date: Start date for filtering replies in YYYY-MM-DD format. Default is "2020-01-01".
-        end_date: End date for filtering replies in YYYY-MM-DD format. Default is "2026-12-31".
+        start_date: Start date for filtering replies in YYYY-MM-DD format. Required.
+        end_date: End date for filtering replies in YYYY-MM-DD format. Required.
 
     Returns:
         dict: Dictionary containing:
@@ -378,7 +386,7 @@ def get_post_replies(
             - "job_id": The Information Tracer job ID (id_hash256)
 
     Raises:
-        ValueError: If submission fails or job ID is not returned.
+        ValueError: If submission fails, job ID is not returned, or start_date/end_date are not provided.
         RuntimeError: If job status check fails or times out.
         Exception: If result retrieval fails.
 
@@ -393,6 +401,12 @@ def get_post_replies(
         raise ValueError(
             "API token is required. Set INFORMATION_TRACER_API_KEY environment variable or pass token parameter."
         )
+
+    # Validate required date parameters
+    if not start_date or not end_date:
+        error_msg = "start_date and end_date are required parameters for get_post_replies"
+        logger.error(error_msg)
+        raise ValueError(error_msg)
 
     # Construct query for reply search: 'reply:post_id'
     query = f"reply:{post_id}"

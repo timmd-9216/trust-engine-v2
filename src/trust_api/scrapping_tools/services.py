@@ -395,8 +395,8 @@ def fetch_post_information(
     max_posts: int = 100,
     sort_by: Literal["time", "engagement"] = "time",
     comment_depth: int = 1,
-    start_date: str = "2020-01-01",
-    end_date: str = "2026-12-31",
+    start_date: str | None = None,
+    end_date: str | None = None,
 ) -> dict[str, Any]:
     """
     Fetch replies for a post using Information Tracer API.
@@ -410,18 +410,27 @@ def fetch_post_information(
                  Note: Only applies to keyword search, not account search.
         comment_depth: Depth of comment threads to collect (default: 1).
                        Only applies to Instagram.
-        start_date: Start date for filtering replies in YYYY-MM-DD format. Default is "2020-01-01".
-        end_date: End date for filtering replies in YYYY-MM-DD format. Default is "2026-12-31".
+        start_date: Start date for filtering replies in YYYY-MM-DD format. Required.
+        end_date: End date for filtering replies in YYYY-MM-DD format. Required.
 
     Returns:
         Dictionary containing the collected replies from Information Tracer
 
     Raises:
-        ValueError: If INFORMATION_TRACER_API_KEY is not configured or invalid platform
+        ValueError: If INFORMATION_TRACER_API_KEY is not configured, invalid platform,
+                    or start_date/end_date are not provided
         RuntimeError: If the Information Tracer job fails or times out
     """
     if not settings.information_tracer_api_key:
         raise ValueError("INFORMATION_TRACER_API_KEY is not configured")
+
+    # Validate required date parameters
+    if not start_date or not end_date:
+        error_msg = (
+            f"start_date and end_date are required for fetch_post_information (post_id={post_id})"
+        )
+        logger.error(error_msg)
+        raise ValueError(error_msg)
 
     # Import here to avoid circular dependencies
     from trust_api.scrapping_tools.information_tracer import PlatformType, get_post_replies
@@ -1441,8 +1450,8 @@ def submit_post_job(
     platform: str,
     max_posts: int = 100,
     sort_by: Literal["time", "engagement"] = "time",
-    start_date: str = "2020-01-01",
-    end_date: str = "2026-12-31",
+    start_date: str | None = None,
+    end_date: str | None = None,
 ) -> str | None:
     """
     Submit a post replies job to Information Tracer API and return the job ID (hash_id).
@@ -1454,17 +1463,24 @@ def submit_post_job(
         max_posts: Maximum number of replies to collect (default: 100)
         sort_by: Sort order for replies ('time' or 'engagement'). Default is 'time'.
                  Note: Only applies to keyword search, not account search.
-        start_date: Start date for filtering replies in YYYY-MM-DD format. Default is "2020-01-01".
-        end_date: End date for filtering replies in YYYY-MM-DD format. Default is "2026-12-31".
+        start_date: Start date for filtering replies in YYYY-MM-DD format. Required.
+        end_date: End date for filtering replies in YYYY-MM-DD format. Required.
 
     Returns:
         The job ID (id_hash256) if submission is successful, None otherwise
 
     Raises:
-        ValueError: If INFORMATION_TRACER_API_KEY is not configured or invalid platform
+        ValueError: If INFORMATION_TRACER_API_KEY is not configured, invalid platform,
+                    or start_date/end_date are not provided
     """
     if not settings.information_tracer_api_key:
         raise ValueError("INFORMATION_TRACER_API_KEY is not configured")
+
+    # Validate required date parameters
+    if not start_date or not end_date:
+        error_msg = f"start_date and end_date are required for submit_post_job (post_id={post_id})"
+        logger.error(error_msg)
+        raise ValueError(error_msg)
 
     # Import here to avoid circular dependencies
     from trust_api.scrapping_tools.information_tracer import PlatformType, submit
@@ -1510,8 +1526,8 @@ def submit_post_job(
 def process_posts_service(
     max_posts: int | None = None,
     sort_by: Literal["time", "engagement"] = "time",
-    start_date: str = "2020-01-01",
-    end_date: str = "2026-12-31",
+    start_date: str | None = None,
+    end_date: str | None = None,
 ) -> dict[str, Any]:
     """
     Submit jobs to Information Tracer API and save hash_ids to pending_jobs collection.
@@ -1521,12 +1537,20 @@ def process_posts_service(
         max_posts: Maximum number of posts to process. If None, processes all posts with status='noreplies'.
         sort_by: Sort order for replies ('time' or 'engagement'). Default is 'time'.
                  Note: Only applies to keyword search, not account search.
-        start_date: Start date for filtering replies in YYYY-MM-DD format. Default is "2020-01-01".
-        end_date: End date for filtering replies in YYYY-MM-DD format. Default is "2026-12-31".
+        start_date: Start date for filtering replies in YYYY-MM-DD format. Required.
+        end_date: End date for filtering replies in YYYY-MM-DD format. Required.
 
     Returns:
         Dictionary with processing results including success count, errors, jobs created, etc.
+
+    Raises:
+        ValueError: If start_date or end_date are not provided
     """
+    # Validate required date parameters
+    if not start_date or not end_date:
+        error_msg = "start_date and end_date are required for process_posts_service"
+        logger.error(error_msg)
+        raise ValueError(error_msg)
     # Reset logs for this execution
     reset_execution_logs()
 

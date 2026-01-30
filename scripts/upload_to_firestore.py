@@ -12,9 +12,13 @@ Uploads records with indexed fields:
 The CSV field 'created_at' is renamed to 'post_created_at' in Firestore (original post creation date).
 A new 'created_at' field is created with the current timestamp (when the record is inserted).
 
+Required CSV columns: platform, post_id, country, candidate_id, max_replies.
+All rows are validated before any upload; missing required column or empty value aborts with error.
+
 Non-indexed fields:
 - replies_count
 - max_replies
+- start_date, end_date (optional; written if present in CSV)
 
 The script reads GCP_PROJECT_ID from .env file (or command line argument).
 Create a .env file in the project root with:
@@ -93,121 +97,120 @@ def upload_to_firestore(
         print(f"Error: CSV file not found at {csv_path}")
         sys.exit(1)
 
-    records_uploaded = 0
+    REQUIRED_COLUMNS = ("platform", "post_id", "country", "candidate_id", "max_replies")
 
     with open(csv_file, "r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
+        all_rows = list(reader)
 
-        for i, row in enumerate(reader):
-            # Skip records before the starting position
-            if i < skip:
+    if not all_rows:
+        print("Error: CSV has no data rows")
+        sys.exit(1)
+
+    # Determine rows to process (after skip, up to limit)
+    end = (skip + limit) if limit is not None else None
+    rows_to_process = all_rows[skip:end]
+
+    # Validate: no missing required values in any row before processing
+    for idx, row in enumerate(rows_to_process):
+        row_num = skip + idx + 2  # 1-based + header line
+        for col in REQUIRED_COLUMNS:
+            if col not in row:
+                print(f"Error: CSV row {row_num}: missing column '{col}'")
+                sys.exit(1)
+            val = (row[col] or "").strip()
+            if not val:
+                print(f"Error: CSV row {row_num}: missing value for required column '{col}'")
+                sys.exit(1)
+
+    records_uploaded = 0
+
+    for idx, row in enumerate(rows_to_process):
+        # Extract fields from CSV
+        platform = row.get("platform", "")
+        post_id = row.get("post_id", "")
+        replies_count = row.get("replies_count", "")
+        country = row.get("country", "")
+        candidate_id = row.get("candidate_id", "")
+        max_replies = row.get("max_replies", "")
+        post_created_at_str = row.get("created_at", "")
+        start_date = row.get("start_date", "")
+        end_date = row.get("end_date", "")
+        status = "noreplies"  # Default value
+        i = skip + idx
+
+        # Convert post_created_at (from CSV) string to Firestore timestamp
+        post_created_at = None
+        if post_created_at_str:
+            try:
+                # Try to parse ISO format: "2025-12-16T09:59:35.000000" or "2025-12-16T09:59:35"
+                created_at_str_clean = post_created_at_str.strip()
+                if "T" in created_at_str_clean:
+                    if created_at_str_clean.endswith("Z"):
+                        created_at_str_clean = created_at_str_clean[:-1] + "+00:00"
+                    elif "+" not in created_at_str_clean and "-" not in created_at_str_clean[-6:]:
+                        created_at_str_clean = created_at_str_clean + "+00:00"
+                    post_created_at = datetime.fromisoformat(created_at_str_clean)
+                else:
+                    for fmt in ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d"]:
+                        try:
+                            post_created_at = datetime.strptime(created_at_str_clean, fmt)
+                            break
+                        except ValueError:
+                            continue
+            except (ValueError, TypeError) as e:
+                print(
+                    f"Warning: Could not parse post_created_at '{post_created_at_str}' for "
+                    f"post_id={post_id}: {e}"
+                )
+                post_created_at = post_created_at_str
+
+        created_at = datetime.now(timezone.utc)
+        doc_data = {
+            "platform": platform,
+            "post_id": post_id,
+            "country": country,
+            "candidate_id": candidate_id,
+            "created_at": created_at,
+            "status": status,
+        }
+        if post_created_at:
+            doc_data["post_created_at"] = post_created_at
+        if replies_count:
+            try:
+                doc_data["replies_count"] = int(replies_count)
+            except (ValueError, TypeError):
+                doc_data["replies_count"] = replies_count
+        try:
+            max_replies_int = int(max_replies)
+            if max_replies_limit is not None and max_replies_int > max_replies_limit:
+                max_replies_int = max_replies_limit
+            doc_data["max_replies"] = max_replies_int
+        except (ValueError, TypeError):
+            doc_data["max_replies"] = max_replies
+        if start_date:
+            doc_data["start_date"] = start_date.strip()
+        if end_date:
+            doc_data["end_date"] = end_date.strip()
+
+        if skip_existing and post_id:
+            existing_query = (
+                client.collection(collection).where("post_id", "==", post_id).limit(1).stream()
+            )
+            existing_docs = list(existing_query)
+            if existing_docs:
+                print(
+                    f"Skipped record {i + 1} (position {i + 1} in CSV): post_id={post_id} already exists"
+                )
                 continue
 
-            # Stop after uploading the requested number of records (if limit is set)
-            if limit is not None and records_uploaded >= limit:
-                break
-
-            # Extract fields from CSV
-            platform = row.get("platform", "")
-            post_id = row.get("post_id", "")
-            replies_count = row.get("replies_count", "")
-            country = row.get("country", "")
-            candidate_id = row.get("candidate_id", "")
-            max_replies = row.get("max_replies", "")
-            post_created_at_str = row.get("created_at", "")
-            status = "noreplies"  # Default value
-
-            # Convert post_created_at (from CSV) string to Firestore timestamp
-            post_created_at = None
-            if post_created_at_str:
-                try:
-                    # Try to parse ISO format: "2025-12-16T09:59:35.000000" or "2025-12-16T09:59:35"
-                    # Remove microseconds if present and handle timezone
-                    created_at_str_clean = post_created_at_str.strip()
-                    if "T" in created_at_str_clean:
-                        # ISO format with or without timezone
-                        if created_at_str_clean.endswith("Z"):
-                            created_at_str_clean = created_at_str_clean[:-1] + "+00:00"
-                        elif (
-                            "+" not in created_at_str_clean and "-" not in created_at_str_clean[-6:]
-                        ):
-                            # No timezone, assume UTC
-                            created_at_str_clean = created_at_str_clean + "+00:00"
-                        post_created_at = datetime.fromisoformat(created_at_str_clean)
-                    else:
-                        # Try other formats
-                        for fmt in ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d"]:
-                            try:
-                                post_created_at = datetime.strptime(created_at_str_clean, fmt)
-                                break
-                            except ValueError:
-                                continue
-                except (ValueError, TypeError) as e:
-                    print(
-                        f"Warning: Could not parse post_created_at '{post_created_at_str}' for post_id={post_id}: {e}"
-                    )
-                    # If parsing fails, keep as string
-                    post_created_at = post_created_at_str
-
-            # Create created_at timestamp for Firestore (timestamp of insert)
-            created_at = datetime.now(timezone.utc)
-
-            # Prepare document data
-            doc_data = {
-                # Indexed fields
-                "platform": platform,
-                "post_id": post_id,
-                "country": country,
-                "candidate_id": candidate_id,
-                "created_at": created_at,  # Timestamp of insert into Firestore
-                "status": status,
-            }
-
-            # Add post_created_at if available (original creation date from CSV)
-            if post_created_at:
-                doc_data["post_created_at"] = post_created_at
-
-            # Add non-indexed fields
-            # Note: To exclude these from indexes, configure single-field index exemptions
-            # in the Firestore console or via gcloud commands
-            if replies_count:
-                try:
-                    doc_data["replies_count"] = int(replies_count)
-                except (ValueError, TypeError):
-                    doc_data["replies_count"] = replies_count
-            if max_replies:
-                try:
-                    max_replies_int = int(max_replies)
-                    # Apply max_replies_limit if specified
-                    if max_replies_limit is not None and max_replies_int > max_replies_limit:
-                        max_replies_int = max_replies_limit
-                    doc_data["max_replies"] = max_replies_int
-                except (ValueError, TypeError):
-                    doc_data["max_replies"] = max_replies
-
-            # Check if post_id already exists (if skip_existing is enabled)
-            if skip_existing and post_id:
-                # Query for existing document with this post_id
-                existing_query = (
-                    client.collection(collection).where("post_id", "==", post_id).limit(1).stream()
-                )
-                existing_docs = list(existing_query)
-
-                if existing_docs:
-                    print(
-                        f"Skipped record {i + 1} (position {i + 1} in CSV): post_id={post_id} already exists"
-                    )
-                    continue
-
-            # Create a new document with auto-generated ID
-            doc_ref = client.collection(collection).document()
-            doc_ref.set(doc_data)
-            records_uploaded += 1
-
-            print(
-                f"Uploaded record {i + 1} (position {i + 1} in CSV): platform={platform}, "
-                f"country={country}, candidate_id={candidate_id}, post_id={post_id}, created_at={created_at}"
-            )
+        doc_ref = client.collection(collection).document()
+        doc_ref.set(doc_data)
+        records_uploaded += 1
+        print(
+            f"Uploaded record {i + 1} (position {i + 1} in CSV): platform={platform}, "
+            f"country={country}, candidate_id={candidate_id}, post_id={post_id}, created_at={created_at}"
+        )
 
     print(
         f"\nSuccessfully uploaded {records_uploaded} records to Firestore database '{database_name}'"

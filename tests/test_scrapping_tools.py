@@ -125,6 +125,18 @@ class TestFetchPostInformation:
         services.reset_execution_logs()
 
     @patch("trust_api.scrapping_tools.services.settings")
+    def test_fetch_post_information_no_dates(self, mock_settings):
+        """Test that ValueError is raised when start_date or end_date are not provided."""
+        mock_settings.information_tracer_api_key = "test-key"
+
+        with pytest.raises(ValueError, match="start_date and end_date are required"):
+            services.fetch_post_information(
+                post_id="123",
+                platform="instagram",
+                max_posts=100,
+            )
+
+    @patch("trust_api.scrapping_tools.services.settings")
     def test_fetch_post_information_no_api_key(self, mock_settings):
         """Test that ValueError is raised when API key is not configured."""
         mock_settings.information_tracer_api_key = ""
@@ -134,6 +146,8 @@ class TestFetchPostInformation:
                 post_id="123",
                 platform="instagram",
                 max_posts=100,
+                start_date="2020-01-01",
+                end_date="2027-12-31",
             )
 
     @patch("trust_api.scrapping_tools.services.settings")
@@ -146,6 +160,8 @@ class TestFetchPostInformation:
                 post_id="123",
                 platform="invalid_platform",
                 max_posts=100,
+                start_date="2020-01-01",
+                end_date="2027-12-31",
             )
 
     @patch("trust_api.scrapping_tools.services.settings")
@@ -162,6 +178,8 @@ class TestFetchPostInformation:
             post_id="123",
             platform="instagram",
             max_posts=100,
+            start_date="2020-01-01",
+            end_date="2027-12-31",
         )
 
         # Should return just the data
@@ -186,6 +204,8 @@ class TestFetchPostInformation:
                 post_id="123",
                 platform="instagram",
                 max_posts=100,
+                start_date="2020-01-01",
+                end_date="2027-12-31",
             )
 
         # Error should be logged
@@ -312,7 +332,9 @@ class TestProcessPostsService:
         mock_save_logs.return_value = None
 
         with patch("trust_api.scrapping_tools.services.update_post_status") as mock_update:
-            result = services.process_posts_service(max_posts=10)
+            result = services.process_posts_service(
+                max_posts=10, start_date="2020-01-01", end_date="2027-12-31"
+            )
 
         assert result["processed"] == 2
         assert result["skipped"] == 2
@@ -366,7 +388,9 @@ class TestProcessPostsService:
         mock_save_job.return_value = "job_doc_id_123"
         mock_save_execution_logs.return_value = None
 
-        result = services.process_posts_service(max_posts=10)
+        result = services.process_posts_service(
+            max_posts=10, start_date="2020-01-01", end_date="2027-12-31"
+        )
 
         assert result["processed"] == 1
         assert result["succeeded"] == 1

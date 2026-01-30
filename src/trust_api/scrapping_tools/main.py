@@ -26,8 +26,8 @@ class PostInformationRequest(BaseModel):
     platform: str
     max_posts: int = 100
     comment_depth: int = 1
-    start_date: str = "2020-01-01"
-    end_date: str = "2026-12-31"
+    start_date: str | None = None
+    end_date: str | None = None
 
 
 class PostInformationResponse(BaseModel):
@@ -214,8 +214,8 @@ async def get_post_information(request: PostInformationRequest):
 async def process_posts_endpoint(
     max_posts: int | None = None,
     sort_by: Literal["time", "engagement"] = "time",
-    start_date: str = "2020-01-01",
-    end_date: str = "2026-12-31",
+    start_date: str | None = None,
+    end_date: str | None = None,
 ):
     """
     Submit jobs to Information Tracer API for posts with status='noreplies'.
@@ -235,14 +235,14 @@ async def process_posts_endpoint(
                    30+ Twitter posts, all 30 will be Twitter posts).
         sort_by: Sort order for replies ('time' or 'engagement'). Default is 'time'.
                  Note: Only applies to keyword search, not account search.
-        start_date: Start date for filtering replies in YYYY-MM-DD format. Default is "2020-01-01".
-        end_date: End date for filtering replies in YYYY-MM-DD format. Default is "2026-12-31".
+        start_date: Start date for filtering replies in YYYY-MM-DD format. Required.
+        end_date: End date for filtering replies in YYYY-MM-DD format. Required.
 
     Returns:
         ProcessPostsResponse with processing results including jobs created, errors, etc.
 
     Raises:
-        HTTPException: If the processing fails or configuration is missing
+        HTTPException: If the processing fails, configuration is missing, or start_date/end_date are not provided
     """
     try:
         results = process_posts_service(
