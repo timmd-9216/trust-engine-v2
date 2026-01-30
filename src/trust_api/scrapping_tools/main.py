@@ -25,6 +25,9 @@ class PostInformationRequest(BaseModel):
     post_id: str
     platform: str
     max_posts: int = 100
+    comment_depth: int = 1
+    start_date: str = "2020-01-01"
+    end_date: str = "2026-12-31"
 
 
 class PostInformationResponse(BaseModel):
@@ -185,6 +188,9 @@ async def get_post_information(request: PostInformationRequest):
             post_id=request.post_id,
             platform=request.platform,
             max_posts=request.max_posts,
+            comment_depth=request.comment_depth,
+            start_date=request.start_date,
+            end_date=request.end_date,
         )
         return PostInformationResponse(post_id=request.post_id, data=data)
     except ValueError as e:
@@ -208,6 +214,8 @@ async def get_post_information(request: PostInformationRequest):
 async def process_posts_endpoint(
     max_posts: int | None = None,
     sort_by: Literal["time", "engagement"] = "time",
+    start_date: str = "2020-01-01",
+    end_date: str = "2026-12-31",
 ):
     """
     Submit jobs to Information Tracer API for posts with status='noreplies'.
@@ -227,6 +235,8 @@ async def process_posts_endpoint(
                    30+ Twitter posts, all 30 will be Twitter posts).
         sort_by: Sort order for replies ('time' or 'engagement'). Default is 'time'.
                  Note: Only applies to keyword search, not account search.
+        start_date: Start date for filtering replies in YYYY-MM-DD format. Default is "2020-01-01".
+        end_date: End date for filtering replies in YYYY-MM-DD format. Default is "2026-12-31".
 
     Returns:
         ProcessPostsResponse with processing results including jobs created, errors, etc.
@@ -235,7 +245,12 @@ async def process_posts_endpoint(
         HTTPException: If the processing fails or configuration is missing
     """
     try:
-        results = process_posts_service(max_posts=max_posts, sort_by=sort_by)
+        results = process_posts_service(
+            max_posts=max_posts,
+            sort_by=sort_by,
+            start_date=start_date,
+            end_date=end_date,
+        )
         return ProcessPostsResponse(**results)
     except Exception as e:
         raise HTTPException(
