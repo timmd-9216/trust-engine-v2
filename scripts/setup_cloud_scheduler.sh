@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Script to set up Cloud Scheduler jobs for both /process-posts and /process-jobs endpoints
 # Creates two schedulers:
-#   1. process-posts-hourly: Runs every 30 minutes at minutes 0 and 30, calls /process-posts?max_posts=10
+#   1. process-posts-hourly: Runs every 30 minutes at minutes 0 and 30, calls /process-posts?max_posts_to_process=10
 #   2. process-jobs-hourly: Runs every 30 minutes at minutes 15 and 45, calls /process-jobs (processes all pending jobs)
 #
 # Usage:
@@ -78,7 +78,7 @@ fi
 # ============================================================================
 # Scheduler 1: process-posts-hourly
 # ============================================================================
-ENDPOINT_URL="${SERVICE_URL}/process-posts?max_posts=10"
+ENDPOINT_URL="${SERVICE_URL}/process-posts?max_posts_to_process=10"
 JOB_NAME="process-posts-hourly"
 SCHEDULE="0,30 * * * *"  # Every 30 minutes at minutes 0 and 30
 

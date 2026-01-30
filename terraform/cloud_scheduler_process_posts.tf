@@ -107,7 +107,7 @@ resource "google_cloud_scheduler_job" "process_posts" {
   attempt_deadline = "320s"
 
   http_target {
-    uri         = "${data.google_cloud_run_service.scrapping_tools[0].status[0].url}/process-posts?max_posts=${var.max_posts}"
+    uri         = "${data.google_cloud_run_service.scrapping_tools[0].status[0].url}/process-posts?max_posts_to_process=${var.max_posts}"
     http_method = "POST"
 
     oidc_token {
@@ -133,7 +133,7 @@ output "scheduler_job_id" {
 
 output "endpoint_url" {
   description = "Full endpoint URL that will be called"
-  value       = var.enable_cloud_scheduler ? "${data.google_cloud_run_service.scrapping_tools[0].status[0].url}/process-posts?max_posts=${var.max_posts}" : null
+  value       = var.enable_cloud_scheduler ? "${data.google_cloud_run_service.scrapping_tools[0].status[0].url}/process-posts?max_posts_to_process=${var.max_posts}" : null
 }
 
 # Second scheduler for processing pending jobs

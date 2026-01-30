@@ -1524,33 +1524,25 @@ def submit_post_job(
 
 
 def process_posts_service(
-    max_posts: int | None = None,
+    max_posts_to_process: int | None = None,
     sort_by: Literal["time", "engagement"] = "time",
-    start_date: str | None = None,
-    end_date: str | None = None,
 ) -> dict[str, Any]:
     """
     Submit jobs to Information Tracer API and save hash_ids to pending_jobs collection.
     This function only submits the jobs, it does not wait for completion.
 
+    For each post, start_date and end_date are read from the post document (same as platform,
+    max_replies, etc.). Posts without both start_date and end_date are recorded as processing
+    errors (failed) and added to results["errors"].
+
     Args:
-        max_posts: Maximum number of posts to process. If None, processes all posts with status='noreplies'.
+        max_posts_to_process: Maximum number of posts to process in this call. If None, processes all posts with status='noreplies'.
         sort_by: Sort order for replies ('time' or 'engagement'). Default is 'time'.
                  Note: Only applies to keyword search, not account search.
-        start_date: Start date for filtering replies in YYYY-MM-DD format. Required.
-        end_date: End date for filtering replies in YYYY-MM-DD format. Required.
 
     Returns:
         Dictionary with processing results including success count, errors, jobs created, etc.
-
-    Raises:
-        ValueError: If start_date or end_date are not provided
     """
-    # Validate required date parameters
-    if not start_date or not end_date:
-        error_msg = "start_date and end_date are required for process_posts_service"
-        logger.error(error_msg)
-        raise ValueError(error_msg)
     # Reset logs for this execution
     reset_execution_logs()
 
@@ -1571,8 +1563,8 @@ def process_posts_service(
         all_posts = query_posts_without_replies(max_posts=None)
 
         # Apply limit if specified (limit in Python to avoid second query)
-        if max_posts is not None and max_posts > 0:
-            posts = all_posts[:max_posts]
+        if max_posts_to_process is not None and max_posts_to_process > 0:
+            posts = all_posts[:max_posts_to_process]
         else:
             posts = all_posts
 
@@ -1675,6 +1667,32 @@ def process_posts_service(
                     )
                     continue
 
+                # start_date and end_date from post document (required; no defaults)
+                start_date_raw = post.get("start_date")
+                end_date_raw = post.get("end_date")
+                start_date = (
+                    start_date_raw if isinstance(start_date_raw, str) else str(start_date_raw or "")
+                ).strip()
+                end_date = (
+                    end_date_raw if isinstance(end_date_raw, str) else str(end_date_raw or "")
+                ).strip()
+                if not start_date or not end_date:
+                    error_msg = (
+                        f"Post {post_id}: missing start_date or end_date in document "
+                        f"(start_date={start_date_raw!r}, end_date={end_date_raw!r})"
+                    )
+                    results["errors"].append(error_msg)
+                    results["failed"] += 1
+                    add_log_entry(
+                        post_id=post_id,
+                        url="N/A",
+                        success=False,
+                        skipped=False,
+                        skip_reason=error_msg,
+                        max_replies=max_posts_to_fetch,
+                    )
+                    continue
+
                 # Submit job to Information Tracer
                 job_id = submit_post_job(
                     post_id=post_id,
@@ -1752,7 +1770,7 @@ def process_posts_service(
         # Always save logs if there are any (especially important when execution stops early due to submit failure)
         if _execution_logs:
             log_file_uri = save_execution_logs(
-                requested_max_posts=max_posts,
+                requested_max_posts=max_posts_to_process,
                 available_posts=results["processed"],
             )
             if log_file_uri:
@@ -1762,7 +1780,7 @@ def process_posts_service(
         if _error_logs:
             error_file_uri = save_error_logs(
                 execution_type="process-posts",
-                requested_max_items=max_posts,
+                requested_max_items=max_posts_to_process,
                 available_items=results["processed"],
             )
             if error_file_uri:

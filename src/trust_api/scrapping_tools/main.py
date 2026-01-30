@@ -212,10 +212,8 @@ async def get_post_information(request: PostInformationRequest):
 
 @app.post("/process-posts", response_model=ProcessPostsResponse)
 async def process_posts_endpoint(
-    max_posts: int | None = None,
+    max_posts_to_process: int | None = None,
     sort_by: Literal["time", "engagement"] = "time",
-    start_date: str | None = None,
-    end_date: str | None = None,
 ):
     """
     Submit jobs to Information Tracer API for posts with status='noreplies'.
@@ -229,27 +227,26 @@ async def process_posts_endpoint(
 
     This is a fast operation that only submits jobs. To retrieve results, use /process-jobs endpoint.
 
+    start_date and end_date are read from each post document (like platform, max_replies, etc.).
+    Posts without both start_date and end_date are recorded as processing errors (failed).
+
     Args:
-        max_posts: Maximum number of posts to process in this call. If None, processes all posts with status='noreplies'.
-                   When max_posts is specified, Twitter posts are prioritized (e.g., if max_posts=30 and there are
+        max_posts_to_process: Maximum number of posts to process in this call. If None, processes all posts with status='noreplies'.
+                   When specified, Twitter posts are prioritized (e.g., if max_posts_to_process=30 and there are
                    30+ Twitter posts, all 30 will be Twitter posts).
         sort_by: Sort order for replies ('time' or 'engagement'). Default is 'time'.
                  Note: Only applies to keyword search, not account search.
-        start_date: Start date for filtering replies in YYYY-MM-DD format. Required.
-        end_date: End date for filtering replies in YYYY-MM-DD format. Required.
 
     Returns:
         ProcessPostsResponse with processing results including jobs created, errors, etc.
 
     Raises:
-        HTTPException: If the processing fails, configuration is missing, or start_date/end_date are not provided
+        HTTPException: If the processing fails or configuration is missing
     """
     try:
         results = process_posts_service(
-            max_posts=max_posts,
+            max_posts_to_process=max_posts_to_process,
             sort_by=sort_by,
-            start_date=start_date,
-            end_date=end_date,
         )
         return ProcessPostsResponse(**results)
     except Exception as e:

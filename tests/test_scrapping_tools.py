@@ -332,9 +332,7 @@ class TestProcessPostsService:
         mock_save_logs.return_value = None
 
         with patch("trust_api.scrapping_tools.services.update_post_status") as mock_update:
-            result = services.process_posts_service(
-                max_posts=10, start_date="2020-01-01", end_date="2027-12-31"
-            )
+            result = services.process_posts_service(max_posts_to_process=10)
 
         assert result["processed"] == 2
         assert result["skipped"] == 2
@@ -377,6 +375,8 @@ class TestProcessPostsService:
                 "country": "argentina",
                 "candidate_id": "cand1",
                 "max_replies": 100,
+                "start_date": "2025-01-01",
+                "end_date": "2025-12-31",
                 "_doc_id": "doc1",
             },
         ]
@@ -388,9 +388,7 @@ class TestProcessPostsService:
         mock_save_job.return_value = "job_doc_id_123"
         mock_save_execution_logs.return_value = None
 
-        result = services.process_posts_service(
-            max_posts=10, start_date="2020-01-01", end_date="2027-12-31"
-        )
+        result = services.process_posts_service(max_posts_to_process=10)
 
         assert result["processed"] == 1
         assert result["succeeded"] == 1
