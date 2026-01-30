@@ -208,8 +208,7 @@ def save_execution_logs(
         # Get API usage information
         api_usage = None
         try:
-            from trust_api.scrapping_tools.information_tracer import \
-                check_api_usage
+            from trust_api.scrapping_tools.information_tracer import check_api_usage
 
             if settings.information_tracer_api_key:
                 api_usage = check_api_usage(settings.information_tracer_api_key)
@@ -357,8 +356,7 @@ def save_error_logs(
         # Get API usage information (especially important when there are errors)
         api_usage = None
         try:
-            from trust_api.scrapping_tools.information_tracer import \
-                check_api_usage
+            from trust_api.scrapping_tools.information_tracer import check_api_usage
 
             if settings.information_tracer_api_key:
                 api_usage = check_api_usage(settings.information_tracer_api_key)
@@ -426,8 +424,7 @@ def fetch_post_information(
         raise ValueError("INFORMATION_TRACER_API_KEY is not configured")
 
     # Import here to avoid circular dependencies
-    from trust_api.scrapping_tools.information_tracer import (PlatformType,
-                                                              get_post_replies)
+    from trust_api.scrapping_tools.information_tracer import PlatformType, get_post_replies
 
     # Validate platform type
     valid_platforms: list[PlatformType] = [
@@ -1470,8 +1467,7 @@ def submit_post_job(
         raise ValueError("INFORMATION_TRACER_API_KEY is not configured")
 
     # Import here to avoid circular dependencies
-    from trust_api.scrapping_tools.information_tracer import (PlatformType,
-                                                              submit)
+    from trust_api.scrapping_tools.information_tracer import PlatformType, submit
 
     # Validate platform type
     valid_platforms: list[PlatformType] = [
@@ -1587,9 +1583,10 @@ def process_posts_service(
                     # Default to 100 if neither is available or both are invalid
                     max_posts_to_fetch = 100
 
-                # Skip posts with no replies expected
-                if (replies_count is None or replies_count <= 0) and (
-                    max_replies is None or max_replies <= 0
+                # Skip when max_replies=0 (sufficient) or when both indicate no replies
+                if (max_replies is not None and max_replies <= 0) or (
+                    (replies_count is None or replies_count <= 0)
+                    and (max_replies is None or max_replies <= 0)
                 ):
                     results["skipped"] += 1
                     # Update status to "skipped" in Firestore
@@ -1804,8 +1801,7 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
     # Early return: Check quota before processing jobs
     # If quota is exceeded (400/400), skip processing to avoid wasted API calls
     try:
-        from trust_api.scrapping_tools.information_tracer import \
-            check_api_usage
+        from trust_api.scrapping_tools.information_tracer import check_api_usage
 
         api_usage = check_api_usage(settings.information_tracer_api_key)
         if isinstance(api_usage, dict) and "usage" in api_usage:
@@ -1846,8 +1842,7 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
         results["processed"] = len(jobs)
 
         # Import here to avoid circular dependencies
-        from trust_api.scrapping_tools.information_tracer import (check_status,
-                                                                  get_result)
+        from trust_api.scrapping_tools.information_tracer import check_status, get_result
 
         for index, job in enumerate(jobs):
             job_doc_id = job.get("_doc_id")
@@ -1929,8 +1924,7 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                         # Check if quota is exceeded before marking as failed
                         final_status = "failed"
                         try:
-                            from trust_api.scrapping_tools.information_tracer import \
-                                check_api_usage
+                            from trust_api.scrapping_tools.information_tracer import check_api_usage
 
                             if settings.information_tracer_api_key:
                                 api_usage = check_api_usage(settings.information_tracer_api_key)
@@ -2093,8 +2087,7 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                     error_msg = f"Job failed for job_id={job_id}, post_id={post_id}"
 
                     try:
-                        from trust_api.scrapping_tools.information_tracer import \
-                            check_api_usage
+                        from trust_api.scrapping_tools.information_tracer import check_api_usage
 
                         if settings.information_tracer_api_key:
                             api_usage = check_api_usage(settings.information_tracer_api_key)
@@ -2165,8 +2158,7 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                 # Check if quota is exceeded on exception as well
                 final_status = "failed"
                 try:
-                    from trust_api.scrapping_tools.information_tracer import \
-                        check_api_usage
+                    from trust_api.scrapping_tools.information_tracer import check_api_usage
 
                     if settings.information_tracer_api_key:
                         api_usage = check_api_usage(settings.information_tracer_api_key)
