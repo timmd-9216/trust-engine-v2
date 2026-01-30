@@ -178,14 +178,20 @@ def add_log_entry(
 def save_execution_logs(
     requested_max_posts: int | None = None,
     available_posts: int | None = None,
+    execution_type: str | None = None,
 ) -> str | None:
     """
     Save all accumulated execution logs to GCS bucket in logs/ folder.
-    Uses a single file per execution.
+    Uses a single file per execution (per HTTP request).
+
+    Note: Each call to /process-posts and each call to /process-jobs saves its own log file.
+    So processing one post (process-posts then process-jobs) produces two log files:
+    one for the submit call, one for the rawdata call.
 
     Args:
-        requested_max_posts: Maximum number of posts requested in the API call (if specified)
-        available_posts: Total number of posts available in Firestore with status='noreplies'
+        requested_max_posts: Maximum number of posts/jobs requested in the API call (if specified)
+        available_posts: Total number of posts/jobs processed in this execution
+        execution_type: Optional label for the run, e.g. "process-posts" or "process-jobs"
 
     Returns:
         GCS URI of the saved log file, or None if logging fails or is disabled
@@ -227,6 +233,7 @@ def save_execution_logs(
         # Create log file content with metadata and all entries
         log_file = {
             "execution_timestamp": now.isoformat(),
+            "execution_type": execution_type,
             "requested_max_posts": requested_max_posts,
             "available_posts": available_posts,
             "total_entries": total_calls,
@@ -1784,6 +1791,7 @@ def process_posts_service(
             log_file_uri = save_execution_logs(
                 requested_max_posts=max_posts_to_process,
                 available_posts=results["processed"],
+                execution_type="process-posts",
             )
             if log_file_uri:
                 results["log_file"] = log_file_uri
@@ -2266,6 +2274,7 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
         log_file_uri = save_execution_logs(
             requested_max_posts=max_jobs,
             available_posts=results["processed"],
+            execution_type="process-jobs",
         )
         if log_file_uri:
             results["log_file"] = log_file_uri
@@ -2469,6 +2478,7 @@ def fix_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
         log_file_uri = save_execution_logs(
             requested_max_posts=max_jobs,
             available_posts=results["checked"],
+            execution_type="fix-jobs",
         )
         if log_file_uri:
             results["log_file"] = log_file_uri

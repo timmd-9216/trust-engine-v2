@@ -19,6 +19,8 @@ class TestGetPostReplies:
                     platform="instagram",
                     max_post=100,
                     token=None,
+                    start_date="2024-01-01",
+                    end_date="2024-12-31",
                 )
 
     @patch("trust_api.scrapping_tools.information_tracer.submit")
@@ -32,6 +34,8 @@ class TestGetPostReplies:
                 platform="instagram",
                 max_post=100,
                 token="test-token",
+                start_date="2024-01-01",
+                end_date="2024-12-31",
             )
 
     @patch("trust_api.scrapping_tools.information_tracer.submit")
@@ -47,6 +51,8 @@ class TestGetPostReplies:
                 platform="instagram",
                 max_post=100,
                 token="test-token",
+                start_date="2024-01-01",
+                end_date="2024-12-31",
             )
 
     @patch("trust_api.scrapping_tools.information_tracer.submit")
@@ -64,6 +70,8 @@ class TestGetPostReplies:
                 platform="instagram",
                 max_post=100,
                 token="test-token",
+                start_date="2024-01-01",
+                end_date="2024-12-31",
             )
 
     @patch("trust_api.scrapping_tools.information_tracer.submit")
@@ -83,6 +91,8 @@ class TestGetPostReplies:
             platform="instagram",
             max_post=100,
             token="test-token",
+            start_date="2024-01-01",
+            end_date="2024-12-31",
         )
 
         # Verify result structure
@@ -108,6 +118,8 @@ class TestGetPostReplies:
             platform="twitter",
             max_post=50,
             token="test-token",
+            start_date="2024-01-01",
+            end_date="2024-12-31",
         )
 
         # Verify submit was called with correct query
@@ -117,6 +129,8 @@ class TestGetPostReplies:
         assert call_kwargs["platform"] == "twitter"
         assert call_kwargs["max_post"] == 50
         assert call_kwargs["timeline_only"] is False  # Must be False for reply searches
+        assert call_kwargs["start_date"] == "2024-01-01"
+        assert call_kwargs["end_date"] == "2024-12-31"
 
 
 class TestSubmit:
