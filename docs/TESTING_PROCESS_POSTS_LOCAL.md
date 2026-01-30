@@ -29,7 +29,7 @@ El sistema funciona en tres fases separadas:
 - Actualiza el status del post a `done` en Firestore
 - Actualiza el status del job a `done` en Firestore
 
-### Fase 3: Convertir a Parquet (`/json-to-parquet`)
+### Fase 3: Convertir a Parquet (`/json-to-parquet`poetry run uvicorn trust_api.scrapping_tools.main:app --reload --port 8000)
 - Lee JSONs desde la capa `raw/` de GCS
 - Convierte a formato Parquet optimizado
 - Guarda en la capa `marts/replies/` de GCS
@@ -126,11 +126,8 @@ for post in test_posts:
 En una terminal, inicia el servicio:
 
 ```bash
-# Activar el entorno virtual
-poetry shell
-
-# Iniciar el servicio (se ejecuta en http://localhost:8000)
-uvicorn trust_api.scrapping_tools.main:app --reload --port 8000
+# Iniciar el servicio con poetry run (recomendado)
+poetry run uvicorn trust_api.scrapping_tools.main:app --reload --port 8000
 ```
 
 Deberías ver algo como:
@@ -142,6 +139,12 @@ INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 ```
 
+**Nota**: Si prefieres activar el entorno virtual manualmente, usa:
+```bash
+source $(poetry env info --path)/bin/activate
+uvicorn trust_api.scrapping_tools.main:app --reload --port 8000
+```
+
 ## Paso 3: Crear Jobs (Fase 1)
 
 Esta fase hace submit de los posts a Information Tracer y guarda los hash_id en `pending_jobs`.
@@ -150,7 +153,7 @@ Esta fase hace submit de los posts a Information Tracer y guarda los hash_id en 
 
 ```bash
 # Crear jobs para 10 posts
-curl -X POST "http://localhost:8000/process-posts?max_posts=10" \
+curl -X POST "http://localhost:8000/process-posts?max_posts_to_process=10" \
   -H "Content-Type: application/json"
 ```
 
@@ -504,7 +507,7 @@ Una vez que hayas probado localmente, puedes configurar Cloud Scheduler para aut
 
 ### Flujo Recomendado con Cloud Scheduler
 
-1. **Cada hora (00:00)**: Ejecutar `/process-posts?max_posts=10` (crear jobs)
+1. **Cada hora (00:00)**: Ejecutar `/process-posts?max_posts_to_process=10` (crear jobs)
    - Crea jobs en Information Tracer para posts con `status='noreplies'`
    - Actualiza posts a `status='processing'`
 

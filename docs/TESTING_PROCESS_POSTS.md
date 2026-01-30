@@ -131,11 +131,11 @@ curl -X POST http://localhost:8082/process-posts \
   -H "Content-Type: application/json"
 
 # Procesar máximo 50 posts ordenados por engagement
-curl -X POST "http://localhost:8082/process-posts?max_posts=50&sort_by=engagement" \
+curl -X POST "http://localhost:8082/process-posts?max_posts_to_process=50&sort_by=engagement" \
   -H "Content-Type: application/json"
 
 # Procesar máximo 10 posts ordenados por tiempo
-curl -X POST "http://localhost:8082/process-posts?max_posts=10&sort_by=time" \
+curl -X POST "http://localhost:8082/process-posts?max_posts_to_process=10&sort_by=time" \
   -H "Content-Type: application/json"
 ```
 
@@ -293,7 +293,7 @@ El endpoint `/process-posts` es solo la **Fase 1** del flujo completo. El proces
 
 ```bash
 # 1. Crear jobs
-curl -X POST "http://localhost:8082/process-posts?max_posts=10"
+curl -X POST "http://localhost:8082/process-posts?max_posts_to_process=10"
 
 # 2. Esperar 5-10 minutos, luego procesar jobs
 curl -X POST "http://localhost:8082/process-jobs"
@@ -314,7 +314,7 @@ Una vez que hayas probado localmente y confirmado que funciona:
 
 1. Despliega el servicio a Cloud Run
 2. Configura Cloud Scheduler para automatizar las 3 fases:
-   - Cada hora (00:00): `/process-posts?max_posts=10` (crear jobs)
+   - Cada hora (00:00): `/process-posts?max_posts_to_process=10` (crear jobs)
    - Cada hora (05:00): `/process-jobs` (procesar jobs)
    - Diario (07:00): `/json-to-parquet?skip_timestamp_filter=false` (convertir a Parquet)
 

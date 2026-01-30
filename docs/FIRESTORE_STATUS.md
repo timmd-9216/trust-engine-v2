@@ -13,7 +13,7 @@ La colección `posts` almacena información sobre posts de redes sociales que de
 | `noreplies` | Post pendiente de procesar | Estado inicial cuando se crea un post en Firestore. Indica que el post aún no ha sido enviado a Information Tracer para obtener sus respuestas. También se asigna cuando un job falla y no hay otros jobs pendientes/processing para el mismo post. **NOTA:** Los jobs con `empty_result` NO actualizan automáticamente el post a `noreplies` para evitar retry automático. |
 | `processing` | Post en proceso | Se asigna cuando se crea un job para el post. Indica que hay un job pendiente o en procesamiento para este post, evitando la creación de jobs duplicados. Es un estado transitorio. |
 | `done` | Post procesado exitosamente | Se asigna cuando el job asociado al post se completa exitosamente y los resultados (respuestas) se guardan correctamente en GCS. |
-| `skipped` | Post saltado | Se asigna cuando `max_replies <= 0` y `replies_count <= 0`, lo que indica que no se deben recolectar respuestas para este post. |
+| `skipped` | Post saltado | Se asigna cuando `max_posts_replies <= 0` y `replies_count <= 0`, lo que indica que no se deben recolectar respuestas para este post. |
 
 ### Flujo de Estados
 
@@ -21,7 +21,7 @@ La colección `posts` almacena información sobre posts de redes sociales que de
 noreplies → processing  (cuando se crea un job para el post)
 processing → done       (si el job se completa exitosamente)
 processing → noreplies  (si el job falla y no hay otros jobs pendientes/processing)
-noreplies → skipped     (si max_replies <= 0 y replies_count <= 0)
+noreplies → skipped     (si max_posts_replies <= 0 y replies_count <= 0)
 ```
 
 ### Ejemplos de Uso
@@ -135,7 +135,7 @@ doc_ref.update({
 | `noreplies` | `processing` | Se crea un job para el post |
 | `processing` | `done` | Job completado exitosamente |
 | `processing` | `noreplies` | Job falla (no `empty_result`) y no hay otros jobs pendientes/processing |
-| `noreplies` | `skipped` | `max_replies <= 0` y `replies_count <= 0` |
+| `noreplies` | `skipped` | `max_posts_replies <= 0` y `replies_count <= 0` |
 
 ### Transiciones de `pending_jobs`
 

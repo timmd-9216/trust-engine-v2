@@ -120,7 +120,7 @@ for status in statuses:
 | `candidate_id` | string | ID del candidato |
 | `created_at` | timestamp | Fecha de creación del post |
 | `replies_count` | number | Número de respuestas del post (no indexado) |
-| `max_replies` | number | Máximo de respuestas a recolectar (no indexado) |
+| `max_posts_replies` | number | Máximo de respuestas a recolectar (no indexado). Se acepta también `max_replies` por compatibilidad. |
 | `status` | string | Estado: `noreplies`, `done`, `skipped` |
 | `updated_at` | timestamp | Última actualización del documento |
 
@@ -128,16 +128,16 @@ for status in statuses:
 
 Al procesar posts con el endpoint `/process-posts`, el sistema determina cuántas respuestas buscar de Information Tracer usando la siguiente prioridad:
 
-1. **`max_replies`** (prioridad más alta): Si este campo existe y es mayor a 0, se usa como límite máximo.
-2. **`replies_count`** (fallback): Si `max_replies` no está disponible o es inválido, se usa `replies_count` si existe y es mayor a 0.
+1. **`max_posts_replies`** (prioridad más alta; se acepta también `max_replies` por compatibilidad): Si existe y es mayor a 0, se usa como límite máximo.
+2. **`replies_count`** (fallback): Si `max_posts_replies` no está disponible o es inválido, se usa `replies_count` si existe y es mayor a 0.
 3. **Valor por defecto**: Si ninguno de los campos anteriores está disponible o es válido, se usa 100 como límite por defecto.
 
 **Ejemplo:**
-- Si `max_replies=50` y `replies_count=200`, se buscarán máximo 50 respuestas (usa `max_replies`).
-- Si `max_replies` no existe y `replies_count=200`, se buscarán máximo 200 respuestas (usa `replies_count`).
+- Si `max_posts_replies=50` y `replies_count=200`, se buscarán máximo 50 respuestas (usa `max_posts_replies`).
+- Si `max_posts_replies` no existe y `replies_count=200`, se buscarán máximo 200 respuestas (usa `replies_count`).
 - Si ambos campos son `null` o `<= 0`, se buscarán máximo 100 respuestas (valor por defecto).
 
-**Nota:** Si ambos campos (`max_replies` y `replies_count`) son `null` o `<= 0`, el post se marca como `skipped` y no se procesa.
+**Nota:** Si ambos campos (`max_posts_replies` y `replies_count`) son `null` o `<= 0`, el post se marca como `skipped` y no se procesa.
 
 ## Campos de la colección `pending_jobs`
 
@@ -151,7 +151,7 @@ La colección `pending_jobs` almacena los jobs de Information Tracer que están 
 | `platform` | string | Plataforma (twitter, facebook, instagram, etc.) |
 | `country` | string | País |
 | `candidate_id` | string | ID del candidato |
-| `max_posts` | number | Máximo de respuestas a recolectar |
+| `max_posts_replies` | number | Máximo de respuestas a recolectar (se acepta también `max_posts` por compatibilidad) |
 | `sort_by` | string | Ordenamiento: `"time"` o `"engagement"` |
 | `status` | string | Estado: `pending`, `processing`, `done`, `failed`, `empty_result`, `verified` |
 | `retry_count` | number | Número de veces que se ha reintentado el job (se incrementa cuando se reprocesa un job ya procesado) |
@@ -258,7 +258,7 @@ Para información detallada sobre todos los estados posibles y sus transiciones,
 |--------|-------------|
 | `noreplies` | Post pendiente de procesar |
 | `done` | Post procesado exitosamente, respuestas guardadas en GCS |
-| `skipped` | Post saltado porque `max_replies <= 0` |
+| `skipped` | Post saltado porque `max_posts_replies <= 0` |
 
 ### Estados de los jobs
 
