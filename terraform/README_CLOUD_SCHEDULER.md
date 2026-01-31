@@ -61,7 +61,7 @@ terraform apply \
   -var="region=us-east1" \
   -var="scrapping_tools_service_name=scrapping-tools" \
   -var="service_account_email=scheduler@trust-481601.iam.gserviceaccount.com" \
-  -var="max_posts=20" \
+  -var="max_posts_to_process=20" \
   -var="schedule=0 */2 * * *" \
   -var="job_name=process-posts-every-2-hours"
 ```
@@ -74,9 +74,10 @@ terraform apply \
 | `region` | Región de GCP | `us-east1` |
 | `scrapping_tools_service_name` | Nombre del servicio Cloud Run | (requerido) |
 | `service_account_email` | Email del service account para OIDC | (requerido) |
-| `max_posts` | Máximo de posts a procesar por ejecución | `10` |
+| `max_posts_to_process` | Máximo de posts a procesar por ejecución (query param del endpoint) | `10` |
 | `schedule` | Expresión cron para process-posts | `0,30 * * * *` (cada 30 minutos en minutos 0 y 30) |
 | `job_name` | Nombre del job de Cloud Scheduler para process-posts | `process-posts-hourly` |
+| `max_jobs` | Máximo de jobs a procesar por ejecución (query param /process-jobs) | `20` |
 | `process_jobs_schedule` | Expresión cron para process-jobs | `15,45 * * * *` (cada 30 minutos en minutos 15 y 45) |
 | `process_jobs_job_name` | Nombre del job de Cloud Scheduler para process-jobs | `process-jobs-hourly` |
 | `json_to_parquet_schedule` | Expresión cron para json-to-parquet | `0 7 * * *` (diario a las 7 AM UTC) |
@@ -92,9 +93,11 @@ project_id                  = "trust-481601"
 region                      = "us-east1"
 scrapping_tools_service_name = "scrapping-tools"
 service_account_email       = "scheduler@trust-481601.iam.gserviceaccount.com"
-max_posts                   = 10
+max_posts_to_process        = 10
+max_jobs                    = 20
 schedule                    = "0,30 * * * *"
 job_name                    = "process-posts-hourly"
+process_jobs_schedule       = "15,45 * * * *"
 time_zone                   = "UTC"
 ```
 

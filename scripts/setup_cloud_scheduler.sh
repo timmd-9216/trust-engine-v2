@@ -124,7 +124,8 @@ echo ""
 # ============================================================================
 # Scheduler 2: process-jobs-hourly
 # ============================================================================
-PROCESS_JOBS_ENDPOINT_URL="${SERVICE_URL}/process-jobs"
+MAX_JOBS="${MAX_JOBS:-20}"
+PROCESS_JOBS_ENDPOINT_URL="${SERVICE_URL}/process-jobs?max_jobs=${MAX_JOBS}"
 PROCESS_JOBS_JOB_NAME="process-jobs-hourly"
 PROCESS_JOBS_SCHEDULE="15,45 * * * *"  # Every 30 minutes at minutes 15 and 45
 
@@ -134,7 +135,7 @@ echo "=========================================="
 echo "Project: ${PROJECT_ID}"
 echo "Region: ${REGION}"
 echo "Endpoint: ${PROCESS_JOBS_ENDPOINT_URL}"
-echo "Schedule: ${PROCESS_JOBS_SCHEDULE} (every 30 minutes at minutes 15 and 45, processes all pending jobs)"
+echo "Schedule: ${PROCESS_JOBS_SCHEDULE} (every 30 minutes at minutes 15 and 45, up to ${MAX_JOBS} jobs per run)"
 echo "Time Zone: UTC"
 echo "Service Account: ${SERVICE_ACCOUNT_EMAIL}"
 echo ""

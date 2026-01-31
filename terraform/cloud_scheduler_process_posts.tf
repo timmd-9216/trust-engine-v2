@@ -23,10 +23,10 @@ variable "service_account_email" {
   default     = ""
 }
 
-variable "max_posts" {
-  description = "Maximum number of posts to process per execution"
+variable "max_posts_to_process" {
+  description = "Maximum number of posts to process per execution (query param for /process-posts)"
   type        = number
-  default     = 20
+  default     = 10
 }
 
 variable "schedule" {
@@ -45,6 +45,12 @@ variable "time_zone" {
   description = "Time zone for the schedule"
   type        = string
   default     = "UTC"
+}
+
+variable "max_jobs" {
+  description = "Maximum number of jobs to process per execution (query param for /process-jobs)"
+  type        = number
+  default     = 20
 }
 
 variable "process_jobs_job_name" {
@@ -107,7 +113,7 @@ resource "google_cloud_scheduler_job" "process_posts" {
   attempt_deadline = "320s"
 
   http_target {
-    uri         = "${data.google_cloud_run_service.scrapping_tools[0].status[0].url}/process-posts?max_posts_to_process=${var.max_posts}"
+    uri         = "${data.google_cloud_run_service.scrapping_tools[0].status[0].url}/process-posts?max_posts_to_process=${var.max_posts_to_process}"
     http_method = "POST"
 
     oidc_token {
@@ -133,7 +139,7 @@ output "scheduler_job_id" {
 
 output "endpoint_url" {
   description = "Full endpoint URL that will be called"
-  value       = var.enable_cloud_scheduler ? "${data.google_cloud_run_service.scrapping_tools[0].status[0].url}/process-posts?max_posts_to_process=${var.max_posts}" : null
+  value       = var.enable_cloud_scheduler ? "${data.google_cloud_run_service.scrapping_tools[0].status[0].url}/process-posts?max_posts_to_process=${var.max_posts_to_process}" : null
 }
 
 # Second scheduler for processing pending jobs
@@ -148,7 +154,7 @@ resource "google_cloud_scheduler_job" "process_jobs" {
   attempt_deadline = "320s"
 
   http_target {
-    uri         = "${data.google_cloud_run_service.scrapping_tools[0].status[0].url}/process-jobs"
+    uri         = "${data.google_cloud_run_service.scrapping_tools[0].status[0].url}/process-jobs?max_jobs=${var.max_jobs}"
     http_method = "POST"
 
     oidc_token {
@@ -174,7 +180,7 @@ output "process_jobs_scheduler_job_id" {
 
 output "process_jobs_endpoint_url" {
   description = "Full endpoint URL that will be called for process-jobs"
-  value       = var.enable_cloud_scheduler ? "${data.google_cloud_run_service.scrapping_tools[0].status[0].url}/process-jobs" : null
+  value       = var.enable_cloud_scheduler ? "${data.google_cloud_run_service.scrapping_tools[0].status[0].url}/process-jobs?max_jobs=${var.max_jobs}" : null
 }
 
 # Third scheduler for converting JSONs to Parquet

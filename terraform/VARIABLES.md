@@ -50,7 +50,8 @@ Estas variables tienen valores por defecto y no necesitan configurarse a menos q
 | Variable | Default | Descripción |
 |----------|---------|-------------|
 | `bigquery_dataset` | `trust_analytics` | Nombre del dataset de BigQuery |
-| `max_posts` | `10` | Máximo de posts a procesar por ejecución |
+| `max_posts_to_process` | `10` | Máximo de posts a procesar por ejecución (query param /process-posts) |
+| `max_jobs` | `20` | Máximo de jobs a procesar por ejecución (query param /process-jobs) |
 | `schedule` | `0 * * * *` | Cron schedule (cada hora) |
 | `process_jobs_schedule` | `30 * * * *` | Cron schedule para process-jobs (minuto 30) |
 | `job_name` | `process-posts-hourly` | Nombre del job de Scheduler |

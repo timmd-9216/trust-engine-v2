@@ -123,8 +123,8 @@ El script configura:
 - **Schedule**: `0,30 * * * *` (cada 30 minutos, en los minutos 0 y 30)
 - **Time Zone**: `UTC`
 - **Método HTTP**: `POST`
-- **Endpoint**: `{SERVICE_URL}/process-posts?max_posts=10` (procesa 10 posts por ejecución)
-  - Ejemplo: `https://scrapping-tools-127336238226.us-east1.run.app/process-posts?max_posts=10`
+- **Endpoint**: `{SERVICE_URL}/process-posts?max_posts_to_process=10` (procesa 10 posts por ejecución)
+  - Ejemplo: `https://scrapping-tools-127336238226.us-east1.run.app/process-posts?max_posts_to_process=10`
 - **Autenticación**: OIDC usando el Service Account especificado
 
 ### Flujo de dos fases
@@ -156,7 +156,7 @@ gcloud scheduler jobs update http process-posts-hourly \
 gcloud scheduler jobs update http process-posts-hourly \
   --project "${PROJECT_ID}" \
   --location "${REGION}" \
-  --uri "${SERVICE_URL}/process-posts?max_posts=20"
+  --uri "${SERVICE_URL}/process-posts?max_posts_to_process=20"
 ```
 
 ### Formatos de schedule comunes

@@ -142,12 +142,12 @@ Para cada post, se realizan las siguientes validaciones:
 
 ```python
 replies_count = post.get("replies_count")
-max_replies = post.get("max_replies")
+max_posts_replies = post.get("max_posts_replies") or post.get("max_replies")  # backward compat
 
 # Determina max_posts_to_fetch:
-# Prioridad: max_replies > replies_count > default (100)
-if max_replies is not None and max_replies > 0:
-    max_posts_to_fetch = max_replies
+# Prioridad: max_posts_replies > replies_count > default (100)
+if max_posts_replies is not None and max_posts_replies > 0:
+    max_posts_to_fetch = max_posts_replies
 elif replies_count is not None and replies_count > 0:
     max_posts_to_fetch = replies_count
 else:
@@ -159,7 +159,7 @@ else:
 ```python
 # Skip si no se esperan respuestas
 if (replies_count is None or replies_count <= 0) and \
-   (max_replies is None or max_replies <= 0):
+   (max_posts_replies is None or max_posts_replies <= 0):
     update_post_status(doc_id, "skipped")
     # Log como skipped
     continue
@@ -483,7 +483,7 @@ except Exception as e:
    - ✅ `job_id`, `post_doc_id`, `post_id` requeridos para guardar job
 
 2. **Validación de Parámetros de Respuestas**
-   - ✅ Determina `max_posts_to_fetch` (max_replies > replies_count > 100)
+   - ✅ Determina `max_posts_to_fetch` (max_posts_replies > replies_count > 100)
    - ✅ Valida si post debe ser skipped (sin respuestas esperadas)
 
 3. **Validación de Duplicados**
@@ -685,7 +685,7 @@ El sistema rastrea reintentos mediante:
 | `noreplies` | Post pendiente de procesar | Estado inicial, o cuando job falla y no hay otros jobs activos |
 | `processing` | Post en proceso | Cuando se crea un job para el post |
 | `done` | Post procesado exitosamente | Cuando job se completa y resultados se guardan en GCS |
-| `skipped` | Post saltado | Cuando `max_replies <= 0` y `replies_count <= 0` |
+| `skipped` | Post saltado | Cuando `max_posts_replies <= 0` y `replies_count <= 0` |
 
 ### Transiciones de Posts
 
@@ -693,7 +693,7 @@ El sistema rastrea reintentos mediante:
 noreplies → processing  (cuando se crea un job)
 processing → done       (job completado exitosamente)
 processing → noreplies  (job falla y no hay otros jobs activos)
-noreplies → skipped     (max_replies <= 0 y replies_count <= 0)
+noreplies → skipped     (max_posts_replies <= 0 y replies_count <= 0)
 ```
 
 ### Estados de Jobs
