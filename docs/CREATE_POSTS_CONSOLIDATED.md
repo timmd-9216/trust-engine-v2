@@ -6,7 +6,7 @@ Este documento explica cómo crear la tabla consolidada de posts que combina dat
 
 El script `create_posts_consolidated.py` crea una tabla consolidada que:
 
-1. **Lee posts de Firestore**: Obtiene todos los posts con sus campos incluyendo `max_replies`
+1. **Lee posts de Firestore**: Obtiene todos los posts con sus campos incluyendo `max_posts_replies`
 2. **Cuenta replies reales**: Cuenta las replies realmente scrappeadas desde los archivos Parquet usando `parent_post_id`
 3. **Genera Parquet consolidado**: Crea archivos Parquet particionados por `ingestion_date` y `platform`
 4. **Sube a GCS**: Opcionalmente sube los archivos a la capa `marts/posts/` para consumo desde BigQuery
@@ -98,7 +98,7 @@ La tabla incluye los siguientes campos:
 | `candidate_id` | STRING | ID del candidato |
 | `created_at` | TIMESTAMP | Fecha de creación del post |
 | `replies_count` | INTEGER | Número de respuestas del post (desde Firestore) |
-| `max_replies` | INTEGER | Máximo de respuestas a recolectar (desde Firestore) |
+| `max_posts_replies` | INTEGER | Máximo de respuestas a recolectar (desde Firestore) |
 | `status` | STRING | Estado del post (noreplies, done, skipped, etc.) |
 | `updated_at` | TIMESTAMP | Última actualización del documento |
 | `real_replies_count` | INTEGER | **Cantidad real de replies scrappeadas** (calculado desde Parquet) |
@@ -164,7 +164,7 @@ OPTIONS (
 
 ## Consultas Útiles en BigQuery
 
-### Ver posts con comparación de max_replies vs real_replies_count
+### Ver posts con comparación de max_posts_replies vs real_replies_count
 
 ```sql
 SELECT 
@@ -172,9 +172,9 @@ SELECT
   country,
   platform,
   candidate_id,
-  max_replies,
+  max_posts_replies,
   real_replies_count,
-  (max_replies - real_replies_count) as difference,
+  (max_posts_replies - real_replies_count) as difference,
   status,
   created_at
 FROM `trust-481601.trust_analytics.posts`
@@ -191,10 +191,10 @@ SELECT
   platform,
   candidate_id,
   COUNT(*) as total_posts,
-  SUM(max_replies) as total_max_replies,
+  SUM(max_posts_replies) as total_max_posts_replies,
   SUM(real_replies_count) as total_real_replies,
   AVG(real_replies_count) as avg_real_replies_per_post,
-  SUM(CASE WHEN real_replies_count < max_replies THEN 1 ELSE 0 END) as posts_with_fewer_replies
+  SUM(CASE WHEN real_replies_count < max_posts_replies THEN 1 ELSE 0 END) as posts_with_fewer_replies
 FROM `trust-481601.trust_analytics.posts`
 GROUP BY country, platform, candidate_id
 ORDER BY country, platform, candidate_id;
@@ -208,13 +208,13 @@ SELECT
   country,
   platform,
   candidate_id,
-  max_replies,
+  max_posts_replies,
   real_replies_count,
-  (max_replies - real_replies_count) as missing_replies,
-  ROUND(100.0 * real_replies_count / NULLIF(max_replies, 0), 2) as completion_percentage
+  (max_posts_replies - real_replies_count) as missing_replies,
+  ROUND(100.0 * real_replies_count / NULLIF(max_posts_replies, 0), 2) as completion_percentage
 FROM `trust-481601.trust_analytics.posts`
-WHERE max_replies > 0
-  AND real_replies_count < max_replies
+WHERE max_posts_replies > 0
+  AND real_replies_count < max_posts_replies
 ORDER BY missing_replies DESC
 LIMIT 50;
 ```
