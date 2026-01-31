@@ -71,6 +71,7 @@ def upload_to_firestore(
     skip: int = 0,
     skip_existing: bool = False,
     max_posts_replies_limit: int | None = None,
+    dry_run: bool = False,
 ):
     """
     Upload records from CSV to Firestore.
@@ -84,8 +85,9 @@ def upload_to_firestore(
         skip: Number of records to skip from the beginning (default: 0)
         skip_existing: If True, skip records where post_id already exists in Firestore (default: False)
         max_posts_replies_limit: Maximum value for max_posts_replies field (if None, no limit is applied)
+        dry_run: If True, validate CSV and report what would be uploaded without writing to Firestore
     """
-    # Initialize Firestore client
+    # Initialize Firestore client (needed for validation and for skip_existing check)
     if project_id:
         client = firestore.Client(project=project_id, database=database_name)
     else:
@@ -207,17 +209,29 @@ def upload_to_firestore(
                 )
                 continue
 
-        doc_ref = client.collection(collection).document()
-        doc_ref.set(doc_data)
-        records_uploaded += 1
-        print(
-            f"Uploaded record {i + 1} (position {i + 1} in CSV): platform={platform}, "
-            f"country={country}, candidate_id={candidate_id}, post_id={post_id}, created_at={created_at}"
-        )
+        if dry_run:
+            print(
+                f"Would upload record {i + 1} (position {i + 1} in CSV): platform={platform}, "
+                f"country={country}, candidate_id={candidate_id}, post_id={post_id}"
+            )
+            records_uploaded += 1
+        else:
+            doc_ref = client.collection(collection).document()
+            doc_ref.set(doc_data)
+            records_uploaded += 1
+            print(
+                f"Uploaded record {i + 1} (position {i + 1} in CSV): platform={platform}, "
+                f"country={country}, candidate_id={candidate_id}, post_id={post_id}, created_at={created_at}"
+            )
 
-    print(
-        f"\nSuccessfully uploaded {records_uploaded} records to Firestore database '{database_name}'"
-    )
+    if dry_run:
+        print(
+            f"\nDry run: {records_uploaded} record(s) would be uploaded to Firestore database '{database_name}' (no writes performed)"
+        )
+    else:
+        print(
+            f"\nSuccessfully uploaded {records_uploaded} records to Firestore database '{database_name}'"
+        )
     if skip > 0:
         print(f"Skipped first {skip} records from CSV")
     if skip_existing:
@@ -324,6 +338,12 @@ Examples:
         dest="max_posts_replies_limit",
         help="Maximum value for max_posts_replies field (if CSV value exceeds this, it will be capped)",
     )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        dest="dry_run",
+        help="Validate CSV and print what would be uploaded without writing to Firestore",
+    )
 
     args = parser.parse_args()
 
@@ -363,6 +383,8 @@ Examples:
             f"Max posts replies limit: {args.max_posts_replies_limit} "
             "(max_posts_replies values will be capped)"
         )
+    if args.dry_run:
+        print("Dry run: no records will be written to Firestore")
     print()
 
     upload_to_firestore(
@@ -374,4 +396,5 @@ Examples:
         args.skip,
         args.skip_existing,
         args.max_posts_replies_limit,
+        dry_run=args.dry_run,
     )

@@ -43,7 +43,7 @@ class TestGetPostReplies:
     def test_get_post_replies_job_not_finished(self, mock_check_status, mock_submit):
         """Test that RuntimeError is raised when job doesn't finish."""
         mock_submit.return_value = ("job123", {})
-        mock_check_status.return_value = "failed"
+        mock_check_status.return_value = ("failed", 500)
 
         with pytest.raises(RuntimeError, match="Job did not complete"):
             information_tracer.get_post_replies(
@@ -61,8 +61,8 @@ class TestGetPostReplies:
     def test_get_post_replies_no_results(self, mock_get_result, mock_check_status, mock_submit):
         """Test that RuntimeError is raised when no results are returned."""
         mock_submit.return_value = ("job123", {})
-        mock_check_status.return_value = "finished"
-        mock_get_result.return_value = None
+        mock_check_status.return_value = ("finished", 200)
+        mock_get_result.return_value = (None, 500)
 
         with pytest.raises(RuntimeError, match="Failed to retrieve results"):
             information_tracer.get_post_replies(
@@ -80,11 +80,14 @@ class TestGetPostReplies:
     def test_get_post_replies_success(self, mock_get_result, mock_check_status, mock_submit):
         """Test successful reply collection returns data and job_id."""
         mock_submit.return_value = ("hash256_abc123", {"query": "reply:123"})
-        mock_check_status.return_value = "finished"
-        mock_get_result.return_value = [
-            {"reply_id": "1", "text": "Reply 1"},
-            {"reply_id": "2", "text": "Reply 2"},
-        ]
+        mock_check_status.return_value = ("finished", 200)
+        mock_get_result.return_value = (
+            [
+                {"reply_id": "1", "text": "Reply 1"},
+                {"reply_id": "2", "text": "Reply 2"},
+            ],
+            200,
+        )
 
         result = information_tracer.get_post_replies(
             post_id="123",
@@ -110,8 +113,8 @@ class TestGetPostReplies:
     ):
         """Test that correct query is constructed for reply search."""
         mock_submit.return_value = ("job123", {})
-        mock_check_status.return_value = "finished"
-        mock_get_result.return_value = []
+        mock_check_status.return_value = ("finished", 200)
+        mock_get_result.return_value = ([], 200)
 
         information_tracer.get_post_replies(
             post_id="12345",
@@ -194,9 +197,10 @@ class TestCheckStatus:
         mock_response.json.return_value = {"status": "finished"}
         mock_get.return_value = mock_response
 
-        status = information_tracer.check_status("job123", "test-token")
+        status, code = information_tracer.check_status("job123", "test-token")
 
         assert status == "finished"
+        assert code == 200
 
     @patch("trust_api.scrapping_tools.information_tracer.requests.get")
     @patch("trust_api.scrapping_tools.information_tracer.time.sleep")
@@ -214,9 +218,10 @@ class TestCheckStatus:
         responses = [response1, response2, response3]
         mock_get.side_effect = responses
 
-        status = information_tracer.check_status("job123", "test-token")
+        status, code = information_tracer.check_status("job123", "test-token")
 
         assert status == "finished"
+        assert code == 200
         assert mock_get.call_count == 3
         assert mock_sleep.call_count == 2  # Sleep between polls
 

@@ -107,8 +107,12 @@ client = firestore.Client(project="trust-481601", database="socialnetworks")
 # Consultar jobs pendientes
 jobs = client.collection("pending_jobs").where("status", "==", "pending").stream()
 
-# Consultar jobs fallidos
+# Consultar jobs fallidos (todos)
 failed_jobs = client.collection("pending_jobs").where("status", "==", "failed").stream()
+
+# Para contar solo jobs failed SIN otro job en done para el mismo post_id (candidatos a reintentar),
+# usar la API: GET /jobs/count?status=failed&failed_without_done=true
+# o el script: list_failed_jobs_without_done.py (ver docs/subir-posts.md)
 
 # Consultar jobs con resultado vacío
 empty_jobs = client.collection("pending_jobs").where("status", "==", "empty_result").stream()

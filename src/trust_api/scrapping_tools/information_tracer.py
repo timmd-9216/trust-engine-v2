@@ -1,7 +1,7 @@
 import logging
 import os
 import time
-from typing import Literal
+from typing import Literal, Tuple
 
 import requests
 from dotenv import load_dotenv
@@ -236,7 +236,7 @@ def submit(
     return id_hash256, requests_params
 
 
-def check_status(id_hash256: str, token: str) -> str:
+def check_status(id_hash256: str, token: str) -> Tuple[str, int | None]:
     """Check the status of a submitted data collection job.
 
     Polls the Information Tracer API to monitor job progress. The function will check
@@ -247,10 +247,9 @@ def check_status(id_hash256: str, token: str) -> str:
         token: API authentication token.
 
     Returns:
-        Status string indicating the job outcome:
-            - 'finished': Job completed successfully
-            - 'failed': Job failed (status not in response)
-            - 'timeout': Job did not complete within maximum polling rounds
+        Tuple of (status, http_status_code):
+            - status: 'finished', 'failed', or 'timeout'
+            - http_status_code: HTTP status from the API (e.g. 200, 429, 403), or None if timeout/exception
     """
     task_status = None
     MAX_ROUND = 80
@@ -273,15 +272,15 @@ def check_status(id_hash256: str, token: str) -> str:
             if response_obj.status_code == 429:
                 logger.error("Status check failed: Rate limit exceeded (429)")
                 logger.error(f"Response: {response}")
-                return "failed"
+                return "failed", response_obj.status_code
             elif response_obj.status_code == 403:
                 logger.error("Status check failed: Forbidden (403) - possible quota exceeded")
                 logger.error(f"Response: {response}")
-                return "failed"
+                return "failed", response_obj.status_code
             elif response_obj.status_code >= 400:
                 logger.error(f"Status check failed: HTTP {response_obj.status_code}")
                 logger.error(f"Response: {response}")
-                return "failed"
+                return "failed", response_obj.status_code
 
             if "status" in response:
                 task_status = response["status"]
@@ -289,7 +288,7 @@ def check_status(id_hash256: str, token: str) -> str:
                 if task_status != "finished":
                     time.sleep(SLEEP_INTERVAL)
                 else:
-                    return "finished"
+                    return "finished", response_obj.status_code
             else:
                 logger.error("status is not in response")
                 logger.error(f"Response: {response}")
@@ -297,18 +296,18 @@ def check_status(id_hash256: str, token: str) -> str:
                 error_msg = str(response).lower()
                 if "quota" in error_msg or "limit" in error_msg or "exceeded" in error_msg:
                     logger.warning("Response suggests quota/limit issue")
-                return "failed"
+                return "failed", response_obj.status_code
         except Exception as e:
             logger.error("Exception when checking job status!")
             logger.exception(e)
-    return "timeout"
+    return "timeout", None
 
 
 def get_result(
     id_hash256: str,
     token: str,
     platform: PlatformType,
-) -> dict | list | None:
+) -> Tuple[dict | list | None, int | None]:
     """Retrieve and save the results of a completed data collection job.
 
     Fetches the collected data from the Information Tracer API and saves it as a JSON file.
@@ -320,28 +319,30 @@ def get_result(
         platform: The platform from which data was collected.
 
     Returns:
-        dict | list: The collected data as a dictionary or list.
-                     Returns a list (often empty []) when no results are found.
-                     Returns None if there's an error.
+        Tuple of (data, http_status_code):
+            - data: The collected data (dict or list), or None on error.
+            - http_status_code: HTTP status from the API (e.g. 200), or None on exception.
 
     Raises:
         Logs errors if the request fails or file cannot be saved.
     """
     url = f"{RAWDATA_URL}?token={token}&id={id_hash256}&source={platform}"
+    response = None
     try:
         response = requests.get(url)
+        status_code = response.status_code
         records = response.json()
         # Information Tracer returns a list when there are results (or empty list if none)
         if isinstance(records, list):
             logger.info(f"Received {len(records)} records from {platform}")
         else:
             logger.info(f"Received result from {platform} (type: {type(records).__name__})")
-        return records
+        return (records, status_code)
 
     except Exception as e:
         logger.error("exception in requesting raw data")
         logger.exception(e)
-        return None
+        return (None, response.status_code if response is not None else None)
 
 
 def get_post_replies(
@@ -443,7 +444,7 @@ def get_post_replies(
     logger.info(f"Job submitted successfully. Job ID: {id_hash256}")
 
     # Check job status and wait for completion
-    status = check_status(id_hash256, token)
+    status, _ = check_status(id_hash256, token)
 
     if status != "finished":
         error_msg = f"Job did not complete successfully. Status: {status}, post_id={post_id}"
@@ -453,7 +454,7 @@ def get_post_replies(
     logger.info(f"Job completed successfully. Retrieving results for post_id={post_id}")
 
     # Get the results
-    result = get_result(id_hash256, token, platform)
+    result, _ = get_result(id_hash256, token, platform)
 
     if result is None:
         error_msg = f"Failed to retrieve results for post_id={post_id}"

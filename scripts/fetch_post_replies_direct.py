@@ -15,7 +15,7 @@ Ejemplos:
     poetry run python scripts/fetch_post_replies_direct.py \
         --post-id 3777361292689288399 \
         --platform instagram \
-        --max-replies 100
+        --max-posts-replies 100
 
     # Guardar resultados en archivo JSON
     poetry run python scripts/fetch_post_replies_direct.py \
@@ -83,7 +83,7 @@ Ejemplos:
   poetry run python scripts/fetch_post_replies_direct.py \\
       --post-id 3777361292689288399 \\
       --platform instagram \\
-      --max-replies 50
+      --max-posts-replies 50
 
   # Guardar en archivo JSON
   poetry run python scripts/fetch_post_replies_direct.py \\
@@ -121,9 +121,10 @@ Límites de plataforma:
         help="Plataforma donde se encuentra el post (twitter, instagram, facebook, etc.)",
     )
     parser.add_argument(
-        "--max-replies",
+        "--max-posts-replies",
         type=int,
         default=100,
+        dest="max_posts_replies",
         help="Número máximo de replies a obtener (default: 100). Límites por plataforma aplican.",
     )
     parser.add_argument(
@@ -188,7 +189,7 @@ Límites de plataforma:
         if args.verbose:
             print(f"Post ID: {args.post_id}", file=sys.stderr)
             print(f"Platform: {args.platform}", file=sys.stderr)
-            print(f"Max replies: {args.max_replies}", file=sys.stderr)
+            print(f"Max posts replies: {args.max_posts_replies}", file=sys.stderr)
             print(f"Sort by: {args.sort_by}", file=sys.stderr)
             print(f"API key: {'✓ configured' if api_key else '✗ missing'}", file=sys.stderr)
             print("Submitting job to Information Tracer...", file=sys.stderr)
@@ -197,9 +198,11 @@ Límites de plataforma:
         result = get_post_replies(
             post_id=args.post_id,
             platform=args.platform.lower(),  # type: ignore
-            max_post=args.max_replies,
+            max_post=args.max_posts_replies,
             token=api_key,
             sort_by=args.sort_by,  # type: ignore
+            start_date="2020-01-01",
+            end_date="2027-12-31",
         )
 
         job_id = result.get("job_id")
@@ -218,7 +221,7 @@ Límites de plataforma:
             "platform": args.platform.lower(),
             "job_id": job_id,
             "reply_count": reply_count,
-            "max_replies_requested": args.max_replies,
+            "max_posts_replies_requested": args.max_posts_replies,
             "sort_by": args.sort_by,
             "data": data,
         }

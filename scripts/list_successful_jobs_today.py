@@ -236,7 +236,7 @@ def main():
                 "country": job.get("country", ""),
                 "candidate_id": job.get("candidate_id", ""),
                 "status": job.get("status", ""),
-                "max_posts": job.get("max_posts", ""),
+                "max_posts_replies": job.get("max_posts_replies", ""),
                 "retry_count": job.get("retry_count", 0),
                 "created_at": format_timestamp(job.get("created_at")),
                 "updated_at": format_timestamp(job.get("updated_at")),

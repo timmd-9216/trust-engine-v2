@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from trust_api.scrapping_tools.core.config import settings
 from trust_api.scrapping_tools.services import (
     count_empty_result_jobs,
+    count_failed_jobs_without_done,
     count_jobs_by_status,
     count_posts_by_status,
     fetch_post_information,
@@ -420,6 +421,7 @@ async def count_jobs_by_status_endpoint(
     platform: str | None = None,
     country: str | None = None,
     updated_today: bool = False,
+    failed_without_done: bool = False,
 ):
     """
     Count jobs with a specific status in Firestore.
@@ -455,15 +457,26 @@ async def count_jobs_by_status_endpoint(
 
         # Count jobs updated today
         GET /jobs/count?status=done&updated_today=true
+
+        # Count failed jobs that have no 'done' job for the same post (dashboard)
+        GET /jobs/count?status=failed&failed_without_done=true
     """
     try:
-        count = count_jobs_by_status(
-            status=status,
-            candidate_id=candidate_id,
-            platform=platform,
-            country=country,
-            updated_today=updated_today,
-        )
+        if status == "failed" and failed_without_done:
+            count = count_failed_jobs_without_done(
+                candidate_id=candidate_id,
+                platform=platform,
+                country=country,
+                updated_today=updated_today,
+            )
+        else:
+            count = count_jobs_by_status(
+                status=status,
+                candidate_id=candidate_id,
+                platform=platform,
+                country=country,
+                updated_today=updated_today,
+            )
         return JobsCountResponse(
             count=count,
             status=status,
@@ -472,6 +485,7 @@ async def count_jobs_by_status_endpoint(
                 "platform": platform,
                 "country": country,
                 "updated_today": updated_today,
+                "failed_without_done": failed_without_done if status == "failed" else None,
             },
         )
     except Exception as e:

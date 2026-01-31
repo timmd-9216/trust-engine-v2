@@ -3,7 +3,7 @@
 Create consolidated posts table from Firestore and count real replies from Parquet.
 
 This script:
-1. Reads posts from Firestore (with max_replies field)
+1. Reads posts from Firestore (with max_posts_replies field)
 2. Counts real replies scrapped from Parquet files (using parent_post_id)
 3. Saves as Parquet partitioned by ingestion_date and platform
 4. Optionally uploads to GCS marts layer
@@ -56,7 +56,7 @@ POSTS_SCHEMA = pa.schema(
         # Post metadata
         ("created_at", pa.timestamp("us", tz="UTC")),
         ("replies_count", pa.int64()),  # From Firestore
-        ("max_replies", pa.int64()),  # From Firestore
+        ("max_posts_replies", pa.int64()),  # From Firestore
         ("status", pa.string()),
         ("updated_at", pa.timestamp("us", tz="UTC")),
         # Real replies count (from Parquet)
@@ -321,7 +321,7 @@ def flatten_post_record(
         # Post metadata
         "created_at": created_at or datetime.now(timezone.utc),
         "replies_count": safe_int(post.get("replies_count")),
-        "max_replies": safe_int(post.get("max_replies")),
+        "max_posts_replies": safe_int(post.get("max_posts_replies")),
         "status": safe_str(post.get("status", "")),
         "updated_at": updated_at or datetime.now(timezone.utc),
         # Real replies count (from Parquet)

@@ -307,6 +307,7 @@ def add_error_entry(
     error_type: str,
     error_message: str,
     job_doc_id: str | None = None,
+    status_code: int | None = None,
 ) -> None:
     """
     Add an error entry to the error logs list.
@@ -320,6 +321,7 @@ def add_error_entry(
         error_type: Type of error (e.g., "empty_result", "retry_still_empty")
         error_message: Detailed error message
         job_doc_id: The Firestore job document ID (optional)
+        status_code: HTTP status code from the API when available (e.g. 200, 429, 403)
     """
     global _error_logs
     now = datetime.now(timezone.utc)
@@ -335,6 +337,7 @@ def add_error_entry(
         "error_message": error_message,
         "job_doc_id": job_doc_id,
         "gcs_path": _get_gcs_blob_path(country, platform, candidate_id, post_id),
+        "status_code": status_code,
     }
 
     _error_logs.append(error_entry)
@@ -1073,6 +1076,77 @@ def count_jobs_by_status(
             count += 1
 
     return count
+
+
+def _has_done_job_for_post(client: firestore.Client, collection: str, post_id: str) -> bool:
+    """Return True if there is at least one job with status='done' for this post_id."""
+    query = (
+        client.collection(collection)
+        .where("post_id", "==", post_id)
+        .where("status", "==", "done")
+        .limit(1)
+    )
+    return len(list(query.stream())) > 0
+
+
+def count_failed_jobs_without_done(
+    candidate_id: str | None = None,
+    platform: str | None = None,
+    country: str | None = None,
+    updated_today: bool = False,
+) -> int:
+    """
+    Count jobs with status='failed' that do NOT have another job for the same
+    post_id with status='done'.
+
+    Args:
+        candidate_id: Optional candidate_id to filter failed jobs
+        platform: Optional platform to filter failed jobs
+        country: Optional country to filter failed jobs
+        updated_today: If True, only count failed jobs updated today
+
+    Returns:
+        Count of failed jobs whose post_id has no job in status 'done'.
+    """
+    client = get_firestore_client()
+    coll = settings.firestore_jobs_collection
+    query = client.collection(coll).where("status", "==", "failed")
+    if candidate_id:
+        query = query.where("candidate_id", "==", candidate_id)
+    if platform:
+        query = query.where("platform", "==", platform.lower())
+    if country:
+        query = query.where("country", "==", country.lower())
+
+    post_id_to_failed_count: dict[str, int] = {}
+    now = datetime.now(timezone.utc)
+    start_of_day = datetime(now.year, now.month, now.day, 0, 0, 0, tzinfo=timezone.utc)
+    end_of_day = datetime(now.year, now.month, now.day, 23, 59, 59, 999999, tzinfo=timezone.utc)
+
+    for doc in query.stream():
+        data = doc.to_dict()
+        post_id = (data.get("post_id") or "").strip()
+        if not post_id:
+            continue
+        if updated_today:
+            updated_at = data.get("updated_at")
+            if not updated_at:
+                continue
+            if hasattr(updated_at, "timestamp"):
+                updated_dt = updated_at
+            elif isinstance(updated_at, datetime):
+                updated_dt = updated_at
+            else:
+                continue
+            if not (start_of_day <= updated_dt <= end_of_day):
+                continue
+        post_id_to_failed_count[post_id] = post_id_to_failed_count.get(post_id, 0) + 1
+
+    total = 0
+    for post_id, cnt in post_id_to_failed_count.items():
+        if not _has_done_job_for_post(client, coll, post_id):
+            total += cnt
+    return total
 
 
 def count_empty_result_jobs(
@@ -2065,11 +2139,11 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                 update_job_status(job_doc_id, "processing")
 
                 # Check job status
-                status = check_status(job_id, settings.information_tracer_api_key)
+                status, api_status_code = check_status(job_id, settings.information_tracer_api_key)
 
                 if status == "finished":
                     # Get results
-                    result = get_result(
+                    result, get_result_status_code = get_result(
                         job_id,
                         settings.information_tracer_api_key,
                         platform.lower(),  # type: ignore
@@ -2125,6 +2199,7 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                                 error_type=final_status,
                                 error_message=error_msg,
                                 job_doc_id=job_doc_id,
+                                status_code=get_result_status_code,
                             )
                         continue
 
@@ -2133,6 +2208,9 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                         # Empty result is NOT a technical error - job completed successfully, just no data
                         results["empty_results"] += 1
                         update_job_status(job_doc_id, "empty_result")
+                        # Note: Logs will always record this empty_result. If the job is later retried
+                        # (e.g. via /empty-result-jobs/retry) and then gets data, it becomes "done".
+                        # So Firestore may have 0 jobs in empty_result while past logs still show them.
 
                         # Update post status to 'done' when job finishes with empty_result
                         # This marks the post as completed, even if no replies were found
@@ -2175,6 +2253,7 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                             error_type="empty_result",
                             error_message="Result from Information Tracer is empty ([] or empty dict)",
                             job_doc_id=job_doc_id,
+                            status_code=200,
                         )
                         continue
 
@@ -2302,6 +2381,7 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                             error_type=error_type_for_log,
                             error_message=error_msg,
                             job_doc_id=job_doc_id,
+                            status_code=api_status_code,
                         )
 
                     # Update post status back to noreplies to allow retry
@@ -2365,6 +2445,7 @@ def process_pending_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                             error_type=final_status,
                             error_message=error_msg,
                             job_doc_id=job_doc_id,
+                            status_code=None,
                         )
 
                     # Update post status back to noreplies to allow retry
@@ -2486,7 +2567,7 @@ def fix_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                 results["empty_found"] += 1
 
                 # Retry fetching from Information Tracer
-                result = get_result(
+                result, get_result_status_code = get_result(
                     job_id,
                     settings.information_tracer_api_key,
                     platform.lower(),  # type: ignore
@@ -2520,6 +2601,7 @@ def fix_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                         error_type="retry_failed",
                         error_message="Failed to retrieve results from Information Tracer on retry",
                         job_doc_id=job_doc_id,
+                        status_code=get_result_status_code,
                     )
                     results["empty_jobs"].append(
                         {
@@ -2561,6 +2643,7 @@ def fix_jobs_service(max_jobs: int | None = None) -> dict[str, Any]:
                         error_type="retry_still_empty",
                         error_message="Result is still empty after retry from Information Tracer",
                         job_doc_id=job_doc_id,
+                        status_code=200,
                     )
                     results["empty_jobs"].append(
                         {

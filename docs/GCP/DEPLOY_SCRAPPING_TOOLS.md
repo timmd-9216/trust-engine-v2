@@ -284,6 +284,7 @@ Cuenta jobs con cualquier status en Firestore con filtros opcionales.
 
 **Parámetros:**
 - `status`: Job status a contar (default: `pending`). Valores: `pending`, `empty_result`, `done`, `failed`, `processing`, `verified`
+- `failed_without_done`: Solo si `status=failed`. Si `true`, cuenta solo jobs en `failed` que **no** tienen otro job en `done` para el mismo `post_id` (dashboard y script `list_failed_jobs_without_done.py` usan este criterio).
 - `candidate_id`: Opcional - Filtrar por candidate_id
 - `platform`: Opcional - Filtrar por platform
 - `country`: Opcional - Filtrar por country
@@ -301,6 +302,12 @@ GET /jobs/count?status=empty_result
 
 # Contar jobs done
 GET /jobs/count?status=done
+
+# Contar jobs failed (todos)
+GET /jobs/count?status=failed
+
+# Contar solo jobs failed SIN job done para el mismo post (failed without done)
+GET /jobs/count?status=failed&failed_without_done=true
 ```
 
 Ver documentación completa en [EMPTY_RESULT_JOBS.md](../../EMPTY_RESULT_JOBS.md).

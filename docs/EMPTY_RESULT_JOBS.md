@@ -12,6 +12,17 @@ Los jobs con status `empty_result` son trabajos que se completaron exitosamente 
 
 Estos jobs se distinguen de los jobs `failed` porque técnicamente terminaron correctamente, pero no hay datos útiles.
 
+### Logs vs Firestore: ¿por qué hay empty_result en logs pero 0 en la colección?
+
+Los **logs de ejecución** (GCS, `error_type: "empty_result"`) registran **qué pasó en esa corrida**. El **Firestore** guarda el **estado actual** del job.
+
+Si un job tuvo resultado vacío, se marca `empty_result` y se escribe en el log. Si más adelante ese job se **reintenta** (p. ej. con `POST /empty-result-jobs/retry`) y en el reintento Information Tracer devuelve datos, el job pasa a `done`. Por tanto:
+
+- En **logs antiguos** seguirás viendo entradas `empty_result` para ese job.
+- En **Firestore** ese job ya está en `done`, no en `empty_result`.
+
+Es normal que la colección tenga 0 jobs con `empty_result` y los logs sigan mostrando muchos: son jobs que ya fueron reintentados y pasaron a `done`.
+
 ## Endpoints Disponibles
 
 ### 1. GET `/jobs/count` ⭐ Genérico (Recomendado)
@@ -22,6 +33,7 @@ Cuenta jobs con cualquier status en Firestore con filtros opcionales.
 
 **Parámetros de query:**
 - `status`: Job status a contar. Por defecto: `pending`. Valores válidos: `pending`, `empty_result`, `done`, `failed`, `processing`, `verified`
+- `failed_without_done`: Solo aplica si `status=failed`. Si `true`, cuenta únicamente jobs en `failed` que **no** tienen otro job en `done` para el mismo `post_id` (candidatos a reintentar). Sin este parámetro, se cuentan todos los jobs en `failed`.
 - `candidate_id`: Opcional - Filtrar por candidate_id
 - `platform`: Opcional - Filtrar por platform (e.g., 'twitter', 'instagram')
 - `country`: Opcional - Filtrar por country
@@ -54,8 +66,11 @@ curl -X GET "http://localhost:8082/jobs/count?status=empty_result"
 # Contar jobs done
 curl -X GET "http://localhost:8082/jobs/count?status=done"
 
-# Contar jobs failed
+# Contar todos los jobs failed
 curl -X GET "http://localhost:8082/jobs/count?status=failed"
+
+# Contar solo jobs failed SIN otro job en done para el mismo post_id (candidatos a reintentar)
+curl -X GET "http://localhost:8082/jobs/count?status=failed&failed_without_done=true"
 
 # Contar con múltiples filtros
 curl -X GET "http://localhost:8082/jobs/count?status=pending&candidate_id=hnd09sosa&platform=twitter"
