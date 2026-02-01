@@ -79,24 +79,35 @@ Each platform uses **two distinct data sources**, which are never mixed:
 
 ### Twitter
 
-| Column                | Description                                                                         |
-|-----------------------|-------------------------------------------------------------------------------------|
-| `candidate`           | Candidate ID (YAML `candidate_id`)                                                  |
-| `candidate_name`      | Candidate name (YAML `name`)                                                        |
-| `twitter_username`    | Official handle (YAML `twitter_username`)                                           |
-| `own_posts_raw`       | All items in `raw/<country>/twitter/*.json` with filename containing `candidate_id` |
-| `own_posts`           | Subset of `own_posts_raw` authored by `twitter_username`                            |
-| `own_posts_retrieved` | Number of JSON files in `raw/<country>/twitter/<candidate_id>/`                     |
-| `items`               | Total interaction items from candidate subfolder JSONs                              |
-| `tweets`              | Original tweets                                                                     |
-| `replies`             | Replies                                                                             |
-| `retweets`            | Retweets                                                                            |
-| `quotes`              | Quote tweets                                                                         |
-| `media_items`         | Items containing media                                                              |
-| `sum_reply_count`     | Sum of `reply_count`                                                                |
-| `sum_retweet_count`   | Sum of `retweet_count`                                                              |
-| `sum_quote_count`     | Sum of `quote_count`                                                                |
-| `sum_favorite_count`  | Sum of `favorite_count`                                                             |
+| Column                | Description                                                                                                                      |
+|-----------------------|----------------------------------------------------------------------------------------------------------------------------------|
+| `candidate`           | Candidate ID (YAML `candidate_id`).                                                                                              |
+| `candidate_name`      | Candidate name (YAML `name`).                                                                                                    |
+| `twitter_username`    | Official handle (YAML `twitter_username`).                                                                                        |
+| `own_posts_raw`       | **Count of tweet objects** found in home JSONs `raw/<country>/twitter/*.json` whose **filename contains** `candidate_id`.       |
+| `own_posts`           | **Count of tweet objects** from `own_posts_raw` where the **author username matches** `twitter_username`.                        |
+| `own_posts_retrieved` | **Count of JSON files** under `raw/<country>/twitter/<candidate_id>/` (interaction/engagement export files).                     |
+| `items`               | **Count of interaction items** loaded from all JSONs under `raw/<country>/twitter/<candidate_id>/` (one row per tweet item).     |
+| `tweets`              | **Count of items** classified as original tweets (non-reply, non-retweet, non-quote).                                            |
+| `replies`             | **Count of items** classified as replies.                                                                                         |
+| `retweets`            | **Count of items** classified as retweets.                                                                                        |
+| `quotes`              | **Count of items** classified as quote tweets.                                                                                   |
+| `media_items`         | **Count of items** that include media (e.g., photos/videos/GIFs or a non-empty media/entities attachment field).                 |
+| `sum_reply_count`     | **Sum over items** of the numeric field `reply_count` (missing/null treated as 0).                                               |
+| `sum_retweet_count`   | **Sum over items** of the numeric field `retweet_count` (missing/null treated as 0).                                             |
+| `sum_quote_count`     | **Sum over items** of the numeric field `quote_count` (missing/null treated as 0).                                               |
+| `sum_favorite_count`  | **Sum over items** of the numeric field `favorite_count` (missing/null treated as 0).                                           |
+
+#### How counts vs. sums work (Twitter)
+
+- **Counts** (`own_posts_raw`, `own_posts`, `items`, `tweets`, `replies`, `retweets`, `quotes`, `media_items`) are **row counts**:
+  each matching tweet object increments the counter by **1**.
+- **Sums** (`sum_reply_count`, `sum_retweet_count`, `sum_quote_count`, `sum_favorite_count`) are **additive totals** of the
+  corresponding per-tweet numeric fields across the relevant items.
+  - If a tweet item is missing a field (or it is null/empty), it contributes **0** to the sum.
+  - These are **not** sums of identifiers (e.g., `conversation_id`)—IDs are used for linking/deduping logic, not aggregation.
+
+Example: if three items have `reply_count` values `[2, 0, 5]`, then `sum_reply_count = 7`.
 
 ### Instagram
 
