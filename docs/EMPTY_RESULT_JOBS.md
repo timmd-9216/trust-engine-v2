@@ -23,6 +23,19 @@ Si un job tuvo resultado vacío, se marca `empty_result` y se escribe en el log.
 
 Es normal que la colección tenga 0 jobs con `empty_result` y los logs sigan mostrando muchos: son jobs que ya fueron reintentados y pasaron a `done`.
 
+### ¿Por qué el conteo de empty_result es 0?
+
+Es **normal** que en Firestore haya 0 jobs con status `empty_result` porque:
+
+1. **Firestore guarda el estado actual.** Cuando un job termina con resultado vacío se marca `empty_result`. Si después se reintenta (manual o con script) y en el reintento hay datos, el job pasa a `done` y deja de ser `empty_result`.
+2. **Los logs no se actualizan.** En los logs de ejecución (GCS) queda registrado que en esa corrida el job tuvo resultado vacío (`error_type: "empty_result"`). Eso no cambia cuando el job se reintenta. Por eso puedes tener muchos empty_result en logs y 0 en la colección.
+3. **Verificación manual.** El script `verify_empty_jobs.py` puede pasar jobs de `empty_result` a `verified` cuando se cumplen condiciones (p. ej. Twitter con pocas respuestas). Esos jobs tampoco siguen en `empty_result`.
+
+**Cómo comprobar que todo está bien:**
+
+- **Conteo actual en Firestore:** ejecutá `poetry run python scripts/verify_jobs_count.py`. Si `empty_result: 0` y el resto de estados (pending, done, failed, etc.) cuadra con lo que esperás, está bien.
+- **Histórico de empty results:** revisá los logs en GCS (carpeta `errors/` o el log de la ejecución de `/process-jobs`) y buscá entradas con `error_type: "empty_result"`. Ahí ves qué jobs tuvieron resultado vacío en el pasado, aunque ya no estén en `empty_result` en Firestore.
+
 ## Endpoints Disponibles
 
 ### 1. GET `/jobs/count` ⭐ Genérico (Recomendado)

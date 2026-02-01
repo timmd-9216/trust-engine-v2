@@ -924,30 +924,29 @@
         function updateKpiCard(containerId, status, value, isError = false, todayValue = null) {
             const container = document.getElementById(containerId);
             if (!container) return;
-            
-            const cards = container.querySelectorAll('.kpi-card');
-            cards.forEach(card => {
-                const label = card.querySelector('.kpi-label');
-                if (label && label.textContent.toLowerCase() === status.toLowerCase()) {
-                    const valueEl = card.querySelector('.kpi-value');
-                    if (valueEl) {
-                        valueEl.textContent = isError ? 'Error' : formatNumber(value);
-                    }
-                    // Update today value if provided
-                    if (todayValue !== null) {
-                        const todayEl = card.querySelector('.kpi-today');
-                        if (todayEl) {
-                            todayEl.textContent = `Hoy: ${formatNumber(todayValue)}`;
-                        }
-                    }
-                    card.classList.remove('loading');
-                    if (isError) {
-                        card.classList.add('error');
-                    } else {
-                        card.classList.remove('error');
+            // Match card by class: posts-* or jobs-* (e.g. jobs-empty-result for status empty_result)
+            const selector = containerId.startsWith('posts-')
+                ? `.posts-${status.replace(/_/g, '-')}`
+                : `.jobs-${status.replace(/_/g, '-')}`;
+            const card = container.querySelector(selector);
+            if (card) {
+                const valueEl = card.querySelector('.kpi-value');
+                if (valueEl) {
+                    valueEl.textContent = isError ? 'Error' : formatNumber(value);
+                }
+                if (todayValue !== null) {
+                    const todayEl = card.querySelector('.kpi-today');
+                    if (todayEl) {
+                        todayEl.textContent = `Hoy: ${formatNumber(todayValue)}`;
                     }
                 }
-            });
+                card.classList.remove('loading');
+                if (isError) {
+                    card.classList.add('error');
+                } else {
+                    card.classList.remove('error');
+                }
+            }
         }
 
         function setAllLoading(containerId, loading = true) {
