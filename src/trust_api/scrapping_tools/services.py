@@ -1089,6 +1089,17 @@ def _has_done_job_for_post(client: firestore.Client, collection: str, post_id: s
     return len(list(query.stream())) > 0
 
 
+def _has_empty_result_job_for_post(client: firestore.Client, collection: str, post_id: str) -> bool:
+    """Return True if there is at least one job with status='empty_result' for this post_id."""
+    query = (
+        client.collection(collection)
+        .where("post_id", "==", post_id)
+        .where("status", "==", "empty_result")
+        .limit(1)
+    )
+    return len(list(query.stream())) > 0
+
+
 def count_failed_jobs_without_done(
     candidate_id: str | None = None,
     platform: str | None = None,
@@ -1097,7 +1108,11 @@ def count_failed_jobs_without_done(
 ) -> int:
     """
     Count jobs with status='failed' that do NOT have another job for the same
-    post_id with status='done'.
+    post_id with status='done' AND do NOT have another job with status='empty_result'.
+
+    A failed job is only counted if:
+    - No job with status 'done' exists for the same post_id
+    - No job with status 'empty_result' exists for the same post_id
 
     Args:
         candidate_id: Optional candidate_id to filter failed jobs
@@ -1106,7 +1121,7 @@ def count_failed_jobs_without_done(
         updated_today: If True, only count failed jobs updated today
 
     Returns:
-        Count of failed jobs whose post_id has no job in status 'done'.
+        Count of failed jobs whose post_id has no job in status 'done' or 'empty_result'.
     """
     client = get_firestore_client()
     coll = settings.firestore_jobs_collection
@@ -1144,7 +1159,9 @@ def count_failed_jobs_without_done(
 
     total = 0
     for post_id, cnt in post_id_to_failed_count.items():
-        if not _has_done_job_for_post(client, coll, post_id):
+        has_done = _has_done_job_for_post(client, coll, post_id)
+        has_empty_result = _has_empty_result_job_for_post(client, coll, post_id)
+        if not has_done and not has_empty_result:
             total += cnt
     return total
 

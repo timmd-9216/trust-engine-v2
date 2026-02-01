@@ -110,9 +110,12 @@ jobs = client.collection("pending_jobs").where("status", "==", "pending").stream
 # Consultar jobs fallidos (todos)
 failed_jobs = client.collection("pending_jobs").where("status", "==", "failed").stream()
 
-# Para contar solo jobs failed SIN otro job en done para el mismo post_id (candidatos a reintentar),
+# Para contar solo jobs failed SIN otro job done NI empty_result para el mismo post_id (candidatos a reintentar),
 # usar la API: GET /jobs/count?status=failed&failed_without_done=true
 # o el script: list_failed_jobs_without_done.py (ver docs/subir-posts.md)
+#
+# Nota: Un job failed NO se cuenta si existe otro job con status 'done' O 'empty_result' para el mismo post_id.
+# Esto evita duplicar en el conteo posts que ya tienen un job con resultado (aunque vacío).
 
 # Consultar jobs con resultado vacío
 empty_jobs = client.collection("pending_jobs").where("status", "==", "empty_result").stream()
@@ -168,4 +171,6 @@ doc_ref.update({
 3. **Timestamps**: Todos los cambios de estado actualizan automáticamente el campo `updated_at` con la fecha/hora UTC actual.
 
 4. **Consulta de Jobs Fallidos**: Para analizar jobs fallidos, se puede consultar tanto `status="failed"` como `status="empty_result"` para obtener una vista completa de los problemas.
+
+5. **Conteo "Failed" en el Dashboard**: El KPI "Failed" del dashboard (`GET /jobs/count?status=failed&failed_without_done=true`) cuenta únicamente jobs con status `failed` cuyo `post_id` **no** tiene otro job con status `done` **ni** con status `empty_result`. Es decir: solo se consideran "failed" aquellos posts que no tienen ningún otro job que haya producido resultado (aunque sea vacío). Si existe un job `empty_result` para el mismo post, el job `failed` no se suma al conteo.
 

@@ -33,7 +33,7 @@ Cuenta jobs con cualquier status en Firestore con filtros opcionales.
 
 **Parámetros de query:**
 - `status`: Job status a contar. Por defecto: `pending`. Valores válidos: `pending`, `empty_result`, `done`, `failed`, `processing`, `verified`
-- `failed_without_done`: Solo aplica si `status=failed`. Si `true`, cuenta únicamente jobs en `failed` que **no** tienen otro job en `done` para el mismo `post_id` (candidatos a reintentar). Sin este parámetro, se cuentan todos los jobs en `failed`.
+- `failed_without_done`: Solo aplica si `status=failed`. Si `true`, cuenta únicamente jobs en `failed` que **no** tienen otro job en `done` **ni** en `empty_result` para el mismo `post_id` (candidatos a reintentar). Sin este parámetro, se cuentan todos los jobs en `failed`. Si existe un job `empty_result` para el mismo post, el job `failed` no se incluye.
 - `candidate_id`: Opcional - Filtrar por candidate_id
 - `platform`: Opcional - Filtrar por platform (e.g., 'twitter', 'instagram')
 - `country`: Opcional - Filtrar por country
@@ -69,7 +69,7 @@ curl -X GET "http://localhost:8082/jobs/count?status=done"
 # Contar todos los jobs failed
 curl -X GET "http://localhost:8082/jobs/count?status=failed"
 
-# Contar solo jobs failed SIN otro job en done para el mismo post_id (candidatos a reintentar)
+# Contar solo jobs failed SIN otro job done ni empty_result para el mismo post_id (candidatos a reintentar)
 curl -X GET "http://localhost:8082/jobs/count?status=failed&failed_without_done=true"
 
 # Contar con múltiples filtros
