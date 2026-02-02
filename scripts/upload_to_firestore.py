@@ -7,7 +7,7 @@ Uploads records with indexed fields:
 - country
 - candidate_id
 - created_at (timestamp of insert into Firestore)
-- status (default: "noreplies")
+- status (default: "noreplies"; "skipped" when max_posts_replies=0 or replies_count=0)
 
 The CSV field 'created_at' is renamed to 'post_created_at' in Firestore (original post creation date).
 A new 'created_at' field is created with the current timestamp (when the record is inserted).
@@ -139,6 +139,18 @@ def upload_to_firestore(
         start_date = row.get("start_date", "")
         end_date = row.get("end_date", "")
         status = "noreplies"  # Default value
+        # If max_posts_replies=0 or replies_count=0, load job with status skipped
+        try:
+            if int(max_posts_replies_raw.strip()) == 0:
+                status = "skipped"
+        except (ValueError, TypeError):
+            pass
+        if status != "skipped" and replies_count is not None and str(replies_count).strip():
+            try:
+                if int(str(replies_count).strip()) == 0:
+                    status = "skipped"
+            except (ValueError, TypeError):
+                pass
         i = skip + idx
 
         # Convert post_created_at (from CSV) string to Firestore timestamp

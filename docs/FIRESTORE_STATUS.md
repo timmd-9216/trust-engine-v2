@@ -173,4 +173,3 @@ doc_ref.update({
 4. **Consulta de Jobs Fallidos**: Para analizar jobs fallidos, se puede consultar tanto `status="failed"` como `status="empty_result"` para obtener una vista completa de los problemas.
 
 5. **Conteo "Failed" en el Dashboard**: El KPI "Failed" del dashboard (`GET /jobs/count?status=failed&failed_without_done=true`) cuenta únicamente jobs con status `failed` cuyo `post_id` **no** tiene otro job con status `done` **ni** con status `empty_result`. Es decir: solo se consideran "failed" aquellos posts que no tienen ningún otro job que haya producido resultado (aunque sea vacío). Si existe un job `empty_result` para el mismo post, el job `failed` no se suma al conteo.
-
