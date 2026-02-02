@@ -126,6 +126,8 @@ def upload_to_firestore(
                 sys.exit(1)
 
     records_uploaded = 0
+    count_noreplies = 0
+    count_skipped = 0
 
     for idx, row in enumerate(rows_to_process):
         # Extract fields from CSV
@@ -235,6 +237,10 @@ def upload_to_firestore(
                 f"Uploaded record {i + 1} (position {i + 1} in CSV): platform={platform}, "
                 f"country={country}, candidate_id={candidate_id}, post_id={post_id}, created_at={created_at}"
             )
+        if status == "skipped":
+            count_skipped += 1
+        else:
+            count_noreplies += 1
 
     if dry_run:
         print(
@@ -244,6 +250,9 @@ def upload_to_firestore(
         print(
             f"\nSuccessfully uploaded {records_uploaded} records to Firestore database '{database_name}'"
         )
+    print("Summary:")
+    print(f"  - noreplies: {count_noreplies}")
+    print(f"  - skipped: {count_skipped}")
     if skip > 0:
         print(f"Skipped first {skip} records from CSV")
     if skip_existing:
