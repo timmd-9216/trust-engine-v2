@@ -33,7 +33,7 @@ Ver comparación completa en [SCHEDULER_VS_WORKFLOWS.md](./SCHEDULER_VS_WORKFLOW
 Cloud Scheduler necesita un Service Account con permisos para invocar el servicio de Cloud Run.
 
 ```bash
-PROJECT_ID="trust-481601"  # Ajusta según tu proyecto
+PROJECT_ID="your-gcp-project-id"  # Ajusta según tu proyecto
 REGION="us-east1"  # Ajusta según tu región
 SA_NAME="cloud-scheduler-sa"  # Nombre del service account
 
@@ -75,10 +75,10 @@ El proyecto ya incluye un script para configurar Cloud Scheduler:
 **Ejemplo completo:**
 
 ```bash
-PROJECT_ID="trust-481601"
+PROJECT_ID="your-gcp-project-id"
 REGION="us-east1"
 SCRAPPING_TOOLS_SERVICE="scrapping-tools"
-SA_EMAIL="cloud-scheduler-sa@trust-481601.iam.gserviceaccount.com"
+SA_EMAIL="cloud-scheduler-sa@your-gcp-project-id.iam.gserviceaccount.com"
 
 ./scripts/setup_cloud_scheduler.sh \
   "${PROJECT_ID}" \
@@ -124,7 +124,7 @@ El script configura:
 - **Time Zone**: `UTC`
 - **Método HTTP**: `POST`
 - **Endpoint**: `{SERVICE_URL}/process-posts?max_posts_to_process=10` (procesa 10 posts por ejecución)
-  - Ejemplo: `https://scrapping-tools-127336238226.us-east1.run.app/process-posts?max_posts_to_process=10`
+  - Ejemplo: `https://scrapping-tools-PROJECT_NUMBER.us-east1.run.app/process-posts?max_posts_to_process=10`
 - **Autenticación**: OIDC usando el Service Account especificado
 
 ### Flujo de dos fases

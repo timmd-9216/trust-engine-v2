@@ -14,31 +14,31 @@ Configura estas variables en: **Settings → Secrets and variables → Actions �
 
 | Variable | Tipo | Descripción | Valor Recomendado | Requerida Para |
 |----------|------|-------------|-------------------|----------------|
-| `GCP_PROJECT_ID` | Variable | GCP project ID | `trust-481601` | ✅ Todos los recursos |
+| `GCP_PROJECT_ID` | Variable | GCP project ID | `your-gcp-project-id` | ✅ Todos los recursos |
 | `GCP_REGION` | Variable | GCP region | `us-east1` | ✅ Todos los recursos |
-| `GCS_BUCKET_NAME` | Variable | Bucket para datos (BigQuery external tables) | `trust-prd` | ✅ BigQuery |
+| `GCS_BUCKET_NAME` | Variable | Bucket para datos (BigQuery external tables) | `your-gcs-bucket` | ✅ BigQuery |
 
 ### BigQuery (Siempre requerida)
 
 | Variable | Tipo | Descripción | Valor Recomendado | Requerida Para |
 |----------|------|-------------|-------------------|----------------|
-| `GCS_BUCKET_NAME` | Variable | Bucket con Parquet files | `trust-prd` | ✅ BigQuery External Tables |
+| `GCS_BUCKET_NAME` | Variable | Bucket con Parquet files | `your-gcs-bucket` | ✅ BigQuery External Tables |
 
-**Nota**: `GCS_BUCKET_NAME` ya está configurada como `trust-prd`.
+**Nota**: `GCS_BUCKET_NAME` ya está configurada como `your-gcs-bucket`.
 
 ### Cloud Scheduler (Opcional - solo si quieres crear Scheduler jobs)
 
 | Variable | Tipo | Descripción | Valor Recomendado | Requerida Para |
 |----------|------|-------------|-------------------|----------------|
 | `SCRAPPING_TOOLS_SERVICE_NAME` | Variable | Nombre del Cloud Run service | `scrapping-tools` | ⚠️ Cloud Scheduler |
-| `SERVICE_ACCOUNT_EMAIL` | Variable | Service account para OIDC | `ci-deployer@trust-481601.iam.gserviceaccount.com` | ⚠️ Cloud Scheduler |
+| `SERVICE_ACCOUNT_EMAIL` | Variable | Service account para OIDC | `ci-deployer@your-gcp-project-id.iam.gserviceaccount.com` | ⚠️ Cloud Scheduler |
 
 ### Workflow NLP (Opcional - solo si quieres crear Workflows)
 
 | Variable | Tipo | Descripción | Valor Recomendado | Requerida Para |
 |----------|------|-------------|-------------------|----------------|
-| `SOURCE_BUCKET` | Variable | Bucket a monitorear | `trust-prd` | ⚠️ Workflow NLP |
-| `OUTPUT_BUCKET` | Variable | Bucket para output | `trust-prd` | ⚠️ Workflow NLP |
+| `SOURCE_BUCKET` | Variable | Bucket a monitorear | `your-gcs-bucket` | ⚠️ Workflow NLP |
+| `OUTPUT_BUCKET` | Variable | Bucket para output | `your-gcs-bucket` | ⚠️ Workflow NLP |
 | `TRUST_API_PROCESS_URL` | Variable | URL del endpoint de procesamiento | `https://trust-api-xxx.run.app/process` | ⚠️ Workflow NLP |
 
 ---
@@ -68,7 +68,7 @@ Estas variables tienen valores por defecto y no necesitan configurarse a menos q
 | Secret | Descripción | Valor |
 |--------|-------------|-------|
 | `GCP_WORKLOAD_IDENTITY_PROVIDER` | WIF provider para autenticación | Configurado en GitHub |
-| `GCP_SERVICE_ACCOUNT_EMAIL` | Service account para Terraform | `ci-deployer@trust-481601.iam.gserviceaccount.com` |
+| `GCP_SERVICE_ACCOUNT_EMAIL` | Service account para Terraform | `ci-deployer@your-gcp-project-id.iam.gserviceaccount.com` |
 
 ---
 
@@ -77,9 +77,9 @@ Estas variables tienen valores por defecto y no necesitan configurarse a menos q
 Si solo quieres crear recursos de BigQuery (sin Scheduler/Workflow), necesitas:
 
 ### Variables (Settings → Variables):
-- ✅ `GCP_PROJECT_ID` = `trust-481601`
+- ✅ `GCP_PROJECT_ID` = `your-gcp-project-id`
 - ✅ `GCP_REGION` = `us-east1`
-- ✅ `GCS_BUCKET_NAME` = `trust-prd`
+- ✅ `GCS_BUCKET_NAME` = `your-gcs-bucket`
 
 ### Secrets (Settings → Secrets):
 - ✅ `GCP_WORKLOAD_IDENTITY_PROVIDER`
@@ -95,9 +95,9 @@ Para crear todos los recursos, agrega además:
 
 ### Variables adicionales:
 - ⚠️ `SCRAPPING_TOOLS_SERVICE_NAME` = `scrapping-tools`
-- ⚠️ `SERVICE_ACCOUNT_EMAIL` = `ci-deployer@trust-481601.iam.gserviceaccount.com`
-- ⚠️ `SOURCE_BUCKET` = `trust-prd`
-- ⚠️ `OUTPUT_BUCKET` = `trust-prd`
+- ⚠️ `SERVICE_ACCOUNT_EMAIL` = `ci-deployer@your-gcp-project-id.iam.gserviceaccount.com`
+- ⚠️ `SOURCE_BUCKET` = `your-gcs-bucket`
+- ⚠️ `OUTPUT_BUCKET` = `your-gcs-bucket`
 - ⚠️ `TRUST_API_PROCESS_URL` = `https://trust-api-xxx.run.app/process`
 
 ---

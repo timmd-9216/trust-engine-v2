@@ -20,7 +20,7 @@ Si necesitas hacer proxy del servicio de Cloud Run a localhost:
 ```bash
 # En una terminal, ejecuta el proxy
 gcloud run services proxy scrapping-tools \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --region=us-east1 \
   --port=8080
 

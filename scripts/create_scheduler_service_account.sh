@@ -7,8 +7,8 @@ if [ $# -lt 1 ]; then
   echo "Usage: $0 <project_id> [service_account_name]" >&2
   echo "" >&2
   echo "Example:" >&2
-  echo "  $0 trust-481601 scheduler" >&2
-  echo "  $0 trust-481601 cloud-scheduler-sa" >&2
+  echo "  $0 your-gcp-project-id scheduler" >&2
+  echo "  $0 your-gcp-project-id cloud-scheduler-sa" >&2
   exit 1
 fi
 

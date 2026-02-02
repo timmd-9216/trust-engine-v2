@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Script para otorgar permisos de Secret Manager a los service accounts necesarios
 
-PROJECT_ID="${GCP_PROJECT_ID:-trust-481601}"
+PROJECT_ID="${GCP_PROJECT_ID:?Set GCP_PROJECT_ID env var}"
 SECRET_NAME="INFORMATION_TRACER_API_KEY"
 
 # Service account de GitHub Actions (para deployment)

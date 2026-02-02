@@ -30,7 +30,7 @@ noreplies → skipped     (si max_posts_replies <= 0 y replies_count <= 0)
 from google.cloud import firestore
 from datetime import datetime, timezone
 
-client = firestore.Client(project="trust-481601", database="socialnetworks")
+client = firestore.Client(project="your-gcp-project-id", database="socialnetworks")
 
 # Consultar posts pendientes
 posts = client.collection("posts").where("status", "==", "noreplies").stream()
@@ -102,7 +102,7 @@ empty_result → verified               (si platform='twitter' y replies_count <
 from google.cloud import firestore
 from datetime import datetime, timezone
 
-client = firestore.Client(project="trust-481601", database="socialnetworks")
+client = firestore.Client(project="your-gcp-project-id", database="socialnetworks")
 
 # Consultar jobs pendientes
 jobs = client.collection("pending_jobs").where("status", "==", "pending").stream()

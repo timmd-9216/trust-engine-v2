@@ -108,7 +108,7 @@ gcloud secrets add-iam-policy-binding ${SECRET_NAME} \
 **⚠️ Importante:** Asegúrate de que el secret `GCP_SERVICE_ACCOUNT_EMAIL` en GitHub (environment: `trust-engine`) esté configurado exactamente como:
 
 ```
-ci-deployer@trust-481601.iam.gserviceaccount.com
+ci-deployer@your-gcp-project-id.iam.gserviceaccount.com
 ```
 
 **Verificación:**

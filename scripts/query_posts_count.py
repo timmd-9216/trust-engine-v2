@@ -13,7 +13,7 @@ from google.cloud import firestore
 # Load environment variables
 load_dotenv()
 
-PROJECT_ID = os.getenv("GCP_PROJECT_ID", "trust-481601")
+PROJECT_ID = os.getenv("GCP_PROJECT_ID", "your-gcp-project-id")
 DATABASE = os.getenv("FIRESTORE_DATABASE", "socialnetworks")
 COLLECTION = os.getenv("FIRESTORE_COLLECTION", "posts")
 
@@ -82,7 +82,7 @@ if __name__ == "__main__":
     print("-" * 60)
     print("""
 # Usando índices existentes: status + platform + created_at
-client = firestore.Client(project="trust-481601", database="socialnetworks")
+client = firestore.Client(project="your-gcp-project-id", database="socialnetworks")
 
 total = 0
 for status in ["noreplies", "skipped"]:

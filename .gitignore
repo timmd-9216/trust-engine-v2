@@ -1,5 +1,6 @@
 #dev files
 scripts/old/*
+old-*
 
 # IDE files
 .vscode/
@@ -14,6 +15,7 @@ stanza_resources/
 *.csv
 *.json
 *.parquet
+out/
 # Python-generated files
 __pycache__/
 *.py[oc]

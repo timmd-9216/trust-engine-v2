@@ -36,7 +36,7 @@ Examples:
   python upload_to_firestore.py <csv_path> <collection> [database_name] [project_id] [limit] [skip]
 
   # Upload next 50 records after the first 50
-  python upload_to_firestore.py data/test-input.csv posts socialnetworks trust-481601 50 50
+  python upload_to_firestore.py data/test-input.csv posts socialnetworks your-gcp-project-id 50 50
 """
 
 import csv
@@ -278,22 +278,22 @@ if __name__ == "__main__":
         epilog="""
 Examples:
   # Upload first 50 records
-  python upload_to_firestore.py data/test-input.csv posts socialnetworks trust-481601 50
+  python upload_to_firestore.py data/test-input.csv posts socialnetworks your-gcp-project-id 50
   
   # Upload next 50 records (skip first 50)
-  python upload_to_firestore.py data/test-input.csv posts socialnetworks trust-481601 50 --skip 50
+  python upload_to_firestore.py data/test-input.csv posts socialnetworks your-gcp-project-id 50 --skip 50
   
   # Upload records 100-149 (skip 100, upload 50)
-  python upload_to_firestore.py data/test-input.csv posts socialnetworks trust-481601 50 --skip 100
+  python upload_to_firestore.py data/test-input.csv posts socialnetworks your-gcp-project-id 50 --skip 100
   
   # Upload ALL records from CSV
-  python upload_to_firestore.py data/test-input.csv posts socialnetworks trust-481601 --all
+  python upload_to_firestore.py data/test-input.csv posts socialnetworks your-gcp-project-id --all
   
   # Upload ALL records starting from position 50
-  python upload_to_firestore.py data/test-input.csv posts socialnetworks trust-481601 --all --skip 50
+  python upload_to_firestore.py data/test-input.csv posts socialnetworks your-gcp-project-id --all --skip 50
   
   # Upload records skipping those that already exist (by post_id)
-  python upload_to_firestore.py data/test-input.csv posts socialnetworks trust-481601 50 --skip-existing
+  python upload_to_firestore.py data/test-input.csv posts socialnetworks your-gcp-project-id 50 --skip-existing
         """,
     )
     parser.add_argument(

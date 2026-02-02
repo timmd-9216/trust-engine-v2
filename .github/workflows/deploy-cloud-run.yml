@@ -93,7 +93,7 @@ jobs:
           gcloud config get-value project
           echo ""
           echo "Verifying service account configuration..."
-          EXPECTED_SA="ci-deployer@trust-481601.iam.gserviceaccount.com"
+          EXPECTED_SA="ci-deployer@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
           echo "Expected service account: ${EXPECTED_SA}"
           echo "Configured service account (from GitHub secret): ${GCP_SERVICE_ACCOUNT_EMAIL}"
           if [ "${GCP_SERVICE_ACCOUNT_EMAIL}" = "${EXPECTED_SA}" ]; then
@@ -131,14 +131,14 @@ jobs:
             if [ -n "${SECRET_POLICY}" ]; then
               echo "${SECRET_POLICY}"
               # Check if the expected service account has access
-              if echo "${SECRET_POLICY}" | grep -q "ci-deployer@trust-481601.iam.gserviceaccount.com"; then
+              if echo "${SECRET_POLICY}" | grep -q "ci-deployer@${GCP_PROJECT_ID}.iam.gserviceaccount.com"; then
                 echo ""
-                echo "✓ The expected service account (ci-deployer@trust-481601.iam.gserviceaccount.com) is in the IAM policy"
+                echo "✓ The expected service account (ci-deployer@${GCP_PROJECT_ID}.iam.gserviceaccount.com) is in the IAM policy"
                 echo "⚠ But authentication is failing - this suggests a WIF configuration issue"
               else
                 echo ""
                 echo "⚠ The expected service account is NOT in the IAM policy"
-                echo "Grant access with: gcloud secrets add-iam-policy-binding INFORMATION_TRACER_API_KEY --project=trust-481601 --member='serviceAccount:ci-deployer@trust-481601.iam.gserviceaccount.com' --role='roles/secretmanager.secretAccessor'"
+                echo "Grant access with: gcloud secrets add-iam-policy-binding INFORMATION_TRACER_API_KEY --project=${GCP_PROJECT_ID} --member='serviceAccount:ci-deployer@${GCP_PROJECT_ID}.iam.gserviceaccount.com' --role='roles/secretmanager.secretAccessor'"
               fi
             else
               echo "Cannot read IAM policy either - check permissions"

@@ -1,22 +1,25 @@
 # Terraform Backend Configuration
 #
-# This stores the Terraform state in a GCS bucket for team collaboration
-# and CI/CD pipelines.
+# The bucket is NOT set here (to avoid committing project-specific values).
+# Configure it via one of these methods:
 #
-# FIRST TIME SETUP:
-# 1. Create the bucket manually (one-time):
-#    gsutil mb -l us-east1 gs://trust-engine-terraform-state
-#    gsutil versioning set on gs://trust-engine-terraform-state
+# 1. Backend config file (recommended for local dev):
+#    cp backend.gcs.hcl.example backend.gcs.hcl
+#    # Edit backend.gcs.hcl with your bucket name (file is gitignored)
+#    terraform init -backend-config=backend.gcs.hcl
 #
-# 2. Initialize Terraform:
-#    terraform init
+# 2. Inline flag:
+#    terraform init -backend-config="bucket=YOUR_PROJECT_ID-terraform-state"
 #
-# Note: The bucket must exist before running terraform init.
-# State locking is automatic with GCS backend.
+# 3. With GCP_PROJECT_ID:
+#    terraform init -backend-config="bucket=${GCP_PROJECT_ID}-terraform-state"
+#
+# FIRST TIME: Create the bucket before init:
+#   gsutil mb -l us-east1 gs://YOUR_PROJECT_ID-terraform-state
+#   gsutil versioning set on gs://YOUR_PROJECT_ID-terraform-state
 
 terraform {
   backend "gcs" {
-    bucket = "trust-481601-terraform-state"
     prefix = "terraform/state"
   }
 }

@@ -42,12 +42,13 @@ gcloud run services add-iam-policy-binding $GCP_SERVICE_NAME \
 
 ## Example: Grant access to scrapping-tools service
 
-### Grant access to specific user (hordiales@gmail.com)
+### Grant access to specific user
 ```bash
+# Replace your-email@example.com and $GCP_PROJECT_ID with your values
 gcloud run services add-iam-policy-binding scrapping-tools \
-  --project=trust-481601 \
+  --project=$GCP_PROJECT_ID \
   --region=us-east1 \
-  --member="user:hordiales@gmail.com" \
+  --member="user:your-email@example.com" \
   --role="roles/run.invoker"
 ```
 
@@ -59,8 +60,8 @@ After granting access, the user needs to authenticate with their Google account 
 
 1. **Option A: Use Incognito/Private Window**
    - Open a new incognito/private window
-   - Visit: `https://scrapping-tools-127336238226.us-east1.run.app/docs`
-   - You'll be prompted to sign in with Google - use `hordiales@gmail.com`
+   - Visit: `https://SERVICE_NAME-PROJECT_NUMBER.REGION.run.app/docs` (replace with your Cloud Run URL)
+   - You'll be prompted to sign in with Google - use the account you granted access to
    - Accept the permissions
 
 2. **Option B: Use Local Proxy (Recommended)**
@@ -75,28 +76,29 @@ After granting access, the user needs to authenticate with their Google account 
 
 Use an identity token:
 ```bash
+# Replace PROJECT_NUMBER with your GCP project number: gcloud projects describe $GCP_PROJECT_ID --format='value(projectNumber)'
 TOKEN=$(gcloud auth print-identity-token)
 curl -H "Authorization: Bearer ${TOKEN}" \
-  https://scrapping-tools-127336238226.us-east1.run.app/health
+  https://scrapping-tools-PROJECT_NUMBER.us-east1.run.app/health
 
 # Example: Call json-to-parquet endpoint
 curl -X POST \
   -H "Authorization: Bearer ${TOKEN}" \
-  "https://scrapping-tools-127336238226.us-east1.run.app/json-to-parquet?country=honduras"
+  "https://scrapping-tools-PROJECT_NUMBER.us-east1.run.app/json-to-parquet?country=honduras"
 ```
 
 ### Verify current access permissions
 ```bash
 gcloud run services get-iam-policy scrapping-tools \
-  --project=trust-481601 \
+  --project=$GCP_PROJECT_ID \
   --region=us-east1
 ```
 
 ### Revoke access from a specific user
 ```bash
 gcloud run services remove-iam-policy-binding scrapping-tools \
-  --project=trust-481601 \
+  --project=$GCP_PROJECT_ID \
   --region=us-east1 \
-  --member="user:hordiales@gmail.com" \
+  --member="user:your-email@example.com" \
   --role="roles/run.invoker"
 ```

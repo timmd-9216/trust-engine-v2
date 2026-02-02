@@ -34,6 +34,8 @@ env:
   GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
   GCP_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
   GCP_SCRAPPING_TOOLS_SERVICE_NAME: ${{ secrets.GCP_SCRAPPING_TOOLS_SERVICE_NAME || vars.GCP_SCRAPPING_TOOLS_SERVICE_NAME || 'scrapping-tools' }}
+  # Optional: Terraform state bucket (defaults to ${GCP_PROJECT_ID}-terraform-state)
+  GCP_TERRAFORM_STATE_BUCKET: ${{ vars.GCP_TERRAFORM_STATE_BUCKET || '' }}
 
 jobs:
   terraform-plan:
@@ -67,11 +69,6 @@ jobs:
           echo "✓ Using Region: ${GCP_REGION}"
           echo "✓ Using GCS Bucket: ${GCS_BUCKET_NAME}"
           echo "✓ Scrapping Tools Service: ${GCP_SCRAPPING_TOOLS_SERVICE_NAME}"
-          
-          # Verify project is set correctly
-          if [ "${GCP_PROJECT_ID}" != "trust-481601" ]; then
-            echo "⚠ Warning: GCP_PROJECT_ID is ${GCP_PROJECT_ID}, expected trust-481601" >&2
-          fi
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -136,7 +133,9 @@ jobs:
       - name: Terraform Init
         id: init
         working-directory: ${{ env.TF_WORKING_DIR }}
-        run: terraform init -input=false
+        run: |
+          TF_STATE_BUCKET="${GCP_TERRAFORM_STATE_BUCKET:-$GCP_PROJECT_ID-terraform-state}"
+          terraform init -input=false -backend-config="bucket=${TF_STATE_BUCKET}"
 
       - name: Check Service Usage Permissions
         id: check-permissions
@@ -323,7 +322,8 @@ jobs:
       - name: Upload Plan to GCS (backup)
         if: steps.check-plan-file.outputs.exists == 'true' && steps.check-plan-file.outputs.valid == 'true'
         run: |
-          PLAN_PATH="gs://trust-481601-terraform-state/terraform/plans/${GITHUB_RUN_ID}-${GITHUB_SHA:0:7}.tfplan"
+          TF_STATE_BUCKET="${GCP_TERRAFORM_STATE_BUCKET:-${GCP_PROJECT_ID}-terraform-state}"
+          PLAN_PATH="gs://${TF_STATE_BUCKET}/terraform/plans/${GITHUB_RUN_ID}-${GITHUB_SHA:0:7}.tfplan"
           gsutil cp ${{ env.TF_WORKING_DIR }}/tfplan "${PLAN_PATH}"
           echo "Plan saved to: ${PLAN_PATH}"
           echo "plan_gcs_path=${PLAN_PATH}" >> $GITHUB_OUTPUT
@@ -393,7 +393,9 @@ jobs:
 
       - name: Terraform Init
         working-directory: ${{ env.TF_WORKING_DIR }}
-        run: terraform init -input=false
+        run: |
+          TF_STATE_BUCKET="${GCP_TERRAFORM_STATE_BUCKET:-$GCP_PROJECT_ID-terraform-state}"
+          terraform init -input=false -backend-config="bucket=${TF_STATE_BUCKET}"
 
       - name: Download Plan from GitHub Artifacts
         id: download-artifact
@@ -408,7 +410,8 @@ jobs:
         if: steps.download-artifact.outcome != 'success'
         run: |
           # Try to get the latest plan from GCS
-          LATEST_PLAN=$(gsutil ls -l gs://trust-481601-terraform-state/terraform/plans/*.tfplan 2>/dev/null | tail -1 | awk '{print $3}' || echo "")
+          TF_STATE_BUCKET="${GCP_TERRAFORM_STATE_BUCKET:-${GCP_PROJECT_ID}-terraform-state}"
+          LATEST_PLAN=$(gsutil ls -l gs://${TF_STATE_BUCKET}/terraform/plans/*.tfplan 2>/dev/null | tail -1 | awk '{print $3}' || echo "")
           if [ -n "${LATEST_PLAN}" ]; then
             echo "Downloading plan from GCS: ${LATEST_PLAN}"
             gsutil cp "${LATEST_PLAN}" ${{ env.TF_WORKING_DIR }}/tfplan
@@ -564,7 +567,9 @@ jobs:
 
       - name: Terraform Init
         working-directory: ${{ env.TF_WORKING_DIR }}
-        run: terraform init -input=false
+        run: |
+          TF_STATE_BUCKET="${GCP_TERRAFORM_STATE_BUCKET:-$GCP_PROJECT_ID-terraform-state}"
+          terraform init -input=false -backend-config="bucket=${TF_STATE_BUCKET}"
 
       - name: Terraform Destroy
         working-directory: ${{ env.TF_WORKING_DIR }}

@@ -1,0 +1,11 @@
+# Terraform GCS Backend Config
+#
+# Copy this file to backend.gcs.hcl and set your bucket name.
+# backend.gcs.hcl is gitignored and will NOT be committed.
+#
+#   cp backend.gcs.hcl.example backend.gcs.hcl
+#   # Edit backend.gcs.hcl with your bucket
+#   terraform init -backend-config=backend.gcs.hcl
+
+bucket = "your-project-id-terraform-state"
+# prefix is set in backend.tf (terraform/state)

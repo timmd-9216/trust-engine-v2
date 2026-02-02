@@ -252,12 +252,12 @@ Ahorro: ~97% ✅
 ## Cómo Monitorear Reads de Firestore
 
 ### Ver uso de Firestore en la consola:
-1. Ve a: https://console.cloud.google.com/firestore/usage?project=trust-481601
+1. Ve a: https://console.cloud.google.com/firestore/usage?project=your-gcp-project-id
 2. Selecciona "Read operations"
 3. Filtra por fecha para ver tendencias
 
 ### Verificar costos en Billing:
-1. Ve a: https://console.cloud.google.com/billing/reports?project=trust-481601
+1. Ve a: https://console.cloud.google.com/billing/reports?project=your-gcp-project-id
 2. Filtra por servicio: "Cloud Firestore"
 3. Filtra por SKU: "Firestore Read Operations"
 4. Ver costos por día

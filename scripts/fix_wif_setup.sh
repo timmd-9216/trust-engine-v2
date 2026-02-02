@@ -29,7 +29,7 @@ if [ -f .env ]; then
 fi
 
 # Variables requeridas
-PROJECT_ID="${GCP_PROJECT_ID:-trust-481601}"
+PROJECT_ID="${GCP_PROJECT_ID:?Set GCP_PROJECT_ID env var or add to .env}"
 SA_NAME="ci-deployer"
 SA_EMAIL="${SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
 POOL="github-pool"

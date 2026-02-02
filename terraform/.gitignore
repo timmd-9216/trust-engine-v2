@@ -1,3 +1,6 @@
+# Backend config (contains project-specific bucket, do not commit)
+backend.gcs.hcl
+
 # Terraform state files (stored in GCS backend, not locally)
 *.tfstate
 *.tfstate.*

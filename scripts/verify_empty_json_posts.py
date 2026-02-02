@@ -18,7 +18,7 @@ from google.cloud import firestore, storage
 # Load environment variables
 load_dotenv()
 
-PROJECT_ID = os.getenv("GCP_PROJECT_ID", "trust-481601")
+PROJECT_ID = os.getenv("GCP_PROJECT_ID", "your-gcp-project-id")
 DATABASE = os.getenv("FIRESTORE_DATABASE", "socialnetworks")
 COLLECTION = os.getenv("FIRESTORE_COLLECTION", "posts")
 GCS_BUCKET_NAME = os.getenv("GCS_BUCKET_NAME", "")

@@ -20,7 +20,7 @@ The request was not authenticated. Either allow unauthenticated invocations or s
 
 ```bash
 # Diagnosticar y arreglar automáticamente
-./scripts/fix_scheduler_auth.sh trust-481601 us-east1 json-to-parquet-daily
+./scripts/fix_scheduler_auth.sh your-gcp-project-id us-east1 json-to-parquet-daily
 ```
 
 El script:
@@ -34,7 +34,7 @@ El script:
 
 ```bash
 gcloud scheduler jobs describe json-to-parquet-daily \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --location=us-east1
 ```
 
@@ -43,7 +43,7 @@ gcloud scheduler jobs describe json-to-parquet-daily \
 ```bash
 # Ver qué service account está configurado
 gcloud scheduler jobs describe json-to-parquet-daily \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --location=us-east1 \
   --format="value(httpTarget.oidcToken.serviceAccountEmail)"
 ```
@@ -55,17 +55,17 @@ Si el scheduler no tiene OIDC configurado o usa GET en lugar de POST:
 ```bash
 # Obtener la URL del servicio
 SERVICE_URL=$(gcloud run services describe scrapping-tools \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --region=us-east1 \
   --format="value(status.url)")
 
 # Actualizar el scheduler
 gcloud scheduler jobs update http json-to-parquet-daily \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --location=us-east1 \
   --uri="${SERVICE_URL}/json-to-parquet?skip_timestamp_filter=false" \
   --http-method=POST \
-  --oidc-service-account-email=scheduler@trust-481601.iam.gserviceaccount.com
+  --oidc-service-account-email=scheduler@your-gcp-project-id.iam.gserviceaccount.com
 ```
 
 **Nota**: Ajusta el email del service account según tu configuración.
@@ -75,9 +75,9 @@ gcloud scheduler jobs update http json-to-parquet-daily \
 ```bash
 # Otorgar permisos de invoker
 gcloud run services add-iam-policy-binding scrapping-tools \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --region=us-east1 \
-  --member="serviceAccount:scheduler@trust-481601.iam.gserviceaccount.com" \
+  --member="serviceAccount:scheduler@your-gcp-project-id.iam.gserviceaccount.com" \
   --role="roles/run.invoker"
 ```
 
@@ -88,12 +88,12 @@ gcloud run services add-iam-policy-binding scrapping-tools \
 ```bash
 # Ver la configuración actualizada
 gcloud scheduler jobs describe json-to-parquet-daily \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --location=us-east1
 
 # Probar ejecutando el job
 gcloud scheduler jobs run json-to-parquet-daily \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --location=us-east1
 ```
 
@@ -103,7 +103,7 @@ gcloud scheduler jobs run json-to-parquet-daily \
 
 ```bash
 gcloud scheduler jobs describe json-to-parquet-daily \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --location=us-east1 \
   --format=json | jq -r '
     "HTTP Method: " + .httpTarget.httpMethod,
@@ -115,18 +115,18 @@ gcloud scheduler jobs describe json-to-parquet-daily \
 Deberías ver:
 - HTTP Method: `POST`
 - URI: `https://scrapping-tools-XXXXX.run.app/json-to-parquet?skip_timestamp_filter=false`
-- OIDC SA: `scheduler@trust-481601.iam.gserviceaccount.com` (o tu service account)
+- OIDC SA: `scheduler@your-gcp-project-id.iam.gserviceaccount.com` (o tu service account)
 
 ### 2. Verificar Permisos IAM
 
 ```bash
 gcloud run services get-iam-policy scrapping-tools \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --region=us-east1 \
   --format=json | jq -r '.bindings[] | select(.role == "roles/run.invoker") | .members[]'
 ```
 
-Deberías ver el service account en la lista: `serviceAccount:scheduler@trust-481601.iam.gserviceaccount.com`
+Deberías ver el service account en la lista: `serviceAccount:scheduler@your-gcp-project-id.iam.gserviceaccount.com`
 
 ### 3. Verificar Logs
 
@@ -135,7 +135,7 @@ Después de ejecutar el job, revisa los logs:
 ```bash
 # Ver logs del scheduler
 gcloud logging read "resource.type=cloud_scheduler_job AND resource.labels.job_id=json-to-parquet-daily" \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --limit=10 \
   --format=json | jq -r '.[] | "\(.timestamp) - \(.jsonPayload.message // .textPayload)"'
 ```
@@ -146,10 +146,10 @@ Si necesitas reconfigurar todos los schedulers desde cero:
 
 ```bash
 ./scripts/setup_cloud_scheduler.sh \
-  trust-481601 \
+  your-gcp-project-id \
   us-east1 \
   scrapping-tools \
-  scheduler@trust-481601.iam.gserviceaccount.com
+  scheduler@your-gcp-project-id.iam.gserviceaccount.com
 ```
 
 Esto configurará:
@@ -175,7 +175,7 @@ resource "google_cloud_scheduler_job" "json_to_parquet" {
     http_method = "POST"
 
     oidc_token {
-      service_account_email = "scheduler@trust-481601.iam.gserviceaccount.com"
+      service_account_email = "scheduler@your-gcp-project-id.iam.gserviceaccount.com"
     }
   }
 }
@@ -196,7 +196,7 @@ Si el service account no existe, créalo:
 
 ```bash
 gcloud iam service-accounts create scheduler \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --display-name="Cloud Scheduler Service Account"
 ```
 
@@ -206,16 +206,16 @@ Si el scheduler fue creado manualmente sin OIDC, actualízalo:
 
 ```bash
 gcloud scheduler jobs update http json-to-parquet-daily \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --location=us-east1 \
-  --oidc-service-account-email=scheduler@trust-481601.iam.gserviceaccount.com
+  --oidc-service-account-email=scheduler@your-gcp-project-id.iam.gserviceaccount.com
 ```
 
 ### Verificar que el Servicio Cloud Run Requiere Autenticación
 
 ```bash
 gcloud run services describe scrapping-tools \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --region=us-east1 \
   --format="value(spec.template.metadata.annotations.'run.googleapis.com/ingress')"
 ```

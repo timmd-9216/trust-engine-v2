@@ -4,7 +4,7 @@ Este documento describe las tareas de administración de Firestore para el proye
 
 ## Configuración
 
-- **Proyecto**: `trust-481601`
+- **Proyecto**: `your-gcp-project-id`
 - **Base de datos**: `socialnetworks`
 - **Colección principal**: `posts`
 
@@ -20,7 +20,7 @@ Este índice es necesario para la query que obtiene posts con `status='noreplies
 
 ```bash
 gcloud firestore indexes composite create \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --database=socialnetworks \
   --collection-group=posts \
   --query-scope=COLLECTION \
@@ -34,7 +34,7 @@ Este índice es necesario para la query que obtiene jobs pendientes con `status=
 
 ```bash
 gcloud firestore indexes composite create \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --database=socialnetworks \
   --collection-group=pending_jobs \
   --query-scope=COLLECTION \
@@ -46,7 +46,7 @@ gcloud firestore indexes composite create \
 
 ```bash
 gcloud firestore indexes composite list \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --database=socialnetworks
 ```
 
@@ -55,12 +55,12 @@ gcloud firestore indexes composite list \
 ```bash
 # Primero lista los índices para obtener el ID
 gcloud firestore indexes composite list \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --database=socialnetworks
 
 # Luego elimina por ID
 gcloud firestore indexes composite delete INDEX_ID \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --database=socialnetworks
 ```
 
@@ -70,10 +70,10 @@ gcloud firestore indexes composite delete INDEX_ID \
 
 ```bash
 # Usando Firebase CLI (requiere firebase-tools instalado)
-firebase firestore:get posts --project=trust-481601
+firebase firestore:get posts --project=your-gcp-project-id
 
 # O usar la consola web:
-# https://console.firebase.google.com/project/trust-481601/firestore/databases/socialnetworks/data/posts
+# https://console.firebase.google.com/project/your-gcp-project-id/firestore/databases/socialnetworks/data/posts
 ```
 
 ### Consultar posts por status
@@ -83,7 +83,7 @@ Desde Python:
 ```python
 from google.cloud import firestore
 
-client = firestore.Client(project="trust-481601", database="socialnetworks")
+client = firestore.Client(project="your-gcp-project-id", database="socialnetworks")
 
 # Posts sin respuestas
 posts = client.collection("posts").where("status", "==", "noreplies").stream()
@@ -102,7 +102,7 @@ posts = client.collection("posts").where("status", "==", "skipped").stream()
 ```python
 from google.cloud import firestore
 
-client = firestore.Client(project="trust-481601", database="socialnetworks")
+client = firestore.Client(project="your-gcp-project-id", database="socialnetworks")
 
 statuses = ["noreplies", "done", "skipped"]
 for status in statuses:
@@ -277,7 +277,7 @@ Para información detallada sobre todos los estados posibles y sus transiciones,
 from google.cloud import firestore
 from datetime import datetime, timezone
 
-client = firestore.Client(project="trust-481601", database="socialnetworks")
+client = firestore.Client(project="your-gcp-project-id", database="socialnetworks")
 
 doc_ref = client.collection("posts").document("DOCUMENT_ID")
 doc_ref.update({
@@ -294,7 +294,7 @@ Si necesitas reprocesar posts que ya fueron procesados:
 from google.cloud import firestore
 from datetime import datetime, timezone
 
-client = firestore.Client(project="trust-481601", database="socialnetworks")
+client = firestore.Client(project="your-gcp-project-id", database="socialnetworks")
 
 # Resetear todos los posts "done" a "noreplies"
 posts = client.collection("posts").where("status", "==", "done").stream()
@@ -325,7 +325,7 @@ print(f"Reset {count} posts to 'noreplies'")
 
 ```bash
 gcloud firestore export gs://trust-dev/firestore-backups/$(date +%Y-%m-%d) \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --database=socialnetworks \
   --collection-ids=posts
 ```
@@ -334,7 +334,7 @@ gcloud firestore export gs://trust-dev/firestore-backups/$(date +%Y-%m-%d) \
 
 ```bash
 gcloud firestore import gs://trust-dev/firestore-backups/2025-01-01 \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --database=socialnetworks
 ```
 
@@ -344,18 +344,18 @@ gcloud firestore import gs://trust-dev/firestore-backups/2025-01-01 \
 
 ```bash
 gcloud firestore operations list \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --database=socialnetworks
 ```
 
 ### Ver uso de la base de datos
 
 Accede a la consola de Firebase:
-- https://console.firebase.google.com/project/trust-481601/firestore/databases/socialnetworks/usage
+- https://console.firebase.google.com/project/your-gcp-project-id/firestore/databases/socialnetworks/usage
 
 ## Permisos
 
-El service account `ci-deployer@trust-481601.iam.gserviceaccount.com` necesita los siguientes roles para acceder a Firestore:
+El service account `ci-deployer@your-gcp-project-id.iam.gserviceaccount.com` necesita los siguientes roles para acceder a Firestore:
 
 - `roles/datastore.user` (lectura/escritura de documentos)
 
@@ -364,13 +364,13 @@ Para administrar índices:
 
 ```bash
 # Dar permisos de lectura/escritura
-gcloud projects add-iam-policy-binding trust-481601 \
-  --member="serviceAccount:ci-deployer@trust-481601.iam.gserviceaccount.com" \
+gcloud projects add-iam-policy-binding your-gcp-project-id \
+  --member="serviceAccount:ci-deployer@your-gcp-project-id.iam.gserviceaccount.com" \
   --role="roles/datastore.user"
 
 # Dar permisos para administrar índices
-gcloud projects add-iam-policy-binding trust-481601 \
-  --member="serviceAccount:ci-deployer@trust-481601.iam.gserviceaccount.com" \
+gcloud projects add-iam-policy-binding your-gcp-project-id \
+  --member="serviceAccount:ci-deployer@your-gcp-project-id.iam.gserviceaccount.com" \
   --role="roles/datastore.indexAdmin"
 ```
 
@@ -384,7 +384,7 @@ Crea un archivo `scripts/create_firestore_indexes.sh`:
 #!/bin/bash
 # Script para crear índices de Firestore necesarios
 
-PROJECT_ID="trust-481601"
+PROJECT_ID="your-gcp-project-id"
 DATABASE="socialnetworks"
 
 echo "Creando índices de Firestore..."
@@ -414,13 +414,13 @@ from google.cloud import firestore
 
 def verify_firestore_connection():
     try:
-        client = firestore.Client(project="trust-481601", database="socialnetworks")
+        client = firestore.Client(project="your-gcp-project-id", database="socialnetworks")
         
         # Intentar leer un documento
         docs = list(client.collection("posts").limit(1).stream())
         
         print("✓ Conexión exitosa a Firestore")
-        print(f"  Proyecto: trust-481601")
+        print(f"  Proyecto: your-gcp-project-id")
         print(f"  Base de datos: socialnetworks")
         print(f"  Documentos en 'posts': {len(docs)} (mostrando 1)")
         
@@ -452,7 +452,7 @@ Verifica que tu cuenta o service account tenga los permisos necesarios:
 
 ```bash
 # Ver permisos actuales
-gcloud projects get-iam-policy trust-481601 \
+gcloud projects get-iam-policy your-gcp-project-id \
   --flatten="bindings[].members" \
   --filter="bindings.members:YOUR_EMAIL_OR_SA" \
   --format="table(bindings.role)"

@@ -133,7 +133,7 @@ curl -X GET "https://scrapping-tools-xxx.run.app/empty-result-jobs/count?candida
 ```bash
 # Contar todos
 gcloud run services proxy scrapping-tools \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --region=us-east1 \
   --port=8080
 
@@ -194,7 +194,7 @@ curl -X POST "https://scrapping-tools-xxx.run.app/empty-result-jobs/retry?candid
 ```bash
 # Retry 10 jobs
 gcloud run services proxy scrapping-tools \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --region=us-east1 \
   --port=8080
 

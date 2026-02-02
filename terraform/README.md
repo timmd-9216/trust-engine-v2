@@ -28,8 +28,8 @@ This directory contains Terraform configurations for the Trust Engine infrastruc
 
 2. **Terraform state bucket** (one-time setup):
    ```bash
-   gsutil mb -l us-east1 gs://trust-481601-terraform-state
-   gsutil versioning set on gs://trust-481601-terraform-state
+   gsutil mb -l us-east1 gs://your-gcp-project-id-terraform-state
+   gsutil versioning set on gs://your-gcp-project-id-terraform-state
    ```
 
 3. **Service account** with necessary permissions:
@@ -49,8 +49,14 @@ cd terraform
 cp terraform.tfvars.example terraform.tfvars
 # Edit terraform.tfvars with your values
 
-# Initialize Terraform
-terraform init
+# Configure backend (bucket is not in repo - use one of these):
+# Option A: Backend config file (recommended)
+cp backend.gcs.hcl.example backend.gcs.hcl
+# Edit backend.gcs.hcl with your bucket name
+terraform init -backend-config=backend.gcs.hcl
+
+# Option B: Inline
+terraform init -backend-config="bucket=YOUR_PROJECT_ID-terraform-state"
 ```
 
 ### Plan and Apply
@@ -70,7 +76,7 @@ terraform destroy
 
 ```bash
 terraform plan \
-  -var="project_id=trust-481601" \
+  -var="project_id=your-gcp-project-id" \
   -var="region=us-east1" \
   -var="gcs_bucket=trust-prd"
 ```
@@ -103,34 +109,34 @@ The Terraform service account needs the following roles:
 
 ```bash
 # Required for managing project services (enabling/disabling APIs)
-gcloud projects add-iam-policy-binding trust-481601 \
-  --member="serviceAccount:ci-deployer@trust-481601.iam.gserviceaccount.com" \
+gcloud projects add-iam-policy-binding your-gcp-project-id \
+  --member="serviceAccount:ci-deployer@your-gcp-project-id.iam.gserviceaccount.com" \
   --role="roles/serviceusage.serviceUsageAdmin"
 
 # Required for BigQuery resources
-gcloud projects add-iam-policy-binding trust-481601 \
-  --member="serviceAccount:ci-deployer@trust-481601.iam.gserviceaccount.com" \
+gcloud projects add-iam-policy-binding your-gcp-project-id \
+  --member="serviceAccount:ci-deployer@your-gcp-project-id.iam.gserviceaccount.com" \
   --role="roles/bigquery.admin"
 
 # Required for Cloud Scheduler resources
-gcloud projects add-iam-policy-binding trust-481601 \
-  --member="serviceAccount:ci-deployer@trust-481601.iam.gserviceaccount.com" \
+gcloud projects add-iam-policy-binding your-gcp-project-id \
+  --member="serviceAccount:ci-deployer@your-gcp-project-id.iam.gserviceaccount.com" \
   --role="roles/cloudscheduler.admin"
 
 # Required for Workflows resources
-gcloud projects add-iam-policy-binding trust-481601 \
-  --member="serviceAccount:ci-deployer@trust-481601.iam.gserviceaccount.com" \
+gcloud projects add-iam-policy-binding your-gcp-project-id \
+  --member="serviceAccount:ci-deployer@your-gcp-project-id.iam.gserviceaccount.com" \
   --role="roles/workflows.admin"
 
 # Required for Eventarc resources (if using workflows)
-gcloud projects add-iam-policy-binding trust-481601 \
-  --member="serviceAccount:ci-deployer@trust-481601.iam.gserviceaccount.com" \
+gcloud projects add-iam-policy-binding your-gcp-project-id \
+  --member="serviceAccount:ci-deployer@your-gcp-project-id.iam.gserviceaccount.com" \
   --role="roles/eventarc.admin"
 
 # For Terraform state bucket
 gsutil iam ch \
-  serviceAccount:ci-deployer@trust-481601.iam.gserviceaccount.com:objectAdmin \
-  gs://trust-481601-terraform-state
+  serviceAccount:ci-deployer@your-gcp-project-id.iam.gserviceaccount.com:objectAdmin \
+  gs://your-gcp-project-id-terraform-state
 ```
 
 **Important**: The `roles/serviceusage.serviceUsageAdmin` role is required for Terraform to enable/disable GCP APIs. Without this role, the bootstrap step will fail with a permission error.
@@ -139,7 +145,7 @@ gsutil iam ch \
 
 Terraform state is stored remotely in GCS:
 
-- **Bucket**: `gs://trust-481601-terraform-state`
+- **Bucket**: `gs://your-gcp-project-id-terraform-state`
 - **Prefix**: `terraform/state`
 - **Locking**: Automatic with GCS
 
@@ -153,7 +159,7 @@ terraform state show google_bigquery_dataset.analytics
 ### Import existing resources
 
 ```bash
-terraform import google_bigquery_dataset.analytics trust-481601/trust_analytics
+terraform import google_bigquery_dataset.analytics your-gcp-project-id/trust_analytics
 ```
 
 ## BigQuery External Tables
@@ -163,18 +169,18 @@ After applying, query the external tables:
 ```sql
 -- List all replies for a candidate
 SELECT * 
-FROM `trust-481601.trust_analytics.replies`
+FROM `your-gcp-project-id.trust_analytics.replies`
 WHERE candidate_id = 'hnd01monc'
 LIMIT 100;
 
 -- Daily engagement summary
 SELECT * 
-FROM `trust-481601.trust_analytics.daily_engagement`
+FROM `your-gcp-project-id.trust_analytics.daily_engagement`
 ORDER BY ingestion_date DESC;
 
 -- Candidate totals
 SELECT * 
-FROM `trust-481601.trust_analytics.candidate_summary`;
+FROM `your-gcp-project-id.trust_analytics.candidate_summary`;
 ```
 
 ## Troubleshooting

@@ -44,7 +44,7 @@ El workflow:
 ### Opción 1: Usando el script de deployment
 
 ```bash
-export GCP_PROJECT_ID=trust-481601
+export GCP_PROJECT_ID=your-gcp-project-id
 export GCP_REGION=us-east1
 export GCP_SERVICE_NAME=trust-engine-v2  # Nombre de la imagen base
 export INFORMATION_TRACER_URL=https://api.example.com
@@ -84,7 +84,7 @@ gcloud run deploy scrapping-tools \
 ### Opción 2: Deployment directo con gcloud
 
 ```bash
-PROJECT_ID=trust-481601
+PROJECT_ID=your-gcp-project-id
 REGION=us-east1
 SERVICE_NAME=scrapping-tools
 IMAGE_NAME=us-east1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/trust-engine-v2:latest

@@ -48,7 +48,7 @@ curl -X POST \
 ```bash
 # This automatically handles authentication
 gcloud run services proxy scrapping-tools \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --region=us-east1 \
   --port=8080
 
@@ -63,9 +63,9 @@ If you're calling from another service (e.g., Cloud Scheduler, Cloud Functions, 
 ```bash
 # Grant permission to a service account
 gcloud run services add-iam-policy-binding scrapping-tools \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --region=us-east1 \
-  --member="serviceAccount:your-service-account@trust-481601.iam.gserviceaccount.com" \
+  --member="serviceAccount:your-service-account@your-gcp-project-id.iam.gserviceaccount.com" \
   --role="roles/run.invoker"
 ```
 
@@ -78,7 +78,7 @@ Then use the service account's identity token in your request.
 ```bash
 # Allow unauthenticated access
 gcloud run services add-iam-policy-binding scrapping-tools \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --region=us-east1 \
   --member="allUsers" \
   --role="roles/run.invoker"
@@ -87,7 +87,7 @@ gcloud run services add-iam-policy-binding scrapping-tools \
 To revoke:
 ```bash
 gcloud run services remove-iam-policy-binding scrapping-tools \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --region=us-east1 \
   --member="allUsers" \
   --role="roles/run.invoker"
@@ -103,7 +103,7 @@ http_target {
   http_method = "POST"
 
   oidc_token {
-    service_account_email = "scheduler@trust-481601.iam.gserviceaccount.com"
+    service_account_email = "scheduler@your-gcp-project-id.iam.gserviceaccount.com"
   }
 }
 ```
@@ -111,7 +111,7 @@ http_target {
 Verify the scheduler job:
 ```bash
 gcloud scheduler jobs describe json-to-parquet-daily \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --location=us-east1
 ```
 
@@ -179,14 +179,14 @@ response = requests.post(
 
 1. **Check Cloud Logging** for the trace ID:
    ```bash
-   gcloud logging read "trace=projects/trust-481601/traces/1154e8f2585ae86fdb3a10e1fef27e46" \
-     --project=trust-481601 \
+   gcloud logging read "trace=projects/your-gcp-project-id/traces/1154e8f2585ae86fdb3a10e1fef27e46" \
+     --project=your-gcp-project-id \
      --limit=50
    ```
 
 2. **Check Cloud Scheduler jobs**:
    ```bash
-   gcloud scheduler jobs list --project=trust-481601 --location=us-east1
+   gcloud scheduler jobs list --project=your-gcp-project-id --location=us-east1
    ```
 
 3. **Check for any external services** that might be calling the endpoint
@@ -196,7 +196,7 @@ response = requests.post(
 Check if the service requires authentication:
 ```bash
 gcloud run services describe scrapping-tools \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --region=us-east1 \
   --format="value(spec.template.spec.containers[0].env)"
 ```
@@ -204,7 +204,7 @@ gcloud run services describe scrapping-tools \
 Check IAM bindings:
 ```bash
 gcloud run services get-iam-policy scrapping-tools \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --region=us-east1
 ```
 

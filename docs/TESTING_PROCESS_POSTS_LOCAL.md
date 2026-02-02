@@ -50,7 +50,7 @@ El sistema funciona en tres fases separadas:
    Crea un archivo `.env` en la raíz del proyecto:
    ```bash
    # GCP Configuration
-   GCP_PROJECT_ID=trust-481601
+   GCP_PROJECT_ID=your-gcp-project-id
    FIRESTORE_DATABASE=socialnetworks
    FIRESTORE_COLLECTION=posts
    GCS_BUCKET_NAME=trust-dev
@@ -74,7 +74,7 @@ Si ya tienes posts en Firestore, puedes verificar cuántos hay:
 ```bash
 poetry run python -c "
 from google.cloud import firestore
-client = firestore.Client(project='trust-481601', database='socialnetworks')
+client = firestore.Client(project='your-gcp-project-id', database='socialnetworks')
 posts = list(client.collection('posts').where('status', '==', 'noreplies').limit(10).stream())
 print(f'Posts con status=noreplies: {len(posts)}')
 for post in posts[:5]:
@@ -90,7 +90,7 @@ poetry run python scripts/upload_to_firestore.py \
   data/test-input.csv \
   posts \
   socialnetworks \
-  trust-481601 \
+  your-gcp-project-id \
   10
 ```
 
@@ -100,7 +100,7 @@ O crear posts manualmente con un script simple:
 from google.cloud import firestore
 from datetime import datetime, timezone
 
-client = firestore.Client(project='trust-481601', database='socialnetworks')
+client = firestore.Client(project='your-gcp-project-id', database='socialnetworks')
 
 test_posts = [
     {
@@ -196,7 +196,7 @@ print(f"Response: {response.json()}")
 ```bash
 poetry run python -c "
 from google.cloud import firestore
-client = firestore.Client(project='trust-481601', database='socialnetworks')
+client = firestore.Client(project='your-gcp-project-id', database='socialnetworks')
 jobs = list(client.collection('pending_jobs').where('status', '==', 'pending').stream())
 print(f'Jobs pendientes: {len(jobs)}')
 for job in jobs[:5]:
@@ -288,7 +288,7 @@ print(f"Response: {response.json()}")
 ```bash
 poetry run python -c "
 from google.cloud import firestore
-client = firestore.Client(project='trust-481601', database='socialnetworks')
+client = firestore.Client(project='your-gcp-project-id', database='socialnetworks')
 posts = list(client.collection('posts').where('status', '==', 'done').limit(10).stream())
 print(f'Posts procesados (status=done): {len(posts)}')
 for post in posts[:5]:
@@ -302,7 +302,7 @@ for post in posts[:5]:
 ```bash
 poetry run python -c "
 from google.cloud import firestore
-client = firestore.Client(project='trust-481601', database='socialnetworks')
+client = firestore.Client(project='your-gcp-project-id', database='socialnetworks')
 jobs_done = list(client.collection('pending_jobs').where('status', '==', 'done').stream())
 jobs_pending = list(client.collection('pending_jobs').where('status', '==', 'pending').stream())
 print(f'Jobs completados: {len(jobs_done)}')

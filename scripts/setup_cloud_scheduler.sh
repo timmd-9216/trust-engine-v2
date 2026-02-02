@@ -10,7 +10,7 @@ set -euo pipefail
 #   ./scripts/setup_cloud_scheduler.sh <project_id> <region> <scrapping_tools_service_name> <service_account_email>
 #
 # Example:
-#   ./scripts/setup_cloud_scheduler.sh trust-481601 us-east1 scrapping-tools scheduler@trust-481601.iam.gserviceaccount.com
+#   ./scripts/setup_cloud_scheduler.sh your-gcp-project-id us-east1 scrapping-tools scheduler@your-gcp-project-id.iam.gserviceaccount.com
 
 require_env() {
   local name="$1"
@@ -24,7 +24,7 @@ if [ $# -lt 4 ]; then
   echo "Usage: $0 <project_id> <region> <scrapping_tools_service_name> <service_account_email>" >&2
   echo "" >&2
   echo "Example:" >&2
-  echo "  $0 trust-481601 us-east1 scrapping-tools scheduler@trust-481601.iam.gserviceaccount.com" >&2
+  echo "  $0 your-gcp-project-id us-east1 scrapping-tools scheduler@your-gcp-project-id.iam.gserviceaccount.com" >&2
   exit 1
 fi
 

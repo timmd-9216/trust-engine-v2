@@ -10,12 +10,12 @@ Ejecuta terraform apply con la variable `enable_cloud_scheduler=true`:
 cd terraform
 
 terraform apply \
-  -var="project_id=trust-481601" \
+  -var="project_id=your-gcp-project-id" \
   -var="region=us-east1" \
   -var="gcs_bucket=trust-prd" \
   -var="enable_cloud_scheduler=true" \
   -var="scrapping_tools_service_name=scrapping-tools" \
-  -var="service_account_email=scheduler@trust-481601.iam.gserviceaccount.com"
+  -var="service_account_email=scheduler@your-gcp-project-id.iam.gserviceaccount.com"
 ```
 
 Esto creará los 3 jobs:
@@ -30,7 +30,7 @@ Si tienes un archivo `terraform.tfvars`, agrega:
 ```hcl
 enable_cloud_scheduler = true
 scrapping_tools_service_name = "scrapping-tools"
-service_account_email = "scheduler@trust-481601.iam.gserviceaccount.com"
+service_account_email = "scheduler@your-gcp-project-id.iam.gserviceaccount.com"
 ```
 
 Luego ejecuta:
@@ -50,17 +50,17 @@ cd terraform
 ./import_existing_jobs.sh
 
 # O importar manualmente:
-terraform import 'google_cloud_scheduler_job.process_posts[0]' projects/trust-481601/locations/us-east1/jobs/process-posts-hourly
-terraform import 'google_cloud_scheduler_job.process_jobs[0]' projects/trust-481601/locations/us-east1/jobs/process-jobs-hourly
+terraform import 'google_cloud_scheduler_job.process_posts[0]' projects/your-gcp-project-id/locations/us-east1/jobs/process-posts-hourly
+terraform import 'google_cloud_scheduler_job.process_jobs[0]' projects/your-gcp-project-id/locations/us-east1/jobs/process-jobs-hourly
 
 # Luego aplicar con enable_cloud_scheduler=true
 terraform apply \
-  -var="project_id=trust-481601" \
+  -var="project_id=your-gcp-project-id" \
   -var="region=us-east1" \
   -var="gcs_bucket=trust-prd" \
   -var="enable_cloud_scheduler=true" \
   -var="scrapping_tools_service_name=scrapping-tools" \
-  -var="service_account_email=scheduler@trust-481601.iam.gserviceaccount.com"
+  -var="service_account_email=scheduler@your-gcp-project-id.iam.gserviceaccount.com"
 ```
 
 **Nota**: Si ya ejecutaste `terraform apply` y el job `json-to-parquet-daily` se creó exitosamente (aunque los otros fallaron), solo necesitas importar los jobs existentes y ejecutar `terraform apply` nuevamente. Terraform solo creará/actualizará lo necesario.
@@ -72,12 +72,12 @@ Después de aplicar, verifica que el job existe:
 ```bash
 # Ver el job
 gcloud scheduler jobs describe json-to-parquet-daily \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --location=us-east1
 
 # Ver todos los jobs
 gcloud scheduler jobs list \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --location=us-east1
 ```
 
@@ -87,7 +87,7 @@ Para probar el job manualmente:
 
 ```bash
 gcloud scheduler jobs run json-to-parquet-daily \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --location=us-east1
 ```
 
@@ -115,19 +115,19 @@ Si prefieres no usar Terraform para este job específico:
 ```bash
 # Obtener la URL del servicio scrapping-tools
 SERVICE_URL=$(gcloud run services describe scrapping-tools \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --region=us-east1 \
   --format="value(status.url)")
 
 # Crear el job
 gcloud scheduler jobs create http json-to-parquet-daily \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --location=us-east1 \
   --schedule="0 7 * * *" \
   --time-zone="UTC" \
   --uri="${SERVICE_URL}/json-to-parquet" \
   --http-method=POST \
-  --oidc-service-account-email=scheduler@trust-481601.iam.gserviceaccount.com \
+  --oidc-service-account-email=scheduler@your-gcp-project-id.iam.gserviceaccount.com \
   --attempt-deadline=600s \
   --description="Convert JSONs to Parquet format daily by calling /json-to-parquet endpoint"
 ```

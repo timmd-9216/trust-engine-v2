@@ -64,7 +64,7 @@ Esto establece `real_replies_count = 0` para todos los posts, pero es mucho más
 ```bash
 poetry run python scripts/create_posts_consolidated.py \
   --bucket trust-prd \
-  --project-id trust-481601
+  --project-id your-gcp-project-id
 ```
 
 ### Cambiar base de datos o colección de Firestore
@@ -150,7 +150,7 @@ terraform apply
 O manualmente:
 
 ```sql
-CREATE EXTERNAL TABLE `trust-481601.trust_analytics.posts`
+CREATE EXTERNAL TABLE `your-gcp-project-id.trust_analytics.posts`
 WITH PARTITION COLUMNS (
   platform STRING,
   ingestion_date DATE
@@ -177,7 +177,7 @@ SELECT
   (max_posts_replies - real_replies_count) as difference,
   status,
   created_at
-FROM `trust-481601.trust_analytics.posts`
+FROM `your-gcp-project-id.trust_analytics.posts`
 WHERE country = 'honduras'
 ORDER BY ingestion_date DESC
 LIMIT 100;
@@ -195,7 +195,7 @@ SELECT
   SUM(real_replies_count) as total_real_replies,
   AVG(real_replies_count) as avg_real_replies_per_post,
   SUM(CASE WHEN real_replies_count < max_posts_replies THEN 1 ELSE 0 END) as posts_with_fewer_replies
-FROM `trust-481601.trust_analytics.posts`
+FROM `your-gcp-project-id.trust_analytics.posts`
 GROUP BY country, platform, candidate_id
 ORDER BY country, platform, candidate_id;
 ```
@@ -212,7 +212,7 @@ SELECT
   real_replies_count,
   (max_posts_replies - real_replies_count) as missing_replies,
   ROUND(100.0 * real_replies_count / NULLIF(max_posts_replies, 0), 2) as completion_percentage
-FROM `trust-481601.trust_analytics.posts`
+FROM `your-gcp-project-id.trust_analytics.posts`
 WHERE max_posts_replies > 0
   AND real_replies_count < max_posts_replies
 ORDER BY missing_replies DESC
@@ -310,7 +310,7 @@ Ejemplo de integración en workflow:
 # Después de procesar replies a Parquet
 - name: create-posts-consolidated
   container:
-    image: gcr.io/trust-481601/scrapping-tools:latest
+    image: gcr.io/your-gcp-project-id/scrapping-tools:latest
     command: ["poetry", "run", "python", "scripts/create_posts_consolidated.py"]
     args: ["--bucket", "trust-prd", "--upload"]
 ```

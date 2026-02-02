@@ -4,8 +4,8 @@ set -euo pipefail
 # Proxy the scrapping-tools Cloud Run service locally
 # This automatically handles authentication
 
-PROJECT_ID="trust-481601"
-REGION="us-east1"
+PROJECT_ID="${GCP_PROJECT_ID:?Set GCP_PROJECT_ID env var}"
+REGION="${GCP_REGION:-us-east1}"
 SERVICE_NAME="scrapping-tools"
 PORT="${PROXY_PORT:-8080}"
 

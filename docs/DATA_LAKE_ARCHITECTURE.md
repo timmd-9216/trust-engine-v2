@@ -12,7 +12,7 @@ Este documento describe la arquitectura del Data Lake para analytics del Trust E
 cd terraform
 terraform init
 terraform apply \
-  -var="project_id=trust-481601" \
+  -var="project_id=your-gcp-project-id" \
   -var="region=us-east1" \
   -var="gcs_bucket=trust-prd"
 ```
@@ -80,7 +80,7 @@ Las tablas se actualizan automáticamente. No necesitas ejecutar nada más. Simp
 ```sql
 -- Ver datos nuevos inmediatamente
 SELECT * 
-FROM `trust-481601.trust_analytics.replies`
+FROM `your-gcp-project-id.trust_analytics.replies`
 WHERE ingestion_date = CURRENT_DATE()
 LIMIT 100;
 ```
@@ -347,7 +347,7 @@ poetry run python scripts/json_to_parquet.py \
 cd terraform
 terraform init
 terraform apply \
-  -var="project_id=trust-481601" \
+  -var="project_id=your-gcp-project-id" \
   -var="gcs_bucket=trust-prd" \
   -var="region=us-east1"
 ```
@@ -356,10 +356,10 @@ terraform apply \
 
 ```sql
 -- Crear dataset
-CREATE SCHEMA IF NOT EXISTS `trust-481601.trust_analytics`;
+CREATE SCHEMA IF NOT EXISTS `your-gcp-project-id.trust_analytics`;
 
 -- Crear external table con particiones Hive
-CREATE EXTERNAL TABLE `trust-481601.trust_analytics.replies`
+CREATE EXTERNAL TABLE `your-gcp-project-id.trust_analytics.replies`
 WITH PARTITION COLUMNS (
   ingestion_date DATE,
   platform STRING
@@ -376,7 +376,7 @@ OPTIONS (
 ```sql
 -- Todas las replies de un candidato
 SELECT * 
-FROM `trust-481601.trust_analytics.replies`
+FROM `your-gcp-project-id.trust_analytics.replies`
 WHERE candidate_id = 'hnd01monc'
 ORDER BY ingestion_date DESC
 LIMIT 100;
@@ -388,7 +388,7 @@ SELECT
   COUNT(*) as total_replies,
   SUM(favorite_count) as total_favorites,
   AVG(favorite_count) as avg_favorites
-FROM `trust-481601.trust_analytics.replies`
+FROM `your-gcp-project-id.trust_analytics.replies`
 WHERE ingestion_date BETWEEN '2026-01-01' AND '2026-01-31'
 GROUP BY ingestion_date, candidate_id
 ORDER BY ingestion_date DESC;
@@ -398,7 +398,7 @@ SELECT
   user_screen_name,
   COUNT(*) as reply_count,
   SUM(favorite_count) as total_favorites
-FROM `trust-481601.trust_analytics.replies`
+FROM `your-gcp-project-id.trust_analytics.replies`
 WHERE candidate_id = 'hnd01monc'
 GROUP BY user_screen_name
 ORDER BY reply_count DESC
@@ -409,7 +409,7 @@ SELECT
   lang,
   COUNT(*) as count,
   AVG(favorite_count) as avg_favorites
-FROM `trust-481601.trust_analytics.replies`
+FROM `your-gcp-project-id.trust_analytics.replies`
 WHERE platform = 'twitter'
 GROUP BY lang
 ORDER BY count DESC;
@@ -421,7 +421,7 @@ SELECT *
 FROM (
   SELECT *,
     ROW_NUMBER() OVER (PARTITION BY parent_post_id ORDER BY ingestion_date DESC) as rn
-  FROM `trust-481601.trust_analytics.replies`
+  FROM `your-gcp-project-id.trust_analytics.replies`
   WHERE platform = "twitter"
 )
 WHERE rn = 1
@@ -435,7 +435,7 @@ SELECT
   MIN(ingestion_date) as earliest_ingestion_date,
   COUNT(DISTINCT user_screen_name) as unique_users,
   SUM(COALESCE(favorite_count, 0)) as total_favorites
-FROM `trust-481601.trust_analytics.replies`
+FROM `your-gcp-project-id.trust_analytics.replies`
 WHERE platform = "twitter"
 GROUP BY parent_post_id
 ORDER BY latest_ingestion_date;
@@ -462,7 +462,7 @@ El Terraform crea estas vistas automáticamente:
 ```sql
 -- ❌ Esto falla
 SELECT * 
-FROM `trust-481601.trust_analytics.replies`
+FROM `your-gcp-project-id.trust_analytics.replies`
 WHERE platform = "twitter"
 GROUP BY parent_post_id
 ORDER BY ingestion_date;
@@ -475,7 +475,7 @@ SELECT *
 FROM (
   SELECT *,
     ROW_NUMBER() OVER (PARTITION BY parent_post_id ORDER BY ingestion_date DESC) as rn
-  FROM `trust-481601.trust_analytics.replies`
+  FROM `your-gcp-project-id.trust_analytics.replies`
   WHERE platform = "twitter"
 )
 WHERE rn = 1
@@ -489,7 +489,7 @@ SELECT
   parent_post_id,
   COUNT(*) as reply_count,
   MAX(ingestion_date) as latest_ingestion_date
-FROM `trust-481601.trust_analytics.replies`
+FROM `your-gcp-project-id.trust_analytics.replies`
 WHERE platform = "twitter"
 GROUP BY parent_post_id
 ORDER BY latest_ingestion_date;
@@ -499,7 +499,7 @@ ORDER BY latest_ingestion_date;
 ```sql
 -- ✅ Obtener todas las replies ordenadas
 SELECT * 
-FROM `trust-481601.trust_analytics.replies`
+FROM `your-gcp-project-id.trust_analytics.replies`
 WHERE platform = "twitter"
 ORDER BY ingestion_date;
 ```

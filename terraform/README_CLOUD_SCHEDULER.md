@@ -45,10 +45,10 @@ terraform init
 
 ```bash
 terraform apply \
-  -var="project_id=trust-481601" \
+  -var="project_id=your-gcp-project-id" \
   -var="region=us-east1" \
   -var="scrapping_tools_service_name=scrapping-tools" \
-  -var="service_account_email=scheduler@trust-481601.iam.gserviceaccount.com"
+  -var="service_account_email=scheduler@your-gcp-project-id.iam.gserviceaccount.com"
 ```
 
 ### 3. Variables opcionales
@@ -57,10 +57,10 @@ Puedes personalizar el comportamiento con variables adicionales:
 
 ```bash
 terraform apply \
-  -var="project_id=trust-481601" \
+  -var="project_id=your-gcp-project-id" \
   -var="region=us-east1" \
   -var="scrapping_tools_service_name=scrapping-tools" \
-  -var="service_account_email=scheduler@trust-481601.iam.gserviceaccount.com" \
+  -var="service_account_email=scheduler@your-gcp-project-id.iam.gserviceaccount.com" \
   -var="max_posts_to_process=20" \
   -var="schedule=0 */2 * * *" \
   -var="job_name=process-posts-every-2-hours"
@@ -89,10 +89,10 @@ terraform apply \
 Puedes crear un archivo `terraform.tfvars`:
 
 ```hcl
-project_id                  = "trust-481601"
+project_id                  = "your-gcp-project-id"
 region                      = "us-east1"
 scrapping_tools_service_name = "scrapping-tools"
-service_account_email       = "scheduler@trust-481601.iam.gserviceaccount.com"
+service_account_email       = "scheduler@your-gcp-project-id.iam.gserviceaccount.com"
 max_posts_to_process        = 10
 max_jobs                    = 20
 schedule                    = "0,30 * * * *"
@@ -136,17 +136,17 @@ Después de aplicar, puedes verificar ambos jobs:
 ```bash
 # Verificar process-posts
 gcloud scheduler jobs describe process-posts-hourly \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --location=us-east1
 
 # Verificar process-jobs
 gcloud scheduler jobs describe process-jobs-hourly \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --location=us-east1
 
 # Verificar json-to-parquet
 gcloud scheduler jobs describe json-to-parquet-daily \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --location=us-east1
 ```
 
@@ -157,17 +157,17 @@ Para probar los jobs manualmente:
 ```bash
 # Ejecutar process-posts
 gcloud scheduler jobs run process-posts-hourly \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --location=us-east1
 
 # Ejecutar process-jobs
 gcloud scheduler jobs run process-jobs-hourly \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --location=us-east1
 
 # Ejecutar json-to-parquet
 gcloud scheduler jobs run json-to-parquet-daily \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --location=us-east1
 ```
 

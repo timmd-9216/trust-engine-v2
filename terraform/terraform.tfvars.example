@@ -9,14 +9,14 @@
 #   terraform plan
 #   terraform apply
 
-project_id = "trust-481601"
+project_id = "your-gcp-project-id"
 region     = "us-east1"
-gcs_bucket = "trust-prd"
+gcs_bucket = "your-gcs-bucket"
 
 # Cloud Scheduler configuration
 enable_cloud_scheduler = true
 scrapping_tools_service_name = "scrapping-tools"
-service_account_email = "scheduler@trust-481601.iam.gserviceaccount.com"
+service_account_email = "scheduler@your-gcp-project-id.iam.gserviceaccount.com"
 
 # Optional: Environment
 # environment = "prod"

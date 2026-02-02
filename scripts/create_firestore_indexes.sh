@@ -3,7 +3,7 @@
 
 set -e
 
-PROJECT_ID="${GCP_PROJECT_ID:-trust-481601}"
+PROJECT_ID="${GCP_PROJECT_ID:?Set GCP_PROJECT_ID env var}"
 DATABASE="${FIRESTORE_DATABASE:-socialnetworks}"
 
 echo "=========================================="

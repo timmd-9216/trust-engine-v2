@@ -8,7 +8,7 @@ if [ $# -lt 3 ]; then
   echo "Usage: $0 <project_id> <region> <job_name>" >&2
   echo "" >&2
   echo "Example:" >&2
-  echo "  $0 trust-481601 us-east1 json-to-parquet-daily" >&2
+  echo "  $0 your-gcp-project-id us-east1 json-to-parquet-daily" >&2
   exit 1
 fi
 

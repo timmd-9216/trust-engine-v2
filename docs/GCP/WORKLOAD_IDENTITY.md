@@ -90,7 +90,7 @@ Ejecuta el script de diagnóstico para verificar toda la configuración:
 
 ```bash
 # Asegúrate de tener las variables en .env o exportadas
-export GCP_PROJECT_ID=trust-481601
+export GCP_PROJECT_ID=your-gcp-project-id
 export GCP_WORKLOAD_IDENTITY_PROVIDER=projects/.../workloadIdentityPools/.../providers/...
 export GITHUB_REPO=hordia/trust-engine-v2  # Ajustar según tu repo
 
@@ -112,16 +112,16 @@ El script verificará:
 #### 1. Verificar que el service account existe
 
 ```bash
-gcloud iam service-accounts describe ci-deployer@trust-481601.iam.gserviceaccount.com \
-  --project=trust-481601
+gcloud iam service-accounts describe ci-deployer@your-gcp-project-id.iam.gserviceaccount.com \
+  --project=your-gcp-project-id
 ```
 
 #### 2. Verificar roles del service account
 
 ```bash
-gcloud projects get-iam-policy trust-481601 \
+gcloud projects get-iam-policy your-gcp-project-id \
   --flatten="bindings[].members" \
-  --filter="bindings.members:serviceAccount:ci-deployer@trust-481601.iam.gserviceaccount.com" \
+  --filter="bindings.members:serviceAccount:ci-deployer@your-gcp-project-id.iam.gserviceaccount.com" \
   --format="table(bindings.role)"
 ```
 
@@ -135,7 +135,7 @@ Debes ver al menos:
 
 ```bash
 gcloud iam workload-identity-pools describe github-pool \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --location=global
 ```
 
@@ -143,7 +143,7 @@ gcloud iam workload-identity-pools describe github-pool \
 
 ```bash
 gcloud iam workload-identity-pools providers describe github-provider \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --location=global \
   --workload-identity-pool=github-pool \
   --format="yaml"
@@ -157,14 +157,14 @@ Verifica que:
 #### 5. Verificar bindings de IAM en el service account
 
 ```bash
-gcloud iam service-accounts get-iam-policy ci-deployer@trust-481601.iam.gserviceaccount.com \
-  --project=trust-481601 \
+gcloud iam service-accounts get-iam-policy ci-deployer@your-gcp-project-id.iam.gserviceaccount.com \
+  --project=your-gcp-project-id \
   --format="yaml"
 ```
 
 Debes ver dos bindings con el principal:
 ```
-principalSet://iam.googleapis.com/projects/trust-481601/locations/global/workloadIdentityPools/github-pool/attribute.repository/timmd-9216/trust-engine-v2
+principalSet://iam.googleapis.com/projects/your-gcp-project-id/locations/global/workloadIdentityPools/github-pool/attribute.repository/timmd-9216/trust-engine-v2
 ```
 
 Con los roles:
@@ -178,7 +178,7 @@ El secret `GCP_WORKLOAD_IDENTITY_PROVIDER` en GitHub debe ser exactamente:
 ```bash
 # Obtener el nombre completo del provider
 gcloud iam workload-identity-pools providers describe github-provider \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --location=global \
   --workload-identity-pool=github-pool \
   --format="value(name)"
@@ -194,10 +194,10 @@ projects/123456789/locations/global/workloadIdentityPools/github-pool/providers/
 ```bash
 # Ver quién tiene acceso al secreto
 gcloud secrets get-iam-policy INFORMATION_TRACER_API_KEY \
-  --project=trust-481601
+  --project=your-gcp-project-id
 ```
 
-Debes ver que `ci-deployer@trust-481601.iam.gserviceaccount.com` tiene el rol `roles/secretmanager.secretAccessor`.
+Debes ver que `ci-deployer@your-gcp-project-id.iam.gserviceaccount.com` tiene el rol `roles/secretmanager.secretAccessor`.
 
 ## Troubleshooting WIF setup errors
 
@@ -212,15 +212,15 @@ Debes ver que `ci-deployer@trust-481601.iam.gserviceaccount.com` tiene el rol `r
 1. **Verificar que el secret en GitHub coincide exactamente:**
    ```bash
    # El secret GCP_SERVICE_ACCOUNT_EMAIL debe ser exactamente:
-   ci-deployer@trust-481601.iam.gserviceaccount.com
+   ci-deployer@your-gcp-project-id.iam.gserviceaccount.com
    ```
    Sin espacios, sin comillas, sin caracteres extra.
 
 2. **Verificar que los permisos están en el secreto, no solo en el proyecto:**
    ```bash
    gcloud secrets add-iam-policy-binding INFORMATION_TRACER_API_KEY \
-     --project=trust-481601 \
-     --member="serviceAccount:ci-deployer@trust-481601.iam.gserviceaccount.com" \
+     --project=your-gcp-project-id \
+     --member="serviceAccount:ci-deployer@your-gcp-project-id.iam.gserviceaccount.com" \
      --role="roles/secretmanager.secretAccessor"
    ```
 
@@ -244,12 +244,12 @@ Debes ver que `ci-deployer@trust-481601.iam.gserviceaccount.com` tiene el rol `r
 ```bash
 # Recrear el provider con la configuración correcta
 gcloud iam workload-identity-pools providers delete github-provider \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --location=global \
   --workload-identity-pool=github-pool
 
 gcloud iam workload-identity-pools providers create-oidc github-provider \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --location=global \
   --workload-identity-pool=github-pool \
   --display-name="GitHub Actions Provider" \
@@ -266,12 +266,12 @@ gcloud iam workload-identity-pools providers create-oidc github-provider \
 ```bash
 # Verificar que el pool existe
 gcloud iam workload-identity-pools list \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --location=global
 
 # Si no existe, crearlo
 gcloud iam workload-identity-pools create github-pool \
-  --project=trust-481601 \
+  --project=your-gcp-project-id \
   --location=global \
   --display-name="GitHub Actions Pool"
 ```
@@ -283,7 +283,7 @@ gcloud iam workload-identity-pools create github-pool \
 **Solución:**
 ```bash
 REPO="timmd-9216/trust-engine-v2"  # Ajustar según tu repo
-PROJECT_ID=trust-481601
+PROJECT_ID=your-gcp-project-id
 POOL=github-pool
 
 gcloud iam service-accounts add-iam-policy-binding ci-deployer@${PROJECT_ID}.iam.gserviceaccount.com \
@@ -310,7 +310,7 @@ gcloud iam service-accounts add-iam-policy-binding ci-deployer@${PROJECT_ID}.iam
    - Verifica que `GCP_WORKLOAD_IDENTITY_PROVIDER` existe y tiene el valor correcto
 
 3. **Verificar que el secret `GCP_SERVICE_ACCOUNT_EMAIL` coincide exactamente:**
-   - Debe ser exactamente: `ci-deployer@trust-481601.iam.gserviceaccount.com`
+   - Debe ser exactamente: `ci-deployer@your-gcp-project-id.iam.gserviceaccount.com`
 
 ### Error: `Role roles/storage.objectViewer is not supported`
 

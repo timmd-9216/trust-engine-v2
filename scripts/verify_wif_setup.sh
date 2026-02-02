@@ -29,7 +29,7 @@ if [ -f .env ]; then
 fi
 
 # Variables requeridas
-PROJECT_ID="${GCP_PROJECT_ID:-trust-481601}"
+PROJECT_ID="${GCP_PROJECT_ID:?Set GCP_PROJECT_ID env var}"
 EXPECTED_SA="ci-deployer@${PROJECT_ID}.iam.gserviceaccount.com"
 REPO="${GITHUB_REPO:-timmd-9216/trust-engine-v2}"  # Ajustar según tu repo
 
