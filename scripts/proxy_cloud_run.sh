@@ -39,12 +39,18 @@ require_env() {
 require_env GCP_PROJECT_ID
 require_env GCP_REGION
 
-# Servicios disponibles y sus puertos
-declare -A SERVICES=(
-  ["trust-engine-v2"]="8080"
-  ["scrapping-tools"]="8081"
-  ["nlp-process"]="8082"
-)
+# Función para obtener puerto por servicio (compatible con Bash 3.x)
+get_port() {
+  case "$1" in
+    trust-engine-v2)  echo "8080" ;;
+    scrapping-tools)  echo "8081" ;;
+    nlp-process)      echo "8082" ;;
+    *)                echo "" ;;
+  esac
+}
+
+# Lista de servicios (formato "servicio:puerto")
+SERVICES_LIST="trust-engine-v2:8080 scrapping-tools:8081 nlp-process:8082"
 
 show_usage() {
   cat << EOF
@@ -73,9 +79,9 @@ proxy_service() {
   local service="$1"
   local port="$2"
   
-  if [ -z "${SERVICES[$service]:-}" ]; then
+  if [ -z "$port" ]; then
     echo "Error: Servicio desconocido: $service" >&2
-    echo "Servicios disponibles: ${!SERVICES[*]}" >&2
+    echo "Servicios disponibles: trust-engine-v2, scrapping-tools, nlp-process" >&2
     exit 1
   fi
   
@@ -94,11 +100,12 @@ proxy_all_services() {
   echo "Press Ctrl+C to stop all proxies"
   echo ""
   
-  local pids=()
+  pids=""
   
   # Iniciar cada servicio en background
-  for service in "${!SERVICES[@]}"; do
-    local port="${SERVICES[$service]}"
+  for entry in $SERVICES_LIST; do
+    service="${entry%%:*}"
+    port="${entry##*:}"
     echo "Starting ${service} on port ${port}..."
     (
       gcloud run services proxy "${service}" \
@@ -106,21 +113,22 @@ proxy_all_services() {
         --region "${GCP_REGION}" \
         --port "${port}" > /dev/null 2>&1
     ) &
-    pids+=($!)
+    pids="$pids $!"
   done
   
   echo ""
   echo "All services are running:"
-  for service in "${!SERVICES[@]}"; do
-    local port="${SERVICES[$service]}"
+  for entry in $SERVICES_LIST; do
+    service="${entry%%:*}"
+    port="${entry##*:}"
     echo "  - ${service}: http://localhost:${port}/docs"
   done
   echo ""
   echo "Press Ctrl+C to stop all proxies"
   
   # Esperar a que todos los procesos terminen
-  trap 'kill "${pids[@]}" 2>/dev/null; exit' INT TERM
-  wait "${pids[@]}"
+  trap 'kill $pids 2>/dev/null; exit' INT TERM
+  wait $pids
 }
 
 # Parsear argumentos
@@ -161,6 +169,6 @@ fi
 if [ "$ALL" = true ]; then
   proxy_all_services
 else
-  PORT="${SERVICES[$SERVICE]}"
+  PORT=$(get_port "$SERVICE")
   proxy_service "$SERVICE" "$PORT"
 fi
