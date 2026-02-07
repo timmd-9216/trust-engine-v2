@@ -41,7 +41,7 @@ app = FastAPI(
     ## Journalism Quality Analysis System
 
     An intelligent journalism quality analysis system that combines NLP with LLM-powered metrics
-    to evaluate article credibility and objectivity.
+    to evaluate article credibility and objectivity, plus corpus-level analysis for social discourse.
 
     ### Features
 
@@ -49,20 +49,26 @@ app = FastAPI(
       (opinionated) from descriptive (objective) adjectives
     * **Multi-Metric Evaluation**: 4 complementary metrics for comprehensive article assessment
     * **NLP Foundation**: Stanford Stanza for robust Spanish language processing
+    * **Corpus / Social Analysis** (same API): Entity mentions, adjectives per candidate,
+      top accounts by negative activity, account clusters, word clusters per candidate
 
-    ### Metrics Evaluated
+    ### Article analysis (`/api/v1/analyze`)
 
     1. **Qualitative Adjectives**: Filters adjectives using LLM to identify opinion vs. objective language
     2. **Word Count**: Evaluates article length and coverage depth
     3. **Sentence Complexity**: Analyzes readability and writing sophistication
     4. **Verb Tense Analysis**: Evaluates professional news reporting style
 
+    ### Corpus analysis (`/api/v1/analyze-corpus`)
+
+    For batches of posts (e.g. social media): entity mention counts, adjectives associated to each
+    candidate/entity, most active accounts in negative or calificative content, clusters of
+    related accounts, and word/adjective clusters per candidate. Complements single-article metrics.
+
     ### Getting Started
 
-    1. Navigate to the `/api/v1/analyze` endpoint below
-    2. Click "Try it out"
-    3. Use the pre-filled example or paste your own article
-    4. Click "Execute" to see the analysis results
+    1. **Single article**: `/api/v1/analyze` — Try it out with an article body and title
+    2. **Corpus of posts**: `/api/v1/analyze-corpus` — Send a list of posts with text and optional author/candidate_id
     """,
     version="0.1.0",
     docs_url="/docs",

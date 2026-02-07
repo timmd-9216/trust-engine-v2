@@ -1,10 +1,12 @@
-"""Article analysis endpoints."""
+"""Article and corpus analysis endpoints."""
 
 from typing import List
 
 from fastapi import APIRouter, HTTPException, status
 
 from trust_api.models import ArticleInput, Metric
+from trust_api.nlp.models import CorpusAnalysisResult, CorpusAnalyzeRequest
+from trust_api.nlp.services import run_corpus_analysis
 from trust_api.services.metrics import (
     get_adjective_count,
     get_sentence_complexity,
@@ -51,9 +53,7 @@ router = APIRouter()
             "description": "Service Unavailable - NLP service not initialized",
             "content": {
                 "application/json": {
-                    "example": {
-                        "detail": "NLP service not initialized. Please try again later."
-                    }
+                    "example": {"detail": "NLP service not initialized. Please try again later."}
                 }
             },
         },
@@ -112,3 +112,37 @@ async def analyze_article(article: ArticleInput) -> List[Metric]:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error processing article: {str(e)}",
         )
+
+
+@router.post(
+    "/analyze-corpus",
+    status_code=status.HTTP_200_OK,
+    response_model=CorpusAnalysisResult,
+    summary="Analyze corpus of posts (trust + NLP)",
+    description=(
+        "Runs full NLP corpus analysis: entity mentions, adjectives per candidate, "
+        "top accounts by negative/calificative activity, account clusters, "
+        "word/adjective clusters per candidate. Complements /analyze (single-article metrics)."
+    ),
+    response_description="Corpus analysis result with entities, adjectives, accounts, clusters",
+    tags=["Analysis"],
+)
+async def analyze_corpus(payload: CorpusAnalyzeRequest) -> CorpusAnalysisResult:
+    """
+    Analyze a corpus of posts (e.g. social media) for trust and discourse metrics.
+
+    Uses the same NLP stack as article analysis, plus NER and corpus-level aggregations.
+    Posts should include at least text (full_text/text/body); optional author and candidate_id.
+    """
+    try:
+        return run_corpus_analysis(
+            posts=payload.posts,
+            candidate_entities=payload.candidate_entities,
+            top_negative_k=payload.top_negative_k,
+            batch_size=payload.batch_size,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        ) from e

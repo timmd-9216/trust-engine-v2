@@ -7728,8 +7728,17 @@
       }
     },
     "tokenize": {
-      "combined": {
-        "md5": "07499fbcb1482e2ee8ca52c8de6be5f0"
+      "combined_charlm": {
+        "md5": "cb32dd44f94835f683db8b4abdb634e9",
+        "dependencies": [
+          {
+            "model": "forward_charlm",
+            "package": "conll17"
+          }
+        ]
+      },
+      "combined_nocharlm": {
+        "md5": "e812c029195d2c69603b582f317d0d8d"
       },
       "gsd": {
         "md5": "41a5dee96fc65b7ce75b2439566dd92f"
@@ -7771,7 +7780,7 @@
         "constituency": "alt_rinna-roberta"
       },
       "combined": {
-        "tokenize": "combined",
+        "tokenize": "combined_nocharlm",
         "pos": "combined_charlm",
         "lemma": "combined_charlm",
         "depparse": "combined_charlm"
