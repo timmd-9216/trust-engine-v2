@@ -1,0 +1,245 @@
+country: costa_rica
+election_date: '2026-02-01'
+start_date: '2026-01-14'
+end_date: '2026-02-06'
+candidates:
+- candidate_id: cri01diaz
+  name: 'Natalia Díaz '
+  keywords:
+  - 'Natalia Díaz '
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/natdiaquin/
+  twitter_profile_url: https://x.com/Natdiaquin?s=20
+  twitter_username: Natdiaquin
+  instagram_username: natdiaquin
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: cri02dobl
+  name: Claudia Dobles Camargo
+  keywords:
+  - Claudia Dobles Camargo
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/claudobles
+  twitter_profile_url: https://x.com/ClaudiaDobles
+  twitter_username: ClaudiaDobles
+  instagram_username: claudobles
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: cri03fern
+  name: Laura Fernandez Delgado
+  keywords:
+  - Laura Fernandez Delgado
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/laura_fernandez_delgado/?hl=es
+  twitter_profile_url: https://x.com/laurapresi2026
+  twitter_username: laurapresi2026
+  instagram_username: laura_fernandez_delgado
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: cri04alpi
+  name: 'Luz Mary Alpizar '
+  keywords:
+  - 'Luz Mary Alpizar '
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/luzmaryalpizar/?hl=es
+  twitter_profile_url: https://x.com/LuzMaryAlpizar
+  twitter_username: LuzMaryAlpizar
+  instagram_username: luzmaryalpizar
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: cri05calz
+  name: 'Ana Virginia Calzada '
+  keywords:
+  - 'Ana Virginia Calzada '
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/anavirginiacalzadapresidenta/
+  twitter_profile_url: https://x.com/AnaVCalzada
+  twitter_username: AnaVCalzada
+  instagram_username: anavirginiacalzadapresidenta
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: cri06segu
+  name: 'Sigrid Segura '
+  keywords:
+  - 'Sigrid Segura '
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/sigsegura/?hl=en
+  twitter_profile_url: null
+  twitter_username: null
+  instagram_username: sigsegura
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: cri07port
+  name: Alejandra Portillo
+  keywords:
+  - Alejandra Portillo
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/aleportilloactriz/
+  twitter_profile_url: null
+  twitter_username: null
+  instagram_username: aleportilloactriz
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: cri08tumm
+  name: Paola Mora Tumminelli
+  keywords:
+  - Paola Mora Tumminelli
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/paolamoratumminelli/
+  twitter_profile_url: https://x.com/mora_tumminelli
+  twitter_username: mora_tumminelli
+  instagram_username: paolamoratumminelli
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: cri09gord
+  name: 'Abril Gordienko '
+  keywords:
+  - 'Abril Gordienko '
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/abrilgordienko/
+  twitter_profile_url: https://x.com/AbrilGordienko
+  twitter_username: AbrilGordienko
+  instagram_username: abrilgordienko
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: cri10vega
+  name: Vianey Mora Vega
+  keywords:
+  - Vianey Mora Vega
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/vianeymoracr/
+  twitter_profile_url: null
+  twitter_username: null
+  instagram_username: vianeymoracr
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: cri11blan
+  name: Cindy Blanco Gonzalez
+  keywords:
+  - Cindy Blanco Gonzalez
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/cindyblanco82/?hl=en
+  twitter_profile_url: null
+  twitter_username: null
+  instagram_username: cindyblanco82
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: cri12ugal
+  name: Vanessa Ugalde Quirós
+  keywords:
+  - Vanessa Ugalde Quirós
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/vanessaugaldequiros_/
+  twitter_profile_url: https://x.com/vaneugaldeq
+  twitter_username: vaneugaldeq
+  instagram_username: vanessaugaldequiros_
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: cri13saen
+  name: Joselyn Sáenz Núñez
+  keywords:
+  - Joselyn Sáenz Núñez
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/joselynfadiputada/
+  twitter_profile_url: https://x.com/joselyndiputada
+  twitter_username: joselyndiputada
+  instagram_username: joselynfadiputada
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: cri14brow
+  name: Rosalía Brown Young
+  keywords:
+  - Rosalía Brown Young
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/rosaliabrowndiputada/
+  twitter_profile_url: https://x.com/RosaliaBrownY?fbclid=PAZXh0bgNhZW0CMTEAc3J0YwZhcHBfaWQMMjU2MjgxMDQwNTU4AAGnR7wlG4xpz4u8Pc0u1DOK4YxiFbw_VadEFs9QAPhPwP2gpv1Jheunwn0INbo_aem_ryGP1Koqo0fwObYO4X19zQ
+  twitter_username: RosaliaBrownY
+  instagram_username: rosaliabrowndiputada
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: cri15alpi
+  name: Yolanda Alpízar Sánchez
+  keywords:
+  - Yolanda Alpízar Sánchez
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/yolandaalpizarpug/
+  twitter_profile_url: null
+  twitter_username: null
+  instagram_username: yolandaalpizarpug
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: cri16robl
+  name: Ariel Robles
+  keywords:
+  - Ariel Robles
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/arielroblesbarrantes
+  twitter_profile_url: https://x.com/RoblesBarrantes
+  twitter_username: RoblesBarrantes
+  instagram_username: arielroblesbarrantes
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: cri17hida
+  name: Juan Carlos Hidalgo
+  keywords:
+  - Juan Carlos Hidalgo
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/juan_carlos_hidalgo_cr/
+  twitter_profile_url: https://x.com/jchidalgo?s=20
+  twitter_username: jchidalgo
+  instagram_username: juan_carlos_hidalgo_cr
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: cri18fein
+  name: Eli Feinzaig
+  keywords:
+  - Eli Feinzaig
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/elifeinzaig/?hl=es
+  twitter_profile_url: https://x.com/elifeinzaig?s=20
+  twitter_username: elifeinzaig
+  instagram_username: elifeinzaig
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: cri19alva
+  name: Fabricio Alvarado
+  keywords:
+  - Fabricio Alvarado
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/fabricio_alvarado?fbclid=IwY2xjawPII2hleHRuA2FlbQIxMABicmlkETFCZ0ZRWmdjQ0wzVUtlQ2huc3J0YwZhcHBfaWQQMjIyMDM5MTc4ODIwMDg5MgABHlyMqHiADp7Vg6VVAd0d3VdSnBkAqnhHfxwvZzgnP4uJHJMv3QGoCBZbRMCA_aem_EHxFtTd0t8gCkhOLkfUvHQ
+  twitter_profile_url: https://x.com/FabriAlvarado7
+  twitter_username: FabriAlvarado7
+  instagram_username: fabricio_alvarado
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: cri20ramo
+  name: Álvaro Ramos Chaves
+  keywords:
+  - Álvaro Ramos Chaves
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/alvaroramoschaves?fbclid=IwY2xjawPIJE9leHRuA2FlbQIxMABicmlkETFCZ0ZRWmdjQ0wzVUtlQ2huc3J0YwZhcHBfaWQQMjIyMDM5MTc4ODIwMDg5MgABHuyFqTsVrYrwr0NtvN3wyLUBWqgA_2C92zZBuX_DZQbiRNKUMkEyaXpfLRnN_aem_cpWUKsLFtsOgr0dy477Q9A
+  twitter_profile_url: https://x.com/aramosc
+  twitter_username: aramosc
+  instagram_username: alvaroramoschaves
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
