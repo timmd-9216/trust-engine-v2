@@ -693,8 +693,7 @@ gcloud run services update trust-engine-v2 \
 
 ## 📄 License
 
-GNU AFFERO GENERAL PUBLIC LICENSE
-[LICENSE]
+[GNU AFFERO GENERAL PUBLIC LICENSE](LICENSE)
 
 ---
 
@@ -719,7 +718,7 @@ For issues and questions:
 
 ## 🏆 Acknowledgments
 
-Sponsor: https://www.desconfio.org/
+Sponsor: [Desconfio.org](https://www.desconfio.org)
 
 Built with:
 - [FastAPI](https://fastapi.tiangolo.com/) - Modern Python web framework
