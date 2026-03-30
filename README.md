@@ -10,11 +10,16 @@
 - [Features](#-features)
 - [Quick Start](#-quick-start)
 - [API Documentation](#-api-documentation)
+- [NLP Process Service](#-nlp-process-service)
 - [Deployment](#-deployment)
 - [Configuration](#-configuration)
 - [Development](#-development)
 - [Metrics](#-metrics)
 - [Troubleshooting](#-troubleshooting)
+- [License](#-license)
+- [Contributing](#-contributing)
+- [Support](#-support)
+- [Acknowledgments](#-acknowledgments)
 
 ---
 
