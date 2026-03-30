@@ -5,6 +5,7 @@ end_date: '2026-02-06'
 candidates:
 - candidate_id: cri01diaz
   name: 'Natalia Díaz '
+  gender: F
   keywords:
   - 'Natalia Díaz '
   youtube_profile_url: null
@@ -17,6 +18,7 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: cri02dobl
   name: Claudia Dobles Camargo
+  gender: F
   keywords:
   - Claudia Dobles Camargo
   youtube_profile_url: null
@@ -29,6 +31,7 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: cri03fern
   name: Laura Fernandez Delgado
+  gender: F
   keywords:
   - Laura Fernandez Delgado
   youtube_profile_url: null
@@ -41,6 +44,7 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: cri04alpi
   name: 'Luz Mary Alpizar '
+  gender: F
   keywords:
   - 'Luz Mary Alpizar '
   youtube_profile_url: null
@@ -53,6 +57,7 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: cri05calz
   name: 'Ana Virginia Calzada '
+  gender: F
   keywords:
   - 'Ana Virginia Calzada '
   youtube_profile_url: null
@@ -65,6 +70,7 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: cri06segu
   name: 'Sigrid Segura '
+  gender: F
   keywords:
   - 'Sigrid Segura '
   youtube_profile_url: null
@@ -77,6 +83,7 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: cri07port
   name: Alejandra Portillo
+  gender: F
   keywords:
   - Alejandra Portillo
   youtube_profile_url: null
@@ -89,6 +96,7 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: cri08tumm
   name: Paola Mora Tumminelli
+  gender: F
   keywords:
   - Paola Mora Tumminelli
   youtube_profile_url: null
@@ -101,6 +109,7 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: cri09gord
   name: 'Abril Gordienko '
+  gender: F
   keywords:
   - 'Abril Gordienko '
   youtube_profile_url: null
@@ -113,6 +122,7 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: cri10vega
   name: Vianey Mora Vega
+  gender: F
   keywords:
   - Vianey Mora Vega
   youtube_profile_url: null
@@ -125,6 +135,7 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: cri11blan
   name: Cindy Blanco Gonzalez
+  gender: F
   keywords:
   - Cindy Blanco Gonzalez
   youtube_profile_url: null
@@ -137,6 +148,7 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: cri12ugal
   name: Vanessa Ugalde Quirós
+  gender: F
   keywords:
   - Vanessa Ugalde Quirós
   youtube_profile_url: null
@@ -149,6 +161,7 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: cri13saen
   name: Joselyn Sáenz Núñez
+  gender: F
   keywords:
   - Joselyn Sáenz Núñez
   youtube_profile_url: null
@@ -161,6 +174,7 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: cri14brow
   name: Rosalía Brown Young
+  gender: F
   keywords:
   - Rosalía Brown Young
   youtube_profile_url: null
@@ -173,6 +187,7 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: cri15alpi
   name: Yolanda Alpízar Sánchez
+  gender: F
   keywords:
   - Yolanda Alpízar Sánchez
   youtube_profile_url: null
@@ -185,6 +200,7 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: cri16robl
   name: Ariel Robles
+  gender: M
   keywords:
   - Ariel Robles
   youtube_profile_url: null
@@ -197,6 +213,7 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: cri17hida
   name: Juan Carlos Hidalgo
+  gender: M
   keywords:
   - Juan Carlos Hidalgo
   youtube_profile_url: null
@@ -209,6 +226,7 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: cri18fein
   name: Eli Feinzaig
+  gender: M
   keywords:
   - Eli Feinzaig
   youtube_profile_url: null
@@ -221,6 +239,7 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: cri19alva
   name: Fabricio Alvarado
+  gender: M
   keywords:
   - Fabricio Alvarado
   youtube_profile_url: null
@@ -233,6 +252,7 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: cri20ramo
   name: Álvaro Ramos Chaves
+  gender: M
   keywords:
   - Álvaro Ramos Chaves
   youtube_profile_url: null

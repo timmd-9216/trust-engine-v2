@@ -5,11 +5,9 @@ end_date: '2025-10-31'
 candidates:
 - candidate_id: arg01cast
   name: Manuela Castaneira
-  name_variations:
-  - Manuela Castaneira
+  gender: F
   keywords:
   - Manuela Castaneira
-  - Manuela Castañeira
   youtube_profile_url: null
   instagram_profile_url: https://www.instagram.com/manuelacastaneira/
   twitter_profile_url: https://x.com/manuelac22?s=21
@@ -20,11 +18,9 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: arg02breg
   name: Myriam Bregman
-  name_variations:
-  - Myriam Bregman
+  gender: F
   keywords:
   - Myriam Bregman
-  - Miriam Bregman
   youtube_profile_url: null
   instagram_profile_url: https://www.instagram.com/myriambregman/
   twitter_profile_url: https://x.com/myriambregman?s=21
@@ -35,10 +31,7 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: arg03kirc
   name: Cristina Fernández de Kirchner
-  name_variations:
-  - Cristina Fernández de Kirchner
-  - CFK
-  - Cristina Kirchner
+  gender: F
   keywords:
   - Cristina Fernández de Kirchner
   - CFK
@@ -53,8 +46,7 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: arg04virg
   name: María Virginia Gallardo
-  name_variations:
-  - Virginia Gallardo
+  gender: F
   keywords:
   - María Virginia Gallardo
   youtube_profile_url: null
@@ -67,8 +59,7 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: arg05sota
   name: Natalia de la Sota
-  name_variations:
-  - Natalia de la Sota
+  gender: F
   keywords:
   - Natalia de la Sota
   youtube_profile_url: null
@@ -81,8 +72,7 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: arg06gail
   name: Carolina Gaillard
-  name_variations:
-  - Carolina Gaillard
+  gender: F
   keywords:
   - Carolina Gaillard
   youtube_profile_url: null
@@ -95,8 +85,7 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: arg07scag
   name: Gisela Scaglia
-  name_variations:
-  - Gisela Scaglia
+  gender: F
   keywords:
   - Gisela Scaglia
   youtube_profile_url: null
@@ -109,8 +98,7 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: arg08vill
   name: Lorena Villaverde
-  name_variations:
-  - Lorena Villaverde
+  gender: F
   keywords:
   - Lorena Villaverde
   youtube_profile_url: null
@@ -123,8 +111,7 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: arg09mile
   name: Karina Milei
-  name_variations:
-  - Karina Milei
+  gender: F
   keywords:
   - Karina Milei
   youtube_profile_url: null
@@ -137,8 +124,7 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: arg10bull
   name: Patricia Bullrich
-  name_variations:
-  - Patricia Bullrich
+  gender: F
   keywords:
   - Patricia Bullrich
   youtube_profile_url: null
@@ -151,8 +137,7 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: arg11bian
   name: Antonella Bianco
-  name_variations:
-  - Antonella Bianco
+  gender: F
   keywords:
   - Antonella Bianco
   youtube_profile_url: null
@@ -165,8 +150,7 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: arg12oliv
   name: Liliana Olivero
-  name_variations:
-  - Liliana Olivero
+  gender: F
   keywords:
   - Liliana Olivero
   youtube_profile_url: null
@@ -179,11 +163,9 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: arg13reic
   name: Karen Reichart
-  name_variations:
-  - Karen Reichart
+  gender: F
   keywords:
   - Karen Reichart
-  - Karen Reichardt
   youtube_profile_url: null
   instagram_profile_url: https://www.instagram.com/karenreichardt1/
   twitter_profile_url: https://x.com/karenreichardt1?s=21
@@ -194,8 +176,7 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: arg14mend
   name: Mayra Mendoza
-  name_variations:
-  - Mayra Mendoza
+  gender: F
   keywords:
   - Mayra Mendoza
   youtube_profile_url: null
@@ -208,8 +189,7 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: arg15disa
   name: Julia Di Santi
-  name_variations:
-  - Julia Di Santi
+  gender: F
   keywords:
   - Julia Di Santi
   youtube_profile_url: null
@@ -222,8 +202,7 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: arg16mene
   name: Martín Menem
-  name_variations:
-  - Martín Menem
+  gender: M
   keywords:
   - Martín Menem
   youtube_profile_url: null
@@ -236,8 +215,7 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: arg17hagm
   name: Itai Hagman
-  name_variations:
-  - Itai Hagman
+  gender: M
   keywords:
   - Itai Hagman
   youtube_profile_url: null
@@ -250,8 +228,7 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: arg18sant
   name: Diego Santilli
-  name_variations:
-  - Diego Santilli
+  gender: M
   keywords:
   - Diego Santilli
   youtube_profile_url: null
@@ -264,10 +241,9 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: arg19taia
   name: Jorge Taiana
-  name_variations:
-  - Taiana
+  gender: M
   keywords:
-  - Jornge Taiana
+  - Jorge Taiana
   youtube_profile_url: null
   instagram_profile_url: https://www.instagram.com/taianajorgeok/
   twitter_profile_url: https://x.com/jorgetaiana?s=21
@@ -278,10 +254,9 @@ candidates:
   youtube_uploads_playlist_id: null
 - candidate_id: arg20delc
   name: Nicolás del Caño
-  name_variations:
-  - Nicolás del Caño
+  gender: M
   keywords:
-  - del Caño
+  - Nicolás del Caño
   youtube_profile_url: null
   instagram_profile_url: https://www.instagram.com/nico_del_cano/
   twitter_profile_url: https://x.com/nicolasdelcano?s=21

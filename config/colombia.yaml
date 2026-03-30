@@ -1,0 +1,278 @@
+country: colombia
+election_date: '2026-03-08'
+start_date: '2026-02-18'
+end_date: '2026-03-13'
+candidates:
+- candidate_id: col01davi
+  name: Vicky Dávila
+  gender: F
+  keywords:
+  - Vicky Dávila
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/vickydavilah/
+  twitter_profile_url: https://x.com/VickyDavilaH?s=20
+  twitter_username: VickyDavilaH
+  instagram_username: vickydavilah
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: col02vale
+  name: Paloma Valencia
+  gender: F
+  keywords:
+  - Paloma Valencia
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/palomavalencial/
+  twitter_profile_url: https://x.com/PalomaValenciaL?s=20
+  twitter_username: PalomaValenciaL
+  instagram_username: palomavalencial
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: col03caba
+  name: Maria Fernanda Cabal
+  gender: F
+  keywords:
+  - Maria Fernanda Cabal
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/mariafernandacabal/
+  twitter_profile_url: https://x.com/MariaFdaCabal
+  twitter_username: MariaFdaCabal
+  instagram_username: mariafernandacabal
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: col04mira
+  name: Katherine Miranda
+  gender: F
+  keywords:
+  - Katherine Miranda
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/mirandabogota/
+  twitter_profile_url: https://x.com/KatheMirandaP?s=20
+  twitter_username: KatheMirandaP
+  instagram_username: mirandabogota
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: col05juvi
+  name: Cathy Juvinao
+  gender: F
+  keywords:
+  - Cathy Juvinao
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/cathy_juvinao/
+  twitter_profile_url: https://x.com/CathyJuvinao?s=20
+  twitter_username: CathyJuvinao
+  instagram_username: cathy_juvinao
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: col06loza
+  name: Angélica Lozano
+  gender: F
+  keywords:
+  - Angélica Lozano
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/angelicalozano10/
+  twitter_profile_url: https://x.com/AngelicaLozanoC?s=20
+  twitter_username: AngelicaLozanoC
+  instagram_username: angelicalozano10
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: col07lope
+  name: Claudia López
+  gender: F
+  keywords:
+  - Claudia López
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/claudialopezcl/
+  twitter_profile_url: https://x.com/ClaudiaLopez?s=20
+  twitter_username: ClaudiaLopez
+  instagram_username: claudialopezcl
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: col08robl
+  name: Ángela María Robledo
+  gender: F
+  keywords:
+  - Ángela María Robledo
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/angelamariarobledo_/
+  twitter_profile_url: https://x.com/angelamrobledo?s=20
+  twitter_username: angelamrobledo
+  instagram_username: angelamariarobledo_
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: col09marq
+  name: Francia Márquez
+  gender: F
+  keywords:
+  - Francia Márquez
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/franciamarquezm/
+  twitter_profile_url: https://x.com/FranciaMarquezM?s=20
+  twitter_username: FranciaMarquezM
+  instagram_username: franciamarquezm
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: col10piza
+  name: María José Pizarro
+  gender: F
+  keywords:
+  - María José Pizarro
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/pizarromariajo/
+  twitter_profile_url: https://x.com/PizarroMariaJo?s=20
+  twitter_username: PizarroMariaJo
+  instagram_username: pizarromariajo
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: col11padi
+  name: Andrea Padilla
+  gender: F
+  keywords:
+  - Andrea Padilla
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/andreanimalidad/
+  twitter_profile_url: https://x.com/andreanimalidad?s=20
+  twitter_username: andreanimalidad
+  instagram_username: andreanimalidad
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: col12carr
+  name: María Fernanda Carrascal
+  gender: F
+  keywords:
+  - María Fernanda Carrascal
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/mafecarrascalr/
+  twitter_profile_url: https://x.com/MafeCarrascal?s=20
+  twitter_username: MafeCarrascal
+  instagram_username: mafecarrascalr
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: col13pedr
+  name: Jennifer Pedraza
+  gender: F
+  keywords:
+  - Jennifer Pedraza
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/jenniferpedrazas/
+  twitter_profile_url: https://x.com/JenniferPedraz?s=20
+  twitter_username: JenniferPedraz
+  instagram_username: jenniferpedrazas
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: col14dhar
+  name: Paola Dharo
+  gender: F
+  keywords:
+  - Paola Dharo
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/paoladharo/
+  twitter_profile_url: https://x.com/Paola_Dharo?s=20
+  twitter_username: Paola_Dharo
+  instagram_username: paoladharo
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: col15agud
+  name: 'Ana Paola Agudelo '
+  gender: F
+  keywords:
+  - 'Ana Paola Agudelo '
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/anapaolaagudelo/
+  twitter_profile_url: https://x.com/AnaPaolaAgudelo?s=20
+  twitter_username: AnaPaolaAgudelo
+  instagram_username: anapaolaagudelo
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: col16petr
+  name: Gustavo Petro
+  gender: M
+  keywords:
+  - Gustavo Petro
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/gustavopetrourrego/
+  twitter_profile_url: https://x.com/petrogustavo?s=20
+  twitter_username: petrogustavo
+  instagram_username: gustavopetrourrego
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: col17cepe
+  name: Iván Cepeda
+  gender: M
+  keywords:
+  - Iván Cepeda
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/ivancepedacastr/
+  twitter_profile_url: https://x.com/IvanCepedaCast?s=20
+  twitter_username: IvanCepedaCast
+  instagram_username: ivancepedacastr
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: col18espr
+  name: Abelardo de la Espriella
+  gender: M
+  keywords:
+  - Abelardo de la Espriella
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/delaespriella_style/
+  twitter_profile_url: https://x.com/ABDELAESPRIELLA?s=20
+  twitter_username: ABDELAESPRIELLA
+  instagram_username: delaespriella_style
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: col19faja
+  name: Sergio Fajardo
+  gender: M
+  keywords:
+  - Sergio Fajardo
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/sergiofajardovalderrama/
+  twitter_profile_url: https://x.com/sergio_fajardo?s=20
+  twitter_username: sergio_fajardo
+  instagram_username: sergiofajardovalderrama
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: col20ovie
+  name: Juan Daniel Oviedo
+  gender: M
+  keywords:
+  - Juan Daniel Oviedo
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/jdoviedoar/
+  twitter_profile_url: https://x.com/JDOviedoAr?s=20
+  twitter_username: JDOviedoAr
+  instagram_username: jdoviedoar
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: col21mata
+  name: Matador
+  gender: M
+  keywords:
+  - Matador
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/matador000/
+  twitter_profile_url: https://x.com/Matador000?s=20
+  twitter_username: Matador000
+  instagram_username: matador000
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
