@@ -2,8 +2,9 @@ import os
 import sys
 import json
 import time
-import math
 import argparse
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, List, Set, Any
 
 import pandas as pd
@@ -51,9 +52,9 @@ def load_replies_data(parquet_path: str, platform: str) -> pd.DataFrame:
     return df
 
 
-def build_out_paths(platform: str):
+def build_out_paths(country: str, platform: str):
     """Return (out_dir, out_json, out_ndjson, out_timing, out_csv)."""
-    out_dir = os.path.join("out", "argentina", platform)
+    out_dir = os.path.join("out", country, platform)
     os.makedirs(out_dir, exist_ok=True)
 
     suffix_map = {"twitter": "tw", "instagram": "ig", "youtube": "yt", "all": "all"}
@@ -88,7 +89,7 @@ def get_reply_id(row, idx):
     return f"row_{idx}"
 
 
-def make_prompt(batch: List[Dict[str, str]]) -> str:
+def make_prompt(batch: List[Dict[str, str]], country: str = "Argentina") -> str:
     dictionary_block = json.dumps(SENTIMIENTO_DICT, ensure_ascii=False, indent=2)
     comments_block = "\n".join(
         [f'{i + 1}) {{"id": "{item["id"]}", "comentario": "{item["text"]}"}}' for i, item in enumerate(batch)]
@@ -96,7 +97,7 @@ def make_prompt(batch: List[Dict[str, str]]) -> str:
 
     return (
         "Rol:\n"
-        "Sos un asistente de clasificación de contenido para un proyecto de investigación sobre hostigamiento y discurso de odio en redes en Argentina. "
+        f"Sos un asistente de clasificación de contenido para un proyecto de investigación sobre hostigamiento y discurso de odio en redes en {country}. "
         "Tu tarea es ETIQUETAR comentarios; no moderás, no reescribís, no “mejorás” el texto, no generás insultos nuevos ni completás términos ofensivos.\n\n"
         "Vas a recibir dos cosas:\n"
         "1) DICCIONARIO: una lista de términos/pistas agrupadas en 6 categorías.\n"
@@ -110,9 +111,7 @@ def make_prompt(batch: List[Dict[str, str]]) -> str:
         "- Acoso\n"
         "- Desprestigio\n\n"
         "Además, devolvé:\n"
-        "- sentimiento discreto: positivo | neutro | negativo\n"
-        "- referencia_cristina_kirchner: true/false cuando el texto haga referencia a Cristina Fernández de Kirchner.\n"
-        "  Disparadores orientativos: \"kuka\", \"kirchnerista\", \"condenada\", \"CFK\", \"Cristina\", etc.\n\n"
+        "- sentimiento discreto: positivo | neutro | negativo\n\n"
         "Importante:\n"
         "- Esto es CLASIFICACIÓN MULTI-ETIQUETA: un comentario puede tener varias categorías en true.\n"
         "- NO busques coincidencias exactas. Usá comprensión semántica: paráfrasis, insinuaciones, equivalentes (“mandatos domésticos”, “descalificación”, “sexualización”, etc.).\n"
@@ -151,7 +150,6 @@ def make_prompt(batch: List[Dict[str, str]]) -> str:
         '        "desprestigio": <true|false>\n'
         "      },\n"
         '      "sentimiento": "<positivo|neutro|negativo>",\n'
-        '      "referencia_cristina_kirchner": <true|false>,\n'
         '      "confidence": <numero_entre_0_y_1>\n'
         "    }\n"
         "  ]\n"
@@ -239,9 +237,6 @@ def normalize_entry(item: Dict[str, Any]) -> Dict[str, Any]:
             "desprestigio": bool(labels.get("desprestigio", False)),
         },
         "sentimiento": sentiment,
-        "referencia_cristina_kirchner": bool(item.get("referencia_cristina_kirchner", False))
-        if isinstance(item, dict)
-        else False,
         "confidence": float(item.get("confidence", 0.0)) if isinstance(item, dict) else 0.0,
     }
 
@@ -272,7 +267,6 @@ def extract_results_dict(parsed: Dict[str, Any], expected_ids: List[str]) -> Dic
                     "desprestigio": False,
                 },
                 "sentimiento": "neutro",
-                "referencia_cristina_kirchner": False,
                 "confidence": 0.0,
                 "error": "missing_in_response",
             }
@@ -286,18 +280,20 @@ def classify_batches(
     out_file_timing: str,
     batch_size: int = 80,
     model: str = "gpt-4o-mini",
+    country: str = "Argentina",
+    max_workers: int = 8,
 ) -> Dict[str, Dict[str, Any]]:
     outputs: Dict[str, Dict[str, Any]] = {}
-    batch: List[Dict[str, str]] = []
     batch_times: List[float] = []
     total_texts = len(df)
-    total_batches = math.ceil(total_texts / batch_size)
-    processed_batches = 0
 
     # Resume support.
     processed_ids = load_processed_ids_from_ndjson(out_file_nd)
     if processed_ids:
         print(f"Resume: detectados {len(processed_ids)} IDs ya procesados en {out_file_nd}. Se van a saltear.")
+
+    # Lock for thread-safe writes to NDJSON and shared state.
+    write_lock = threading.Lock()
 
     def call_model(prompt_text: str, attempts: int = 3):
         last_content = None
@@ -318,7 +314,7 @@ def classify_batches(
 
     def process_batch_with_fallback(batch_items: List[Dict[str, str]], batch_label: int):
         def try_once(items: List[Dict[str, str]]):
-            prompt = make_prompt(items)
+            prompt = make_prompt(items, country=country)
             content = call_model(prompt, attempts=3)
             if not content:
                 raise ValueError("Empty model response")
@@ -372,7 +368,6 @@ def classify_batches(
                             "desprestigio": False,
                         },
                         "sentimiento": "neutro",
-                        "referencia_cristina_kirchner": False,
                         "confidence": 0.0,
                         "error": "bad_json",
                     }
@@ -380,6 +375,10 @@ def classify_batches(
                         f"WARN: item {bad_id} no pudo parsearse como JSON. Se marca vacío y se continúa. Debug: {debug_path}"
                     )
         return results_all
+
+    # Build all batches upfront, skipping already-processed IDs.
+    all_batches: List[List[Dict[str, str]]] = []
+    current_batch: List[Dict[str, str]] = []
 
     for idx, row in df.iterrows():
         rid = get_reply_id(row, idx)
@@ -394,74 +393,62 @@ def classify_batches(
         if text is None:
             text = row.values[0]
 
-        batch.append({"id": rid, "text": str(text).replace('"', "'")})
-        if len(batch) >= batch_size:
-            processed_batches += 1
-            print(f"Enviando lote de {len(batch)} textos al modelo... (batch {processed_batches}/{total_batches})")
-            t0 = time.time()
-            j = process_batch_with_fallback(batch, processed_batches)
-            t1 = time.time()
-            batch_time = t1 - t0
-            batch_times.append(batch_time)
-            outputs.update(j)
+        current_batch.append({"id": rid, "text": str(text).replace('"', "'")})
+        if len(current_batch) >= batch_size:
+            all_batches.append(current_batch)
+            current_batch = []
+    if current_batch:
+        all_batches.append(current_batch)
 
-            try:
-                processed_ids.update(str(k) for k in j.keys())
-            except Exception:
-                pass
+    total_batches = len(all_batches)
+    processed_count = 0
+    print(f"Batches a procesar: {total_batches} (con {max_workers} workers en paralelo)")
 
-            try:
-                with open(out_file_nd, "a", encoding="utf-8") as fh:
-                    fh.write(json.dumps(j, ensure_ascii=False) + "\n")
-                print(f"Resultados intermedios guardados en: {out_file_nd}")
-            except Exception as e:
-                print("No se pudo guardar resultados intermedios:", e)
-
-            avg = sum(batch_times) / len(batch_times)
-            remaining_batches = max(0, total_batches - processed_batches)
-            est_remaining = remaining_batches * avg
-            est_total = sum(batch_times) + remaining_batches * avg
-            print(
-                f"Tiempo lote: {batch_time:.2f}s | Promedio: {avg:.2f}s | Lotes restantes: {remaining_batches} | Est. resto: {est_remaining:.1f}s | Est. total: {est_total:.1f}s"
-            )
-            batch = []
-            time.sleep(0.3)
-
-    if batch:
-        processed_batches += 1
-        print(f"Enviando lote final de {len(batch)} textos al modelo... (batch {processed_batches}/{total_batches})")
+    def process_one(batch_idx: int, batch_items: List[Dict[str, str]]):
         t0 = time.time()
-        j = process_batch_with_fallback(batch, processed_batches)
-        t1 = time.time()
-        batch_time = t1 - t0
-        batch_times.append(batch_time)
-        outputs.update(j)
-        try:
-            processed_ids.update(str(k) for k in j.keys())
-        except Exception:
-            pass
-        try:
-            with open(out_file_nd, "a", encoding="utf-8") as fh:
-                fh.write(json.dumps(j, ensure_ascii=False) + "\n")
-            print(f"Resultados intermedios guardados en: {out_file_nd}")
-        except Exception as e:
-            print("No se pudo guardar resultados intermedios:", e)
+        j = process_batch_with_fallback(batch_items, batch_idx + 1)
+        elapsed = time.time() - t0
+        return batch_idx, j, elapsed
 
-        avg = sum(batch_times) / len(batch_times)
-        est_total = sum(batch_times)
-        print(
-            f"Último lote tiempo: {batch_time:.2f}s | Promedio: {avg:.2f}s | Lotes procesados: {processed_batches}/{total_batches} | Tiempo total estimado: {est_total:.1f}s"
-        )
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(process_one, i, b): i
+            for i, b in enumerate(all_batches)
+        }
+        for future in as_completed(futures):
+            batch_idx, j, elapsed = future.result()
+            batch_times.append(elapsed)
+
+            with write_lock:
+                processed_count += 1
+                outputs.update(j)
+                try:
+                    with open(out_file_nd, "a", encoding="utf-8") as fh:
+                        fh.write(json.dumps(j, ensure_ascii=False) + "\n")
+                except Exception as e:
+                    print(f"No se pudo guardar resultados intermedios: {e}")
+
+                avg = sum(batch_times) / len(batch_times)
+                remaining = total_batches - processed_count
+                est_remaining = remaining * avg / max_workers
+                print(
+                    f"Batch {batch_idx + 1}/{total_batches} listo ({len(j)} IDs) | "
+                    f"{elapsed:.1f}s | Promedio: {avg:.1f}s | "
+                    f"Completados: {processed_count}/{total_batches} | "
+                    f"Est. resto: {est_remaining:.0f}s"
+                )
 
     try:
         timing = {
             "total_texts": total_texts,
             "batch_size": batch_size,
             "total_batches": total_batches,
-            "processed_batches": processed_batches,
+            "processed_batches": processed_count,
+            "max_workers": max_workers,
             "per_batch_seconds": batch_times,
             "average_seconds": sum(batch_times) / len(batch_times) if batch_times else 0.0,
             "total_seconds": sum(batch_times),
+            "wall_clock_estimate": sum(batch_times) / max_workers if batch_times else 0.0,
         }
         with open(out_file_timing, "w", encoding="utf-8") as tf:
             json.dump(timing, tf, ensure_ascii=False, indent=2)
@@ -482,9 +469,14 @@ if __name__ == "__main__":
         help="API key de OpenAI. Si no se pasa, usa OPENAI_API_KEY o .env",
     )
     parser.add_argument(
+        "--country",
+        default="argentina",
+        help="País a procesar (se usa para construir el path GCS y los directorios de salida)",
+    )
+    parser.add_argument(
         "--parquet",
-        default="/Users/xaviergonzalez/Downloads/data_analysis_argentina_argentina_replies.parquet",
-        help="Ruta al parquet de replies consolidado",
+        default="",
+        help="Ruta al parquet de replies. Si no se pasa, se lee de gs://trust-prd/data_analysis/{country}/replies.parquet",
     )
     parser.add_argument(
         "--platform",
@@ -502,10 +494,38 @@ if __name__ == "__main__":
         action="store_true",
         help="Permite sobrescribir outputs existentes (.json / .ndjson / timing).",
     )
+    parser.add_argument(
+        "--max-rows",
+        type=int,
+        default=0,
+        help="Limitar a N filas (para testing). 0 = sin límite.",
+    )
+    parser.add_argument(
+        "--max-workers",
+        type=int,
+        default=8,
+        help="Número de workers paralelos para llamadas al LLM (default: 8).",
+    )
+    parser.add_argument(
+        "--exclude-youtube",
+        action="store_true",
+        help="Excluir YouTube al usar --platform all (solo procesa twitter + instagram).",
+    )
     args = parser.parse_args()
 
-    df = load_replies_data(args.parquet, args.platform)
-    out_dir, out_json, out_ndjson, out_timing, out_csv = build_out_paths(args.platform)
+    country = args.country.lower()
+    parquet_path = args.parquet or f"gs://trust-prd/data_analysis/{country}/replies.parquet"
+    print(f"País: {country} | Parquet: {parquet_path}")
+
+    df = load_replies_data(parquet_path, args.platform)
+    if args.exclude_youtube and args.platform == "all":
+        before = len(df)
+        df = df[df["platform"].astype(str).str.lower() != "youtube"].copy()
+        print(f"Excluido YouTube: {before} -> {len(df)} filas")
+    if args.max_rows > 0:
+        df = df.head(args.max_rows)
+        print(f"Limitado a {len(df)} filas (--max-rows {args.max_rows})")
+    out_dir, out_json, out_ndjson, out_timing, out_csv = build_out_paths(country, args.platform)
 
     if args.run_llm:
         try:
@@ -529,6 +549,8 @@ if __name__ == "__main__":
             out_file_timing=out_timing,
             batch_size=80,
             model="gpt-4o-mini",
+            country=country.title(),
+            max_workers=args.max_workers,
         )
         with open(out_json, "w", encoding="utf-8") as fh:
             json.dump(results, fh, ensure_ascii=False, indent=2)
@@ -578,7 +600,6 @@ if __name__ == "__main__":
         df[out_col] = 0
     df["classified_reply_id"] = None
     df["classified_sentimiento"] = "neutro"
-    df["classified_referencia_cristina_kirchner"] = 0
     df["classified_confidence"] = 0.0
 
     for idx, row in df.iterrows():
@@ -592,9 +613,6 @@ if __name__ == "__main__":
                 df.at[idx, out_col] = 1
 
         df.at[idx, "classified_sentimiento"] = str(entry.get("sentimiento", "neutro")).lower()
-        df.at[idx, "classified_referencia_cristina_kirchner"] = (
-            1 if bool(entry.get("referencia_cristina_kirchner", False)) else 0
-        )
 
         try:
             df.at[idx, "classified_confidence"] = float(entry.get("confidence", 0.0))
