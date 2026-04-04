@@ -1,11 +1,11 @@
+import argparse
+import json
 import os
 import sys
-import json
-import time
-import argparse
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Dict, List, Set, Any
+from typing import Any, Dict, List, Set
 
 import pandas as pd
 from openai import OpenAI
@@ -476,7 +476,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--parquet",
         default="",
-        help="Ruta al parquet de replies. Si no se pasa, se lee de gs://trust-prd/data_analysis/{country}/replies.parquet",
+
     )
     parser.add_argument(
         "--platform",
@@ -513,8 +513,25 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
+    try:
+        from dotenv import load_dotenv
+
+        load_dotenv()
+    except Exception:
+        pass
+
     country = args.country.lower()
-    parquet_path = args.parquet or f"gs://trust-prd/data_analysis/{country}/replies.parquet"
+    if args.parquet:
+        parquet_path = args.parquet
+    else:
+        gcs_bucket_name = os.getenv("GCS_BUCKET_NAME", "").strip()
+        if not gcs_bucket_name:
+            print(
+                "ERROR: falta configurar GCS_BUCKET_NAME (en el entorno o en .env) para construir el path GCS por defecto. "
+                "Alternativa: pasá --parquet con una ruta explícita."
+            )
+            sys.exit(1)
+        parquet_path = f"gs://{gcs_bucket_name}/data_analysis/{country}/replies.parquet"
     print(f"País: {country} | Parquet: {parquet_path}")
 
     df = load_replies_data(parquet_path, args.platform)
