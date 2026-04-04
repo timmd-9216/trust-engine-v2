@@ -21,3 +21,10 @@ service_account_email = "scheduler@your-gcp-project-id.iam.gserviceaccount.com"
 # Optional: Environment
 # environment = "prod"
 
+# Vector Store VM (Compute Engine for ChromaDB)
+# enable_vector_store_vm = true
+# vector_store_zone = "us-east1-b"
+# vector_store_gcs_bucket = "your-gcs-bucket"
+# vector_store_embedding_service_url = "http://embedding-service:8080"
+# vector_store_container_image = "us-east1-docker.pkg.dev/your-project/trust-api/vector-store:latest"
+

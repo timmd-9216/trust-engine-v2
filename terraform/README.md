@@ -13,6 +13,7 @@ This directory contains Terraform configurations for the Trust Engine infrastruc
 | `bigquery_external_tables.tf` | BigQuery dataset and external tables for analytics |
 | `cloud_scheduler_process_posts.tf` | Cloud Scheduler jobs for automated processing |
 | `workflow_nlp_process.tf` | Workflows and Eventarc for NLP processing |
+| `compute_engine_vector_store.tf` | Compute Engine VM for vector store (ChromaDB) |
 
 ## Prerequisites
 

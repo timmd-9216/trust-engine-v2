@@ -5,12 +5,17 @@
 ### Ollama (local, recommended on Mac Mini M2)
 
 1. Install Ollama
-1. Pull a Gemma model
+    run 'ollama serve' to start it
+2. Pull a Gemma model
+
+
+3. ollama list
 
 Examples:
 
-- `ollama pull gemma3`
-- `ollama pull gemma4` (if available in your Ollama version)
+- `ollama pull gemma3:12b`
+    ollama pull gemma3:4b # liviano y rápido 3.3GB
+- `ollama pull gemma4` (9.6 GB)
 
 1. Verify Ollama is running:
 

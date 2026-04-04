@@ -21,9 +21,9 @@ variable "bigquery_dataset" {
 
 # Create BigQuery dataset
 resource "google_bigquery_dataset" "analytics" {
-  dataset_id  = var.bigquery_dataset
-  project     = var.project_id
-  location    = var.region
+  dataset_id = var.bigquery_dataset
+  project    = var.project_id
+  location   = var.region
 
   description = "Trust Engine analytics dataset with external tables on GCS Parquet files"
 
@@ -328,7 +328,7 @@ resource "google_bigquery_table" "keywordpost" {
     source_format = "PARQUET"
     # Match keyword post files (videos) - exclude replies files by using specific pattern
     # Pattern matches: yt_keywordpost_*.parquet but not *replies*.parquet
-    source_uris   = [
+    source_uris = [
       "gs://${var.gcs_bucket}/stg/keywordpost/youtube/yt_keywordpost_*.parquet"
     ]
 
@@ -464,7 +464,7 @@ resource "google_bigquery_table" "keywordpost_filtered" {
 }
 
 output "example_queries" {
-  value = <<-EOT
+  value       = <<-EOT
     
     -- Query all replies for a candidate
     SELECT * FROM `${var.project_id}.${var.bigquery_dataset}.replies`

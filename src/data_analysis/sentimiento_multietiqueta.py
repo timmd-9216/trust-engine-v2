@@ -9,7 +9,6 @@ from typing import Any, Dict, List, Set
 
 import pandas as pd
 from openai import OpenAI
-
 from sentimiento_dictionary import SENTIMIENTO_DICT
 
 # ensure local module import works when running from repo root
@@ -92,7 +91,10 @@ def get_reply_id(row, idx):
 def make_prompt(batch: List[Dict[str, str]], country: str = "Argentina") -> str:
     dictionary_block = json.dumps(SENTIMIENTO_DICT, ensure_ascii=False, indent=2)
     comments_block = "\n".join(
-        [f'{i + 1}) {{"id": "{item["id"]}", "comentario": "{item["text"]}"}}' for i, item in enumerate(batch)]
+        [
+            f'{i + 1}) {{"id": "{item["id"]}", "comentario": "{item["text"]}"}}'
+            for i, item in enumerate(batch)
+        ]
     )
 
     return (
@@ -225,7 +227,9 @@ def normalize_entry(item: Dict[str, Any]) -> Dict[str, Any]:
     labels = item.get("labels", {}) if isinstance(item, dict) else {}
     if not isinstance(labels, dict):
         labels = {}
-    sentiment_raw = str(item.get("sentimiento", "")).strip().lower() if isinstance(item, dict) else ""
+    sentiment_raw = (
+        str(item.get("sentimiento", "")).strip().lower() if isinstance(item, dict) else ""
+    )
     sentiment = sentiment_raw if sentiment_raw in {"positivo", "neutro", "negativo"} else "neutro"
     return {
         "labels": {
@@ -241,7 +245,9 @@ def normalize_entry(item: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def extract_results_dict(parsed: Dict[str, Any], expected_ids: List[str]) -> Dict[str, Dict[str, Any]]:
+def extract_results_dict(
+    parsed: Dict[str, Any], expected_ids: List[str]
+) -> Dict[str, Dict[str, Any]]:
     """Normalize model output to mapping id -> entry."""
     out: Dict[str, Dict[str, Any]] = {}
     results = parsed.get("results", []) if isinstance(parsed, dict) else []
@@ -290,7 +296,9 @@ def classify_batches(
     # Resume support.
     processed_ids = load_processed_ids_from_ndjson(out_file_nd)
     if processed_ids:
-        print(f"Resume: detectados {len(processed_ids)} IDs ya procesados en {out_file_nd}. Se van a saltear.")
+        print(
+            f"Resume: detectados {len(processed_ids)} IDs ya procesados en {out_file_nd}. Se van a saltear."
+        )
 
     # Lock for thread-safe writes to NDJSON and shared state.
     write_lock = threading.Lock()
@@ -322,7 +330,8 @@ def classify_batches(
                 parsed = parse_json_from_text(content)
             except Exception:
                 retry_prompt = (
-                    prompt + "\n\nIMPORTANTE: Responde ÚNICAMENTE con un JSON válido con la estructura {'results':[...]}."
+                    prompt
+                    + "\n\nIMPORTANTE: Responde ÚNICAMENTE con un JSON válido con la estructura {'results':[...]}."
                 )
                 content2 = call_model(retry_prompt, attempts=2)
                 if not content2:
@@ -340,10 +349,14 @@ def classify_batches(
                 j = try_once(items)
                 results_all.update(j)
             except Exception as e:
-                debug_path = os.path.join(os.path.dirname(out_file_nd), f"debug_bad_json_batch_{label}.txt")
+                debug_path = os.path.join(
+                    os.path.dirname(out_file_nd), f"debug_bad_json_batch_{label}.txt"
+                )
                 try:
                     with open(debug_path, "w", encoding="utf-8") as dfh:
-                        dfh.write("\n\n".join([f"ID: {x['id']}\nTEXTO: {x['text']}" for x in items]))
+                        dfh.write(
+                            "\n\n".join([f"ID: {x['id']}\nTEXTO: {x['text']}" for x in items])
+                        )
                 except Exception:
                     pass
 
@@ -411,10 +424,7 @@ def classify_batches(
         return batch_idx, j, elapsed
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {
-            executor.submit(process_one, i, b): i
-            for i, b in enumerate(all_batches)
-        }
+        futures = {executor.submit(process_one, i, b): i for i, b in enumerate(all_batches)}
         for future in as_completed(futures):
             batch_idx, j, elapsed = future.result()
             batch_times.append(elapsed)
@@ -476,7 +486,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "--parquet",
         default="",
-
     )
     parser.add_argument(
         "--platform",
@@ -551,7 +560,9 @@ if __name__ == "__main__":
             print(f"ERROR: {e}")
             sys.exit(1)
 
-        if (os.path.exists(out_json) or os.path.exists(out_ndjson) or os.path.exists(out_timing)) and not args.overwrite:
+        if (
+            os.path.exists(out_json) or os.path.exists(out_ndjson) or os.path.exists(out_timing)
+        ) and not args.overwrite:
             print(
                 "ERROR: ya existen outputs para esta plataforma. "
                 "Usá --overwrite si querés sobrescribir (ojo: esto puede costar $$ si re-ejecutás el LLM).\n"
@@ -622,7 +633,9 @@ if __name__ == "__main__":
     for idx, row in df.iterrows():
         rid = get_reply_id(row, idx)
         df.at[idx, "classified_reply_id"] = rid
-        entry = llm_results.get(rid) or llm_results.get(str(rid)) or llm_results.get(f"row_{idx}") or {}
+        entry = (
+            llm_results.get(rid) or llm_results.get(str(rid)) or llm_results.get(f"row_{idx}") or {}
+        )
         labels = entry.get("labels", {}) if isinstance(entry, dict) else {}
 
         for in_key, out_col in cat_map.items():

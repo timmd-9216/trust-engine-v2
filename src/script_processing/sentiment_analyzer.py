@@ -70,8 +70,8 @@ class OpenRouterChatProvider(ChatProvider):
         self.model = model
         self.timeout_s = timeout_s
         self.site_url = site_url if site_url is not None else os.getenv("SITE_URL", "")
-        self.site_name = site_name if site_name is not None else os.getenv(
-            "SITE_NAME", "trust-engine-v2"
+        self.site_name = (
+            site_name if site_name is not None else os.getenv("SITE_NAME", "trust-engine-v2")
         )
 
     def chat(self, *, messages: list[dict[str, str]]) -> str:
@@ -129,8 +129,7 @@ class SentimentAnalyzer:
             {
                 "role": "user",
                 "content": (
-                    "Classify the sentiment of this text. Return ONLY JSON.\n\n"
-                    f"TEXT:\n{text}"
+                    "Classify the sentiment of this text. Return ONLY JSON.\n\n" f"TEXT:\n{text}"
                 ),
             },
         ]
