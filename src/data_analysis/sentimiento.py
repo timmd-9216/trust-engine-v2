@@ -1,19 +1,21 @@
+import argparse
+import json
+import math
 import os
 import sys
-import json
 import time
-import math
-import pandas as pd
-from sentimiento_dictionary import SENTIMIENTO_DICT
-from openai import OpenAI
-import argparse
 from typing import Set
+
+import pandas as pd
+from openai import OpenAI
+from sentimiento_dictionary import SENTIMIENTO_DICT
 
 # ensure local module import works when running from repo root
 sys.path.append(os.path.dirname(__file__))
 # OpenAI client (reads OPENAI_API_KEY from env)
 api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=api_key) if api_key else OpenAI()
+
 
 # ---- Platform helpers ----
 def load_replies_sheet(excel_path: str, platform: str) -> pd.DataFrame:
@@ -45,6 +47,7 @@ def build_out_paths(platform: str):
 
     return out_dir, out_json, out_ndjson, out_timing, out_csv
 
+
 def get_reply_id(row, idx):
     # try common id columns, otherwise fallback to index-based id
     for col in (
@@ -63,6 +66,7 @@ def get_reply_id(row, idx):
             return str(row[col])
     return f"row_{idx}"
 
+
 def make_prompt(batch):
     # batch is list of dicts: {"id":..., "text":...}
     categories_desc = json.dumps(SENTIMIENTO_DICT, ensure_ascii=False, indent=2)
@@ -80,6 +84,7 @@ def make_prompt(batch):
         '{"reply_1": {"categorías_detectadas": ["Menosprecio"], "confianza": 0.85}}'
     )
     return prompt
+
 
 def parse_json_from_text(text):
     """Parse a JSON object from a model response.
@@ -122,6 +127,7 @@ def parse_json_from_text(text):
 
     raise ValueError("No JSON found in model response")
 
+
 def load_processed_ids_from_ndjson(path: str) -> Set[str]:
     """Read NDJSON where each line is a JSON object {id: {...}, ...} and return processed ids."""
     processed: Set[str] = set()
@@ -141,7 +147,10 @@ def load_processed_ids_from_ndjson(path: str) -> Set[str]:
                 continue
     return processed
 
-def classify_batches(df, out_file_nd: str, out_file_timing: str, batch_size=80, model="gpt-4o-mini"):
+
+def classify_batches(
+    df, out_file_nd: str, out_file_timing: str, batch_size=80, model="gpt-4o-mini"
+):
     outputs = {}
     batch = []
     batch_times = []
@@ -152,7 +161,9 @@ def classify_batches(df, out_file_nd: str, out_file_timing: str, batch_size=80, 
     # Resume support: if NDJSON exists, skip already-processed ids to avoid re-paying.
     processed_ids = load_processed_ids_from_ndjson(out_file_nd)
     if processed_ids:
-        print(f"Resume: detectados {len(processed_ids)} IDs ya procesados en {out_file_nd}. Se van a saltear.")
+        print(
+            f"Resume: detectados {len(processed_ids)} IDs ya procesados en {out_file_nd}. Se van a saltear."
+        )
 
     def call_model(prompt_text: str, attempts: int = 3):
         last_content = None
@@ -187,7 +198,10 @@ def classify_batches(df, out_file_nd: str, out_file_timing: str, batch_size=80, 
                 return parse_json_from_text(content)
             except Exception:
                 # Retry once with a stricter reminder appended
-                retry_prompt = prompt + "\n\nIMPORTANTE: Responde ÚNICAMENTE con un objeto JSON válido. Sin texto extra."
+                retry_prompt = (
+                    prompt
+                    + "\n\nIMPORTANTE: Responde ÚNICAMENTE con un objeto JSON válido. Sin texto extra."
+                )
                 content2 = call_model(retry_prompt, attempts=2)
                 if not content2:
                     raise ValueError("Empty model response (retry)")
@@ -206,11 +220,15 @@ def classify_batches(df, out_file_nd: str, out_file_timing: str, batch_size=80, 
                 else:
                     raise ValueError("Parsed JSON is not a dict")
             except Exception as e:
-                debug_path = os.path.join(os.path.dirname(out_file_nd), f"debug_bad_json_batch_{label}.txt")
+                debug_path = os.path.join(
+                    os.path.dirname(out_file_nd), f"debug_bad_json_batch_{label}.txt"
+                )
                 try:
                     # best-effort: save the prompt inputs (ids/text) to debug
                     with open(debug_path, "w", encoding="utf-8") as dfh:
-                        dfh.write("\n\n".join([f"ID: {x['id']}\nTEXTO: {x['text']}" for x in items]))
+                        dfh.write(
+                            "\n\n".join([f"ID: {x['id']}\nTEXTO: {x['text']}" for x in items])
+                        )
                 except Exception:
                     pass
 
@@ -221,7 +239,9 @@ def classify_batches(df, out_file_nd: str, out_file_timing: str, batch_size=80, 
                     # split further to isolate bad items
                     stack.append((right, f"{label}b"))
                     stack.append((left, f"{label}a"))
-                    print(f"WARN: batch {label} devolvió JSON inválido ({e}). Dividiendo en {len(left)} y {len(right)}. Debug: {debug_path}")
+                    print(
+                        f"WARN: batch {label} devolvió JSON inválido ({e}). Dividiendo en {len(left)} y {len(right)}. Debug: {debug_path}"
+                    )
                 else:
                     # single item still failing -> record default and continue
                     bad_id = str(items[0].get("id"))
@@ -230,7 +250,9 @@ def classify_batches(df, out_file_nd: str, out_file_timing: str, batch_size=80, 
                         "confianza": 0.0,
                         "error": "bad_json",
                     }
-                    print(f"WARN: item {bad_id} no pudo parsearse como JSON. Se marca vacío y se continúa. Debug: {debug_path}")
+                    print(
+                        f"WARN: item {bad_id} no pudo parsearse como JSON. Se marca vacío y se continúa. Debug: {debug_path}"
+                    )
 
         return results_all
 
@@ -248,9 +270,11 @@ def classify_batches(df, out_file_nd: str, out_file_timing: str, batch_size=80, 
             text = row.values[0]
         batch.append({"id": rid, "text": str(text)})
         if len(batch) >= batch_size:
-            prompt = make_prompt(batch)
+            make_prompt(batch)
             processed_batches += 1
-            print(f"Enviando lote de {len(batch)} textos al modelo... (batch {processed_batches}/{total_batches})")
+            print(
+                f"Enviando lote de {len(batch)} textos al modelo... (batch {processed_batches}/{total_batches})"
+            )
             t0 = time.time()
             j = process_batch_with_fallback(batch, processed_batches)
             t1 = time.time()
@@ -274,7 +298,9 @@ def classify_batches(df, out_file_nd: str, out_file_timing: str, batch_size=80, 
             remaining_batches = max(0, total_batches - processed_batches)
             est_remaining = remaining_batches * avg
             est_total = sum(batch_times) + remaining_batches * avg
-            print(f"Tiempo lote: {batch_time:.2f}s | Promedio: {avg:.2f}s | Lotes restantes: {remaining_batches} | Est. resto: {est_remaining:.1f}s | Est. total: {est_total:.1f}s")
+            print(
+                f"Tiempo lote: {batch_time:.2f}s | Promedio: {avg:.2f}s | Lotes restantes: {remaining_batches} | Est. resto: {est_remaining:.1f}s | Est. total: {est_total:.1f}s"
+            )
 
             batch = []
             time.sleep(0.3)
@@ -282,8 +308,10 @@ def classify_batches(df, out_file_nd: str, out_file_timing: str, batch_size=80, 
     # last partial batch
     if batch:
         processed_batches += 1
-        prompt = make_prompt(batch)
-        print(f"Enviando lote final de {len(batch)} textos al modelo... (batch {processed_batches}/{total_batches})")
+        make_prompt(batch)
+        print(
+            f"Enviando lote final de {len(batch)} textos al modelo... (batch {processed_batches}/{total_batches})"
+        )
         t0 = time.time()
         j = process_batch_with_fallback(batch, processed_batches)
         t1 = time.time()
@@ -305,7 +333,9 @@ def classify_batches(df, out_file_nd: str, out_file_timing: str, batch_size=80, 
         # final timing estimate
         avg = sum(batch_times) / len(batch_times)
         est_total = sum(batch_times)
-        print(f"Último lote tiempo: {batch_time:.2f}s | Promedio: {avg:.2f}s | Lotes procesados: {processed_batches}/{total_batches} | Tiempo total estimado: {est_total:.1f}s")
+        print(
+            f"Último lote tiempo: {batch_time:.2f}s | Promedio: {avg:.2f}s | Lotes procesados: {processed_batches}/{total_batches} | Tiempo total estimado: {est_total:.1f}s"
+        )
 
     # save timing metadata
     try:
@@ -326,12 +356,17 @@ def classify_batches(df, out_file_nd: str, out_file_timing: str, batch_size=80, 
 
     return outputs
 
+
 if __name__ == "__main__":
     if not os.getenv("OPENAI_API_KEY"):
-        print("ERROR: OPENAI_API_KEY no configurada. Exporta la variable de entorno e intenta de nuevo.")
+        print(
+            "ERROR: OPENAI_API_KEY no configurada. Exporta la variable de entorno e intenta de nuevo."
+        )
         sys.exit(1)
 
-    parser = argparse.ArgumentParser(description="Clasifica replies por plataforma (twitter/instagram/youtube) y genera CSV con etiquetas.")
+    parser = argparse.ArgumentParser(
+        description="Clasifica replies por plataforma (twitter/instagram/youtube) y genera CSV con etiquetas."
+    )
     parser.add_argument(
         "--excel",
         default="/Users/xaviergonzalez/Downloads/deliveries_proyecto_multitudes_2026-02-03_argentina.xlsx",
@@ -361,7 +396,9 @@ if __name__ == "__main__":
     # By default we do NOT call the LLM. Use --run-llm to generate results (cost $$).
     if args.run_llm:
         # prevent accidental overwrite unless explicitly allowed
-        if (os.path.exists(out_json) or os.path.exists(out_ndjson) or os.path.exists(out_timing)) and not args.overwrite:
+        if (
+            os.path.exists(out_json) or os.path.exists(out_ndjson) or os.path.exists(out_timing)
+        ) and not args.overwrite:
             print(
                 "ERROR: ya existen outputs para esta plataforma. "
                 "Usá --overwrite si querés sobrescribir (ojo: esto puede costar $$ si re-ejecutás el LLM).\n"

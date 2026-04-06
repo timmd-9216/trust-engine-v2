@@ -53,6 +53,8 @@ Either:
 poetry run python -m script_processing.cli --input tweets.csv --output tweets_sent.csv --provider ollama --model gemma3
 ```
 
+poetry run python -m script_processing.cli --input tweets.csv --output tweets_sent.csv --provider ollama --model gemma3:4b
+
 ### OpenRouter + Kimi
 
 ```bash
