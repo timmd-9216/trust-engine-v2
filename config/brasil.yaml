@@ -1,0 +1,395 @@
+country: brasil
+election_date: '2026-10-04'
+start_date: '2026-09-16'
+end_date: '2026-10-09'
+candidates:
+- candidate_id: bra01ferr
+  name: Nikolas Ferreira
+  keywords:
+  - Nikolas Ferreira
+  gender: M
+  party: Partido Liberal (PL)
+  orientation: Derecha
+  role: Oposición
+  instagram_profile_url: 'https://www.instagram.com/nikolasferreiradm/ '
+  twitter_profile_url: 'https://x.com/nikolas_dm '
+  youtube_profile_url: 'https://www.youtube.com/@NikolasFerreiraO '
+  description: Nikolas Ferreira is a Brazilian Derecha-wing politician and member
+    of the Liberal Party (Partido Liberal (PL)). He became well known for his strong
+    social media presence and conservative views on social and political issues. Since
+    2023, he has served as a federal deputy representing Minas Gerais and has been
+    a prominent figure in the Bolsonaro movement.
+  twitter_username: nikolas_dm
+  instagram_username: nikolasferreiradm
+  youtube_username: '@NikolasFerreiraO'
+  youtube_channel_id: UCxI9vN6UbxmBt8VIvUKtJaA
+  youtube_uploads_playlist_id: UUxI9vN6UbxmBt8VIvUKtJaA
+- candidate_id: bra02figu
+  name: Paulo Figueiredo
+  keywords:
+  - Paulo Figueiredo
+  gender: M
+  party: null
+  orientation: Derecha
+  role: Oposición
+  instagram_profile_url: 'https://www.instagram.com/realpfigueiredo08/?hl=es '
+  twitter_profile_url: 'https://x.com/pfigueiredo08 '
+  youtube_profile_url: 'https://www.youtube.com/@PauloFigueiredoShow '
+  description: Paulo Figueiredo is a Brazilian journalist, political commentator,
+    and businessman known for his conservative views and close association with the
+    Brazilian Derecha. He is particularly known for his commentary on Brazilian politics
+    and his support for Jair Bolsonaro.
+  twitter_username: pfigueiredo08
+  instagram_username: realpfigueiredo08
+  youtube_username: '@PauloFigueiredoShow'
+  youtube_channel_id: UCgwcuts-Mx4nOKb1d1vY39w
+  youtube_uploads_playlist_id: UUgwcuts-Mx4nOKb1d1vY39w
+- candidate_id: bra03bols
+  name: Flávio Bolsonaro
+  keywords:
+  - Flávio Bolsonaro
+  gender: M
+  party: Partido Liberal (PL)
+  orientation: Derecha
+  role: Oposición
+  instagram_profile_url: 'https://www.instagram.com/flaviobolsonaro/?hl=es '
+  twitter_profile_url: https://x.com/FlavioBolsonaro
+  youtube_profile_url: 'https://www.youtube.com/@flaviobolsonaro '
+  description: 'Flávio Bolsonaro is a Brazilian politician and member of the Liberal
+    Party (Partido Liberal (PL)). He has served as a senator for Rio de Janeiro since
+    2019 and is the eldest son of former President Jair Bolsonaro. He is a prominent
+    figure in Brazil’s conservative and Bolsonaro-aligned political movement. Currently,
+    he''s looking to run for president. '
+  twitter_username: FlavioBolsonaro
+  instagram_username: flaviobolsonaro
+  youtube_username: '@flaviobolsonaro'
+  youtube_channel_id: UCl2HptoHv6PjZMQAwTdA--Q
+  youtube_uploads_playlist_id: UUl2HptoHv6PjZMQAwTdA--Q
+- candidate_id: bra04hadd
+  name: Fernando Haddad
+  keywords:
+  - Fernando Haddad
+  gender: M
+  party: Partido dos Trabalhadores (PT)
+  orientation: Izquierda
+  role: Alianza
+  instagram_profile_url: https://www.instagram.com/fernandohaddadoficial/?hl=es
+  twitter_profile_url: https://x.com/Haddad_Fernando
+  youtube_profile_url: https://www.youtube.com/c/FernandoHaddadOficial
+  description: Fernando Haddad is a Brazilian economist, professor, and politician
+    from the Workers’ Party (Partido dos Trabalhadores (PT)). He served as mayor of
+    São Paulo and as Brazil’s Minister of Finance under President Luiz Inácio Lula
+    da Silva. He was also the Partido dos Trabalhadores (PT)’s presidential candidate
+    in the 2018 election. He's now running for governor of São Paulo
+  twitter_username: Haddad_Fernando
+  instagram_username: fernandohaddadoficial
+  youtube_username: FernandoHaddadOficial
+  youtube_channel_id: UCpwjvP7rGvgIXoJIcdGjC3g
+  youtube_uploads_playlist_id: UUpwjvP7rGvgIXoJIcdGjC3g
+- candidate_id: bra05kata
+  name: Kim Kataguiri
+  keywords:
+  - Kim Kataguiri
+  gender: M
+  party: Missão
+  orientation: Derecha
+  role: Oposición
+  instagram_profile_url: https://www.instagram.com/kimkataguiri/?hl=es
+  twitter_profile_url: https://x.com/KimKataguiri?lang=es
+  youtube_profile_url: https://www.youtube.com/KIMKATAGUIRI
+  description: Kim Kataguiri is a Brazilian politician and federal deputy from São
+    Paulo. He is a co-founder of the Free Brazil Movement (MBL) and is known for his
+    liberal and conservative views, as well as his strong presence on social media.
+    Now running for reelection as a federal deputy
+  twitter_username: KimKataguiri
+  instagram_username: kimkataguiri
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: bra06bols
+  name: Michelle Bolsonaro
+  keywords:
+  - Michelle Bolsonaro
+  gender: F
+  party: Partido Liberal (PL)
+  orientation: Derecha
+  role: Oposición
+  instagram_profile_url: https://www.instagram.com/michellebolsonaro/?hl=es
+  twitter_profile_url: https://x.com/Mi_Bolsonaro?lang=es
+  youtube_profile_url: https://www.youtube.com/channel/UCFkN_3URnNbRCz1I9Eby_cA/about
+  description: 'Brazilian politician and former First Lady of Brazil, known for her
+    conservative views and close association with the Bolsonaro movement. Now running
+    for Senate. '
+  twitter_username: Mi_Bolsonaro
+  instagram_username: michellebolsonaro
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: bra07sala
+  name: Duda Salabert
+  keywords:
+  - Duda Salabert
+  gender: F
+  party: PSOL
+  orientation: Izquierda
+  role: Alianza
+  instagram_profile_url: https://www.instagram.com/duda_salabert/
+  twitter_profile_url: https://x.com/DudaSalabert
+  youtube_profile_url: https://www.youtube.com/@DudaSalabertOficial
+  description: Brazilian politician, teacher, and environmental activist. She is a
+    federal deputy for Minas Gerais and one of Brazil’s most prominent transgender
+    politicians. She's running for re-election
+  twitter_username: DudaSalabert
+  instagram_username: duda_salabert
+  youtube_username: '@DudaSalabertOficial'
+  youtube_channel_id: UCIUER-tipQToYcM_fFfqZbQ
+  youtube_uploads_playlist_id: UUIUER-tipQToYcM_fFfqZbQ
+- candidate_id: bra08silv
+  name: Marina Silva
+  keywords:
+  - Marina Silva
+  gender: F
+  party: Rede
+  orientation: Centro-izquierda
+  role: Alianza
+  instagram_profile_url: https://www.instagram.com/marinasilvaoficial/?hl=es
+  twitter_profile_url: https://x.com/MarinaSilva?lang=es
+  youtube_profile_url: https://www.youtube.com/@msilvaonline
+  description: Brazilian politician and environmentalist. She has served as Brazil’s
+    Minister of the Environment and is internationalianza known for her work on environmental
+    protection and sustainability.
+  twitter_username: MarinaSilva
+  instagram_username: marinasilvaoficial
+  youtube_username: '@msilvaonline'
+  youtube_channel_id: UC9uefWa6TXIPDRWGZYMcTuA
+  youtube_uploads_playlist_id: UU9uefWa6TXIPDRWGZYMcTuA
+- candidate_id: bra09dasi
+  name: Benedita da Silva
+  keywords:
+  - Benedita da Silva
+  gender: F
+  party: Partido dos Trabalhadores (PT)
+  orientation: Izquierda
+  role: Alianza
+  instagram_profile_url: https://www.instagram.com/instadabene/?hl=es
+  twitter_profile_url: https://x.com/dasilvabenedita
+  youtube_profile_url: https://www.youtube.com/c/BeneditaSilva
+  description: Brazilian politician and social activist. She is a member of the Workers’
+    Party (Partido dos Trabalhadores (PT)) and has been a federal deputy, senator,
+    and governor of Rio de Janeiro.
+  twitter_username: dasilvabenedita
+  instagram_username: instadabene
+  youtube_username: BeneditaSilva
+  youtube_channel_id: UCG_ROdLbFAP2xcdKHplyqKg
+  youtube_uploads_playlist_id: UUG_ROdLbFAP2xcdKHplyqKg
+- candidate_id: bra10hilt
+  name: Erika Hilton
+  keywords:
+  - Erika Hilton
+  gender: F
+  party: PSOL
+  orientation: Izquierda
+  role: Alianza
+  instagram_profile_url: https://www.instagram.com/hilton_erika/
+  twitter_profile_url: https://x.com/ErikakHilton?lang=es
+  youtube_profile_url: https://www.youtube.com/@erikahiltonSP/streams
+  description: Brazilian politician and activist. She is a federal deputy for São
+    Paulo and one of Brazil’s first openly black transgender members of Congress,
+    known for her work on LGBTQ+ Derechas and social equality.
+  twitter_username: ErikakHilton
+  instagram_username: hilton_erika
+  youtube_username: '@erikahiltonSP'
+  youtube_channel_id: UCUL6xPmjbwrN2XhOWXvzlQg
+  youtube_uploads_playlist_id: UUUL6xPmjbwrN2XhOWXvzlQg
+- candidate_id: bra11evar
+  name: Macaé Evaristo
+  keywords:
+  - Macaé Evaristo
+  gender: F
+  party: Partido dos Trabalhadores (PT)
+  orientation: Izquierda
+  role: Alianza
+  instagram_profile_url: https://www.instagram.com/macaeevaristo/?hl=es
+  twitter_profile_url: https://x.com/MacaeEvaristo
+  youtube_profile_url: https://www.youtube.com/channel/UCQYBe3wpvhzBJNbTc39EvlA
+  description: She is a Brazilian professor, social worker, and politician affiliated
+    with the Workers’ Party (PT), and serves as a state representative in Minas Gerais.
+    She's a black woman who is a state deputy running for re-election.
+  twitter_username: MacaeEvaristo
+  instagram_username: macaeevaristo
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: bra12janj
+  name: Janja
+  keywords:
+  - Janja
+  gender: F
+  party: null
+  orientation: Izquierda
+  role: Alianza
+  instagram_profile_url: https://www.instagram.com/janjalula/?hl=es
+  twitter_profile_url: https://x.com/JanjaLula
+  youtube_profile_url: https://www.youtube.com/@JanjaLula
+  description: Brazilian sociologist and the First Lady of Brazil. She is married
+    to President Luiz Inácio Lula da Silva and is known for her involvement in social,
+    cultural, and political initiatives.
+  twitter_username: JanjaLula
+  instagram_username: janjalula
+  youtube_username: '@JanjaLula'
+  youtube_channel_id: UCiQZE7V50yzw60qWlNtU8OQ
+  youtube_uploads_playlist_id: UUiQZE7V50yzw60qWlNtU8OQ
+- candidate_id: bra13tona
+  name: Dandara Tonanzin
+  keywords:
+  - Dandara Tonanzin
+  gender: F
+  party: Partido dos Trabalhadores (PT)
+  orientation: Izquierda
+  role: Alianza
+  instagram_profile_url: https://www.instagram.com/todandara/?hl=es
+  twitter_profile_url: https://x.com/todandara?lang=es
+  youtube_profile_url: https://www.youtube.com/@todandara
+  description: Brazilian politician and federal deputy from Minas Gerais. She is a
+    member of the Workers’ Party (Partido dos Trabalhadores (PT)) and advocates for
+    racial equality, women’s rights, and social justice. She's running for re-election
+    as a federal deputy
+  twitter_username: todandara
+  instagram_username: todandara
+  youtube_username: '@todandara'
+  youtube_channel_id: UCKTTGYsM2zPPIYgSL0apw7Q
+  youtube_uploads_playlist_id: UUKTTGYsM2zPPIYgSL0apw7Q
+- candidate_id: bra14bonf
+  name: Sâmia Bonfim
+  keywords:
+  - Sâmia Bonfim
+  gender: F
+  party: PSOL
+  orientation: Izquierda
+  role: Alianza
+  instagram_profile_url: https://www.instagram.com/samiabomfim/?hl=es
+  twitter_profile_url: https://x.com/samiabomfim
+  youtube_profile_url: https://www.youtube.com/channel/UC_tks9vJP0qsjCUHmOWq08g
+  description: Brazilian politician and federal deputy from São Paulo. She is a member
+    of the Socialism and Liberty Party (PSOL) and is known for her work on women’s
+    Derechas, social justice, and progressive causes. She's running for re-election
+  twitter_username: samiabomfim
+  instagram_username: samiabomfim
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: bra15alve
+  name: Damares Alves
+  keywords:
+  - Damares Alves
+  gender: F
+  party: Partido Liberal (PL)
+  orientation: Derecha
+  role: Oposición
+  instagram_profile_url: https://www.instagram.com/damaresalvesoficial/
+  twitter_profile_url: https://x.com/DamaresAlves
+  youtube_profile_url: https://www.youtube.com/@senadoradamaresalves
+  description: Brazilian politician, lawyer, and former Minister of Women, Family
+    and Human Derechas under Jair Bolsonaro. She is known for her conservative and
+    evangelical positions. Currently, she's a senator until 2034
+  twitter_username: DamaresAlves
+  instagram_username: damaresalvesoficial
+  youtube_username: '@senadoradamaresalves'
+  youtube_channel_id: UCUygDoaCJVidyeo9dQFQFnA
+  youtube_uploads_playlist_id: UUUygDoaCJVidyeo9dQFQFnA
+- candidate_id: bra16czam
+  name: Carla Zambelli
+  keywords:
+  - Carla Zambelli
+  gender: F
+  party: Partido Liberal (PL)
+  orientation: Derecha
+  role: Oposición
+  instagram_profile_url: https://www.instagram.com/carla.zambelli/?hl=es
+  twitter_profile_url: https://x.com/ZambelliCarla_
+  youtube_profile_url: https://www.youtube.com/Partido Liberal (PL)aylist?list=Partido
+    Liberal (PL)le35RVjvBFGoKa0KlA2vo7d3HFJ4ewxP
+  description: Brazilian politician and former federal deputy from São Paulo. She
+    is a conservative politician and a prominent supporter of Jair Bolsonaro. She
+    was convicted un Brazil in 2025 and lost her mandate as federal deputy
+  twitter_username: ZambelliCarla_
+  instagram_username: carla.zambelli
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: bra17rzam
+  name: Rita Zambelli
+  keywords:
+  - Rita Zambelli
+  gender: F
+  party: Partido Liberal (PL)
+  orientation: Derecha
+  role: Oposición
+  instagram_profile_url: https://www.instagram.com/rita.zambelli/?hl=es
+  twitter_profile_url: https://x.com/RITAZAMBELLI
+  youtube_profile_url: https://www.youtube.com/@ritazambelli
+  description: Mother of Carla Zambelli. Pre-candidate for federal deputy for Partido
+    Liberal (PL)
+  twitter_username: RITAZAMBELLI
+  instagram_username: rita.zambelli
+  youtube_username: '@ritazambelli'
+  youtube_channel_id: UCucEP1QWr3AvCPxZwU0mhLg
+  youtube_uploads_playlist_id: UUucEP1QWr3AvCPxZwU0mhLg
+- candidate_id: bra18amar
+  name: Tabata Amaral
+  keywords:
+  - Tabata Amaral
+  gender: F
+  party: Partido Socialista Brasileiro (PSB)
+  orientation: Centro-izquierda
+  role: Alianza
+  instagram_profile_url: https://www.instagram.com/tabataamaralsp/?hl=es
+  twitter_profile_url: https://x.com/tabataamaralsp?lang=es
+  youtube_profile_url: https://www.youtube.com/@TabataAmaralSP/podcasts
+  description: 'Brazilian politician and federal deputy from São Paulo. She is known
+    for her work on education, public policy, and social development, and is associated
+    with a center-left political position. Currently running for re-election '
+  twitter_username: tabataamaralsp
+  instagram_username: tabataamaralsp
+  youtube_username: '@TabataAmaralSP'
+  youtube_channel_id: UCWcx5M5negY_kqSawo2bjZQ
+  youtube_uploads_playlist_id: UUWcx5M5negY_kqSawo2bjZQ
+- candidate_id: bra19dori
+  name: Profa Dorinha Seabra
+  keywords:
+  - Profa Dorinha Seabra
+  gender: F
+  party: União
+  orientation: Derecha
+  role: Oposición
+  instagram_profile_url: https://www.instagram.com/profdorinha
+  twitter_profile_url: https://x.com/profdorinha?lang=es
+  youtube_profile_url: https://www.youtube.com/@profdorinha/videos
+  description: Brazilian politician and senator for Tocantins. She is a member of
+    the União Brasil party and has focused particularly on education policy. Currently
+    running for governor of Tocantins
+  twitter_username: profdorinha
+  instagram_username: profdorinha
+  youtube_username: '@profdorinha'
+  youtube_channel_id: UC0HErkPMAX2UUK-S_bbPRtw
+  youtube_uploads_playlist_id: UU0HErkPMAX2UUK-S_bbPRtw
+- candidate_id: bra20tebe
+  name: Simone Tebet
+  keywords:
+  - Simone Tebet
+  gender: F
+  party: Partido Socialista Brasileiro (PSB)
+  orientation: Centro-izquierda
+  role: Alianza
+  instagram_profile_url: https://www.instagram.com/simonetebet/?hl=es
+  twitter_profile_url: https://x.com/simonetebetbr
+  youtube_profile_url: https://www.youtube.com/@SimoneTebet
+  description: Brazilian politician and lawyer who currently serves as Brazil’s Minister
+    of Partido Liberal (PL)anning and Budget. She is a member of the Brazilian Democratic
+    Movement (MDB) and is known for her centrist political positions. Currently running
+    for senate.
+  twitter_username: simonetebetbr
+  instagram_username: simonetebet
+  youtube_username: '@SimoneTebet'
+  youtube_channel_id: UCIUrDYfCO0lMmuseV-wbRZQ
+  youtube_uploads_playlist_id: UUIUrDYfCO0lMmuseV-wbRZQ

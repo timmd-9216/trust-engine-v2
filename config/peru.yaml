@@ -1,0 +1,306 @@
+country: peru
+election_date: '2026-04-12'
+start_date: '2026-03-25'
+end_date: '2026-04-17'
+candidates:
+- candidate_id: per01tell
+  name: Marisol Pérez Tello
+  gender: F
+  keywords:
+  - Marisol Pérez Tello
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/pereztellomarisol/
+  twitter_profile_url: https://x.com/marpereztello
+  role: Oposición fuerte
+  description: Candidata presidencial por "Primero la Gente"
+  twitter_username: marpereztello
+  instagram_username: pereztellomarisol
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: per02moya
+  name: Martha Moyano
+  gender: F
+  keywords:
+  - Martha Moyano
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/marthamoyanoperu/
+  twitter_profile_url: https://x.com/marthamoyano
+  role: Alianza en el Congreso
+  description: Candidata al Senado por Fuerza Popular (Lima)
+  twitter_username: marthamoyano
+  instagram_username: marthamoyanoperu
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: per03ibar
+  name: Ruth Luque Ibarra
+  gender: F
+  keywords:
+  - Ruth Luque Ibarra
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/ruthluqueibarra/
+  twitter_profile_url: https://x.com/RuthLuqueIbarra
+  role: Oposición fuerte
+  description: Candidata al Senado por "Ahora Nación" (Cusco)
+  twitter_username: RuthLuqueIbarra
+  instagram_username: ruthluqueibarra
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: per04barb
+  name: Rosangella Barbarán
+  gender: F
+  keywords:
+  - Rosangella Barbarán
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/rosangellabr_/
+  twitter_profile_url: https://x.com/rosangellabr
+  role: Alianza en el Congreso
+  description: Candidata a diputada por Fuerza Popular (Lima)
+  twitter_username: rosangellabr
+  instagram_username: rosangellabr_
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: per05tude
+  name: Adriana Tudela
+  gender: F
+  keywords:
+  - Adriana Tudela
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/adrianatudelag/
+  twitter_profile_url: https://x.com/adrianatudelag
+  role: Oposición con algunas coincidencias en el Congreso
+  description: Candidata a diputada por Avanza País (Lima)
+  twitter_username: adrianatudelag
+  instagram_username: adrianatudelag
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: per06yarr
+  name: Norma Yarrow
+  gender: F
+  keywords:
+  - Norma Yarrow
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/normayarrow_/
+  twitter_profile_url: https://x.com/NormaYarrowL
+  role: Oposición fuerte
+  description: Candidata a Diputada por Renovación Popular (Lima)
+  twitter_username: NormaYarrowL
+  instagram_username: normayarrow_
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: per07delg
+  name: Diana Gonzales Delgado
+  gender: F
+  keywords:
+  - Diana Gonzales Delgado
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/dianagonzalesd_/
+  twitter_profile_url: https://x.com/dianagonzalesd_
+  role: Oposición fuerte
+  description: Candidata a Diputada por Avanza País (Arequipa)
+  twitter_username: dianagonzalesd_
+  instagram_username: dianagonzalesd_
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: per08robl
+  name: Silvana Robles
+  gender: F
+  keywords:
+  - Silvana Robles
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/silvanaroblese/
+  twitter_profile_url: https://x.com/SilvanaRoblesE
+  role: Oposición fuerte
+  description: Candidata al Senado por Juntos por el Perú (Junín)
+  twitter_username: SilvanaRoblesE
+  instagram_username: silvanaroblese
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: per09cari
+  name: Gahela Cari
+  gender: F
+  keywords:
+  - Gahela Cari
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/gahela_jp13/
+  twitter_profile_url: https://x.com/Gahelatrans
+  role: Oposición fuerte
+  description: Candidata a Diputada por Venceremos, activista trans con alta exposición
+    política; invitada al taller
+  twitter_username: Gahelatrans
+  instagram_username: gahela_jp13
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: per10chav
+  name: Susana Chávez
+  gender: F
+  keywords:
+  - Susana Chávez
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/susanachavez.6/
+  twitter_profile_url: https://x.com/susanachavez_15
+  role: Oposición fuerte
+  description: Candidata al Senado por Primero la Gente (Lima) ex directora de promsex
+  twitter_username: susanachavez_15
+  instagram_username: susanachavez.6
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: per11chir
+  name: Patricia Chirinos
+  gender: F
+  keywords:
+  - Patricia Chirinos
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/patriachirinos/
+  twitter_profile_url: https://x.com/PattyChirinosVe
+  role: Oposición fuerte
+  description: Candidata al Senado por Renovación Popular (Callao)
+  twitter_username: PattyChirinosVe
+  instagram_username: patriachirinos
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: per12fuji
+  name: Keiko Fujimori
+  gender: F
+  keywords:
+  - Keiko Fujimori
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/keikofujimorih/
+  twitter_profile_url: https://x.com/KeikoFujimori
+  role: Alianza en el Congreso
+  description: Candidata presidencial por "Fuerza Popular"
+  twitter_username: KeikoFujimori
+  instagram_username: keikofujimorih
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: per13baza
+  name: Sigrid Bazán
+  gender: F
+  keywords:
+  - Sigrid Bazán
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/sigrid_bazan/
+  twitter_profile_url: https://x.com/sigridbazan
+  role: Oposición fuerte
+  description: Candidata a Diputada por "Venceremos" (Lima)
+  twitter_username: sigridbazan
+  instagram_username: sigrid_bazan
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: per14acun
+  name: César Acuña
+  gender: M
+  keywords:
+  - César Acuña
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/cesaracunap/
+  twitter_profile_url: https://x.com/CesarAcunaP
+  role: Alianza en el Congreso
+  description: Candidato presidencial con presencia digital activa.
+  twitter_username: CesarAcunaP
+  instagram_username: cesaracunap
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: per15niet
+  name: Jorge Nieto
+  gender: M
+  keywords:
+  - Jorge Nieto
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/nietopresidente/
+  twitter_profile_url: https://x.com/JorgeNietoMon
+  role: Oposición fuerte
+  description: Candidato a presidencia por Buen Gobierno
+  twitter_username: JorgeNietoMon
+  instagram_username: nietopresidente
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: per16chau
+  name: Alfonso López Chau
+  gender: M
+  keywords:
+  - Alfonso López Chau
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/alfonsolopez_chau/
+  twitter_profile_url: https://x.com/LopezChauNava
+  role: Oposición fuerte
+  description: Candidato a presidencia por Ahora Nación
+  twitter_username: LopezChauNava
+  instagram_username: alfonsolopez_chau
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: per17galv
+  name: José Luna Gálvez
+  gender: M
+  keywords:
+  - José Luna Gálvez
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/joselunagalvez.pepe/
+  twitter_profile_url: https://x.com/JOSELUNA_G
+  role: Alianza en el Congreso
+  description: Candidato a presidencia por Podemos
+  twitter_username: JOSELUNA_G
+  instagram_username: joselunagalvez.pepe
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: per18muna
+  name: Alejandro Muñante
+  gender: M
+  keywords:
+  - Alejandro Muñante
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/AlejoMunante/
+  twitter_profile_url: https://x.com/AlejoMunante
+  role: Oposición fuerte
+  description: Candidato a Senado Nacional por "Renovación Popular" - conservador
+  twitter_username: AlejoMunante
+  instagram_username: AlejoMunante
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: per19huil
+  name: Indira Huilca
+  gender: F
+  keywords:
+  - Indira Huilca
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/indirahuilca/
+  twitter_profile_url: https://x.com/IndiraHuilca
+  role: Oposición fuerte
+  description: Candidata a Diputada por Ahora Nación; invitada al taller
+  twitter_username: IndiraHuilca
+  instagram_username: indirahuilca
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
+- candidate_id: per20huer
+  name: Leyla Huerta
+  gender: F
+  keywords:
+  - Leyla Huerta
+  youtube_profile_url: null
+  instagram_profile_url: https://www.instagram.com/leyla_huerta/
+  twitter_profile_url: null
+  role: Oposición fuerte
+  description: Candidata al Senado por el Partido Morado; invitada al taller
+  twitter_username: null
+  instagram_username: leyla_huerta
+  youtube_username: null
+  youtube_channel_id: null
+  youtube_uploads_playlist_id: null
