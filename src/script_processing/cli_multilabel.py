@@ -40,7 +40,7 @@ def main() -> int:
             "into 6 harassment categories + sentiment."
         ),
     )
-    parser.add_argument("--input", required=True, help="Path to input CSV or JSON file")
+    parser.add_argument("--input", required=True, help="Path to input CSV, JSON, or Parquet file")
     parser.add_argument(
         "--output",
         default="output_multilabel.csv",
@@ -226,7 +226,9 @@ def _read_input(path: str) -> list[dict[str, Any]]:
         return _read_csv(path)
     if ext.endswith(".json"):
         return _read_json(path)
-    raise ValueError("Input must be a .csv or .json file")
+    if ext.endswith(".parquet"):
+        return _read_parquet(path)
+    raise ValueError("Input must be a .csv, .json, or .parquet file")
 
 
 def _read_csv(path: str) -> list[dict[str, Any]]:
@@ -247,8 +249,21 @@ def _read_json(path: str) -> list[dict[str, Any]]:
     raise ValueError("JSON must be a list of objects or an object with 'data' key")
 
 
+def _read_parquet(path: str) -> list[dict[str, Any]]:
+    import pyarrow.parquet as pq
+
+    table = pq.read_table(path)
+    cols = table.column_names
+    rows: list[dict[str, Any]] = []
+    arrays = {c: table.column(c).to_pylist() for c in cols}
+    for i in range(table.num_rows):
+        rows.append({c: arrays[c][i] for c in cols})
+    return rows
+
+
 ID_COLUMNS = [
     "tweet_id",
+    "id_str",
     "reply_id",
     "replyId",
     "id",

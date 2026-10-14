@@ -10,6 +10,8 @@ Usage:
     poetry run python scripts/list_failed_jobs_without_done.py
     poetry run python scripts/list_failed_jobs_without_done.py --json out.json
     poetry run python scripts/list_failed_jobs_without_done.py --csv out.csv
+    poetry run python scripts/list_failed_jobs_without_done.py --since-days 7 --csv out.csv
+    poetry run python scripts/list_failed_jobs_without_done.py --since 2026-10-07
 """
 
 import argparse
@@ -17,6 +19,7 @@ import csv
 import json
 import os
 import sys
+from datetime import datetime, timedelta, timezone
 
 try:
     from dotenv import load_dotenv
@@ -60,7 +63,26 @@ def main() -> int:
         metavar="PATH",
         help="Write results as CSV (post_id, candidate_id, platform, country, job_doc_id)",
     )
+    since_group = parser.add_mutually_exclusive_group()
+    since_group.add_argument(
+        "--since-days",
+        type=int,
+        metavar="N",
+        help="Only include failed jobs whose updated_at is within the last N days",
+    )
+    since_group.add_argument(
+        "--since",
+        type=str,
+        metavar="YYYY-MM-DD",
+        help="Only include failed jobs whose updated_at is on/after this date (UTC)",
+    )
     args = parser.parse_args()
+
+    since: datetime | None = None
+    if args.since_days is not None:
+        since = datetime.now(timezone.utc) - timedelta(days=args.since_days)
+    elif args.since:
+        since = datetime.fromisoformat(args.since).replace(tzinfo=timezone.utc)
 
     if PROJECT_ID:
         client = firestore.Client(project=PROJECT_ID, database=DATABASE)
@@ -72,6 +94,9 @@ def main() -> int:
         file=sys.stderr,
     )
     failed_query = client.collection(JOBS_COLLECTION).where("status", "==", "failed")
+    if since is not None:
+        failed_query = failed_query.where("updated_at", ">=", since)
+        print(f"Filtering updated_at >= {since.isoformat()}", file=sys.stderr)
     failed_docs = list(failed_query.stream())
     print(f"Total failed jobs: {len(failed_docs)}", file=sys.stderr)
 
@@ -92,6 +117,11 @@ def main() -> int:
                 "country": data.get("country", ""),
                 "job_id": data.get("job_id", ""),
                 "job_doc_id": doc.id,
+                "updated_at": (
+                    data["updated_at"].isoformat()
+                    if isinstance(data.get("updated_at"), datetime)
+                    else str(data.get("updated_at", ""))
+                ),
             }
         )
 
@@ -138,7 +168,8 @@ def main() -> int:
         for r in results:
             print(
                 f"post_id={r['post_id']} candidate_id={r['candidate_id']} "
-                f"platform={r['platform']} country={r['country']} job_doc_id={r['job_doc_id']}"
+                f"platform={r['platform']} country={r['country']} "
+                f"updated_at={r['updated_at']} job_doc_id={r['job_doc_id']}"
             )
 
     return 0
