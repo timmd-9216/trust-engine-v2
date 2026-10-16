@@ -1,0 +1,15 @@
+{
+  "functions": {
+    "app.py": {
+      "maxDuration": 300,
+      "memory": 2048,
+      "includeFiles": "src/trust_api/scrapping_tools/dashboard.html",
+      "excludeFiles": "{.github/**,tests/**,docs/**,data/**,scripts/**,terraform/**,migrations/**,comparar/**,old/**,stanza_resources/**,htmlcov/**,src/trust_api/nlp/**,src/trust_api/vector_store/**,src/trust_api/services/**,src/trust_api/api/**,src/trust_api/core/**,src/trust_api/main.py,src/trust_api/models.py,src/script_processing/**,src/data_analysis/**,**/*.csv,**/*.parquet}"
+    }
+  },
+  "crons": [
+    { "path": "/cron/process-posts", "schedule": "0,30 * * * *" },
+    { "path": "/cron/process-jobs", "schedule": "15,45 * * * *" },
+    { "path": "/cron/json-to-parquet", "schedule": "0 7 * * *" }
+  ]
+}

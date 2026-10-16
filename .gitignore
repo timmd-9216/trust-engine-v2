@@ -14,6 +14,7 @@ stanza_resources/
 # Data files
 *.csv
 *.json
+!vercel.json
 *.parquet
 out/
 # Python-generated files

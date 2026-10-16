@@ -290,6 +290,11 @@
         <div class="header">
             <h1>📊 Dashboard Scrapping Tools</h1>
             <p>Monitoreo en tiempo real de KPIs</p>
+            <div style="margin-top: 10px;">
+                <input type="password" id="api-key-input" placeholder="API Key (si está configurada)"
+                       style="padding: 6px 10px; border-radius: 6px; border: 1px solid #ccc; min-width: 220px;"
+                       onchange="saveApiKey(this.value)">
+            </div>
         </div>
 
         <!-- Tabs Container -->
@@ -836,6 +841,27 @@
 
     <script>
         const API_BASE = window.location.origin;
+
+        // API Key support: send X-API-Key header on all API requests when configured.
+        const API_KEY_STORAGE = 'scrapping_api_key';
+        function saveApiKey(value) {
+            localStorage.setItem(API_KEY_STORAGE, value.trim());
+        }
+        const _apiKeyInput = document.getElementById('api-key-input');
+        if (_apiKeyInput) {
+            _apiKeyInput.value = localStorage.getItem(API_KEY_STORAGE) || '';
+        }
+        const _originalFetch = window.fetch.bind(window);
+        window.fetch = function (input, init) {
+            const apiKey = localStorage.getItem(API_KEY_STORAGE);
+            if (apiKey) {
+                init = init || {};
+                const headers = new Headers(init.headers || {});
+                headers.set('X-API-Key', apiKey);
+                init = { ...init, headers };
+            }
+            return _originalFetch(input, init);
+        };
         const POST_STATUSES = ['noreplies', 'processing', 'done', 'skipped', 'finished'];
         const JOB_STATUSES = ['pending', 'processing', 'done', 'failed', 'empty_result', 'verified'];
         const PLATFORMS = ['twitter', 'instagram', 'youtube'];

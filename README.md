@@ -282,6 +282,14 @@ Endpoints:
 
 ## 🚢 Deployment
 
+### Vercel (scrapping-tools)
+
+El servicio **scrapping-tools** (`src/trust_api/scrapping_tools/`) se despliega en
+**Vercel** (Python Functions + Vercel Cron), usando **Neon Postgres** en lugar de
+Firestore y **Vercel Blob** en lugar de GCS. El resto de los servicios
+(`trust_api/main.py`, `nlp/`, `vector_store/`) quedan fuera del bundle de Vercel.
+Guía completa: [`docs/VERCEL_DEPLOY.md`](docs/VERCEL_DEPLOY.md).
+
 ### Docker Deployment
 
 1. **Build the Docker image**

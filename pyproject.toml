@@ -1,29 +1,49 @@
-[tool.poetry]
+[project]
 name = "mediaparty-trust-api"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-authors = ["JuanCruzC97 <juancruzcamacho97@gmail.com>"]
+authors = [{ name = "JuanCruzC97", email = "juancruzcamacho97@gmail.com" }]
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "requests>=2.31.0",
+    "python-dotenv>=0.9.9",
+    "fastapi>=0.118.0",
+    "pydantic-settings>=2.11.0",
+    "uvicorn>=0.34.0",
+    "httpx>=0.27.0",
+    "pyarrow>=22.0.0",
+    "psycopg[binary,pool]>=3.2",
+]
+
+[project.optional-dependencies]
+nlp = [
+    "stanza>=1.10.1",
+    "dspy-ai>=2.5.0",
+    "pyyaml>=6.0.3",
+]
+vector = [
+    "chromadb>=0.5.0",
+]
+gcp = [
+    "google-cloud-firestore>=2.22.0",
+    "google-cloud-storage>=2.18.0",
+]
+
+[project.scripts]
+trust-api = "trust_api.main:app"
+trust-api-nlp = "trust_api.nlp.main:app"
+trust-api-scrapping-tools = "trust_api.scrapping_tools.main:app"
+trust-api-vector-store = "trust_api.vector_store.main:app"
+
+[tool.vercel]
+entrypoint = "app:app"
+
+[tool.poetry]
 packages = [
     { include = "trust_api", from = "src" },
     { include = "script_processing", from = "src" },
 ]
-
-[tool.poetry.dependencies]
-python = ">=3.12,<3.13"
-requests = ">=2.31.0"
-dotenv = ">=0.9.9"
-fastapi = ">=0.118.0"
-pydantic-settings = ">=2.11.0"
-uvicorn = ">=0.34.0"
-stanza = ">=1.10.1"
-dspy-ai = ">=2.5.0"
-pyyaml = ">=6.0.3"
-google-cloud-firestore = "^2.22.0"
-google-cloud-storage = "^2.18.0"
-httpx = "^0.27.0"
-pyarrow = "^22.0.0"
-chromadb = "^0.5.0"
 
 [tool.poetry.group.dev.dependencies]
 pre-commit = "^3.7.0"
@@ -33,12 +53,6 @@ pytest-asyncio = "^0.23.0"
 pytest-cov = "^4.1.0"
 pytest-mock = "^3.12.0"
 openpyxl = "^3.1.0"
-
-[tool.poetry.scripts]
-trust-api = "trust_api.main:app"
-trust-api-nlp = "trust_api.nlp.main:app"
-trust-api-scrapping-tools = "trust_api.scrapping_tools.main:app"
-trust-api-vector-store = "trust_api.vector_store.main:app"
 
 [tool.ruff]
 line-length = 100
@@ -73,5 +87,5 @@ filterwarnings = [
 ]
 
 [build-system]
-requires = ["poetry-core>=1.9.0"]
+requires = ["poetry-core>=2.0"]
 build-backend = "poetry.core.masonry.api"

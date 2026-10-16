@@ -8,8 +8,6 @@ import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 
-from google.cloud import firestore, storage
-
 try:
     import pyarrow as pa
     import pyarrow.parquet as pq
@@ -17,25 +15,10 @@ except ImportError:
     pa = None
     pq = None
 
+from trust_api.scrapping_tools import blob, db
 from trust_api.scrapping_tools.core.config import settings
 
 logger = logging.getLogger(__name__)
-
-
-def get_firestore_client() -> firestore.Client:
-    """Initialize and return Firestore client."""
-    if settings.gcp_project_id:
-        return firestore.Client(
-            project=settings.gcp_project_id, database=settings.firestore_database
-        )
-    return firestore.Client(database=settings.firestore_database)
-
-
-def get_gcs_client() -> storage.Client:
-    """Initialize and return GCS client."""
-    if settings.gcp_project_id:
-        return storage.Client(project=settings.gcp_project_id)
-    return storage.Client()
 
 
 def _get_post_max_posts_replies(post: dict[str, Any]) -> int | None:
@@ -50,7 +33,7 @@ def _get_job_max_posts_replies(job: dict[str, Any]) -> int | None:
 
 def query_posts_without_replies(max_posts: int | None = None) -> list[dict[str, Any]]:
     """
-    Query Firestore for posts with status='noreplies'.
+    Query Postgres for posts with status='noreplies'.
     Results are prioritized by platform (twitter first), then ordered by created_at (oldest first).
 
     Args:
@@ -58,53 +41,16 @@ def query_posts_without_replies(max_posts: int | None = None) -> list[dict[str, 
 
     Returns:
         List of post documents with fields: post_id, country, platform, candidate_id, etc.
-        Each document also includes '_doc_id' field with the Firestore document ID.
+        Each document also includes '_doc_id' field with the document ID.
         Posts are returned with twitter posts first, then other platforms, all ordered by created_at.
     """
-    client = get_firestore_client()
-    posts = []
-
-    # First, get twitter posts (prioritized)
-    # Requires index: status + platform + created_at
-    twitter_query = (
-        client.collection(settings.firestore_collection)
-        .where("status", "==", "noreplies")
-        .where("platform", "==", "twitter")
-        .order_by("created_at")  # Order by created_at ascending (oldest first)
-    )
-
-    twitter_posts = []
-    for doc in twitter_query.stream():
-        doc_data = doc.to_dict()
-        doc_data["_doc_id"] = doc.id
-        twitter_posts.append(doc_data)
-
-    posts.extend(twitter_posts)
+    # First, get twitter posts (prioritized), ordered by created_at ascending
+    posts = db.list_posts("noreplies", platform="twitter")
 
     # If we haven't reached max_posts, get posts from other platforms
     if max_posts is None or len(posts) < max_posts:
-        # Get all posts with status='noreplies' ordered by created_at
-        # We'll filter out twitter posts in Python since Firestore doesn't support != operator
-        other_query = (
-            client.collection(settings.firestore_collection)
-            .where("status", "==", "noreplies")
-            .order_by("created_at")  # Order by created_at ascending (oldest first)
-        )
-
-        other_posts = []
-        for doc in other_query.stream():
-            # Stop if we've reached the limit
-            if max_posts is not None and len(posts) + len(other_posts) >= max_posts:
-                break
-
-            doc_data = doc.to_dict()
-            platform = doc_data.get("platform", "").lower()
-            # Skip twitter posts (already included in first query)
-            if platform != "twitter":
-                doc_data["_doc_id"] = doc.id
-                other_posts.append(doc_data)
-
-        posts.extend(other_posts)
+        remaining = None if max_posts is None else max_posts - len(posts)
+        posts.extend(db.list_posts_where("noreplies", not_platform="twitter", limit=remaining))
 
     # Apply final limit if specified (shouldn't be necessary, but just in case)
     if max_posts is not None and max_posts > 0:
@@ -195,7 +141,7 @@ def save_execution_logs(
     execution_type: str | None = None,
 ) -> str | None:
     """
-    Save all accumulated execution logs to GCS bucket in logs/ folder.
+    Save all accumulated execution logs to Blob storage in logs/ folder.
     Uses a single file per execution (per HTTP request).
 
     Note: Each call to /process-posts and each call to /process-jobs saves its own log file.
@@ -208,9 +154,9 @@ def save_execution_logs(
         execution_type: Optional label for the run, e.g. "process-posts" or "process-jobs"
 
     Returns:
-        GCS URI of the saved log file, or None if logging fails or is disabled
+        blob:// URI of the saved log file, or None if logging fails or is disabled
     """
-    if not settings.gcs_bucket_name:
+    if not settings.blob_read_write_token:
         return None
 
     if not _execution_logs:
@@ -218,9 +164,6 @@ def save_execution_logs(
         return None
 
     try:
-        client = get_gcs_client()
-        bucket = client.bucket(settings.gcs_bucket_name)
-
         # Create filename: logs/YYYY-MM-DD/HH-MM-SS-{timestamp}.json
         now = datetime.now(timezone.utc)
         date_str = now.strftime("%Y-%m-%d")
@@ -257,13 +200,13 @@ def save_execution_logs(
             "calls": _execution_logs,
         }
 
-        blob = bucket.blob(blob_path)
-        blob.upload_from_string(
+        blob.put(
+            blob_path,
             json.dumps(log_file, ensure_ascii=False, indent=2),
             content_type="application/json",
         )
 
-        return f"gs://{settings.gcs_bucket_name}/{blob_path}"
+        return blob.uri(blob_path)
     except Exception:
         # Silently fail logging to avoid breaking the main flow
         # In production, you might want to log this to a logging service
@@ -349,7 +292,7 @@ def save_error_logs(
     available_items: int | None = None,
 ) -> str | None:
     """
-    Save all accumulated error logs to GCS bucket in logs/errors/ folder.
+    Save all accumulated error logs to Blob storage in logs/errors/ folder.
     Uses a single file per execution.
 
     Args:
@@ -358,9 +301,9 @@ def save_error_logs(
         available_items: Total number of items available (if specified)
 
     Returns:
-        GCS URI of the saved error log file, or None if logging fails or is disabled
+        blob:// URI of the saved error log file, or None if logging fails or is disabled
     """
-    if not settings.gcs_bucket_name:
+    if not settings.blob_read_write_token:
         return None
 
     if not _error_logs:
@@ -368,9 +311,6 @@ def save_error_logs(
         return None
 
     try:
-        client = get_gcs_client()
-        bucket = client.bucket(settings.gcs_bucket_name)
-
         # Create filename: errors/YYYY-MM-DD/HH-MM-SS-{timestamp}.json
         now = datetime.now(timezone.utc)
         date_str = now.strftime("%Y-%m-%d")
@@ -408,13 +348,13 @@ def save_error_logs(
             "errors": _error_logs,
         }
 
-        blob = bucket.blob(blob_path)
-        blob.upload_from_string(
+        blob.put(
+            blob_path,
             json.dumps(error_file, ensure_ascii=False, indent=2),
             content_type="application/json",
         )
 
-        return f"gs://{settings.gcs_bucket_name}/{blob_path}"
+        return blob.uri(blob_path)
     except Exception:
         # Silently fail logging to avoid breaking the main flow
         # In production, you might want to log this to a logging service
@@ -636,24 +576,16 @@ def read_from_gcs_if_exists(
         Returns None if file doesn't exist or if there's an error reading it.
 
     Raises:
-        ValueError: If GCS_BUCKET_NAME is not configured
+        ValueError: If BLOB_READ_WRITE_TOKEN is not configured
     """
-    if not settings.gcs_bucket_name:
-        raise ValueError("GCS_BUCKET_NAME is not configured")
+    if not settings.blob_read_write_token:
+        raise ValueError("BLOB_READ_WRITE_TOKEN is not configured")
 
     try:
-        client = get_gcs_client()
-        bucket = client.bucket(settings.gcs_bucket_name)
-
         blob_path = _get_gcs_blob_path(country, platform, candidate_id, post_id)
-        blob = bucket.blob(blob_path)
-
-        # Check if blob exists
-        if blob.exists():
-            # Read and parse JSON
-            content = blob.download_as_text()
+        content = blob.get_text(blob_path)
+        if content is not None:
             return json.loads(content)
-
         return None
     except Exception:
         # If there's any error reading from GCS, return None so we can fall back
@@ -671,7 +603,7 @@ def rename_existing_gcs_file(
     post_id: str,
 ) -> str | None:
     """
-    Rename an existing GCS file by adding 'old-[timestamp]-' prefix to the filename.
+    Rename an existing Blob file by adding 'old-[timestamp]-' prefix to the filename.
 
     Args:
         country: Country name
@@ -683,21 +615,17 @@ def rename_existing_gcs_file(
         New blob path if file was renamed, None if file didn't exist or rename failed.
 
     Raises:
-        ValueError: If GCS_BUCKET_NAME is not configured
+        ValueError: If BLOB_READ_WRITE_TOKEN is not configured
     """
-    if not settings.gcs_bucket_name:
-        raise ValueError("GCS_BUCKET_NAME is not configured")
+    if not settings.blob_read_write_token:
+        raise ValueError("BLOB_READ_WRITE_TOKEN is not configured")
 
     try:
-        client = get_gcs_client()
-        bucket = client.bucket(settings.gcs_bucket_name)
-
         # Get original blob path
         original_blob_path = _get_gcs_blob_path(country, platform, candidate_id, post_id)
-        original_blob = bucket.blob(original_blob_path)
 
         # Check if blob exists
-        if not original_blob.exists():
+        if not blob.exists(original_blob_path):
             return None
 
         # Generate new blob path with 'old-[timestamp]-' prefix
@@ -714,17 +642,15 @@ def rename_existing_gcs_file(
         new_filename = f"old-{timestamp_str}-{safe_post_id}.json"
         new_blob_path = f"raw/{safe_country}/{safe_platform}/{safe_candidate_id}/{new_filename}"
 
-        # Copy blob to new location
-        bucket.copy_blob(original_blob, bucket, new_blob_path)
+        # Copy blob to new location, then delete the original
+        blob.copy(original_blob_path, new_blob_path)
+        blob.delete(original_blob_path)
 
-        # Delete original blob
-        original_blob.delete()
-
-        logger.info(f"Renamed existing GCS file: {original_blob_path} -> {new_blob_path}")
+        logger.info(f"Renamed existing Blob file: {original_blob_path} -> {new_blob_path}")
 
         return new_blob_path
     except Exception as e:
-        logger.error(f"Error renaming GCS file for post_id={post_id}: {str(e)}")
+        logger.error(f"Error renaming Blob file for post_id={post_id}: {str(e)}")
         # Return None on error - we'll continue processing anyway
         return None
 
@@ -777,7 +703,7 @@ def save_to_gcs(
     metadata: dict[str, Any] | None = None,
 ) -> str:
     """
-    Save JSON data to GCS bucket with structure: country/platform/candidate_id/{post_id}.json
+    Save JSON data to Blob storage with structure: country/platform/candidate_id/{post_id}.json
 
     Args:
         data: JSON data to save (can be a dict or list)
@@ -788,20 +714,17 @@ def save_to_gcs(
         metadata: Optional metadata to include in the saved JSON (e.g., retry information)
 
     Returns:
-        GCS URI of the saved file
+        blob:// URI of the saved file
 
     Raises:
-        ValueError: If GCS_BUCKET_NAME is not configured or if data is empty
+        ValueError: If BLOB_READ_WRITE_TOKEN is not configured or if data is empty
     """
-    if not settings.gcs_bucket_name:
-        raise ValueError("GCS_BUCKET_NAME is not configured")
+    if not settings.blob_read_write_token:
+        raise ValueError("BLOB_READ_WRITE_TOKEN is not configured")
 
     # Validate that data is not empty
     if _is_result_empty(data):
-        raise ValueError("Cannot save empty result to GCS")
-
-    client = get_gcs_client()
-    bucket = client.bucket(settings.gcs_bucket_name)
+        raise ValueError("Cannot save empty result to Blob storage")
 
     blob_path = _get_gcs_blob_path(country, platform, candidate_id, post_id)
 
@@ -819,13 +742,13 @@ def save_to_gcs(
         # Add metadata at the top level of the JSON
         data_to_save["_metadata"] = metadata
 
-    blob = bucket.blob(blob_path)
-    blob.upload_from_string(
+    blob.put(
+        blob_path,
         json.dumps(data_to_save, ensure_ascii=False, indent=2),
         content_type="application/json",
     )
 
-    return f"gs://{settings.gcs_bucket_name}/{blob_path}"
+    return blob.uri(blob_path)
 
 
 def update_post_status(doc_id: str, new_status: str = "done") -> None:
@@ -842,19 +765,7 @@ def update_post_status(doc_id: str, new_status: str = "done") -> None:
     if not doc_id:
         raise ValueError("doc_id is required to update post status")
 
-    client = get_firestore_client()
-    doc_ref = client.collection(settings.firestore_collection).document(doc_id)
-
-    # Get current timestamp in UTC
-    now = datetime.now(timezone.utc)
-
-    # Update both status and updated_at
-    doc_ref.update(
-        {
-            "status": new_status,
-            "updated_at": now,
-        }
-    )
+    db.update_post(doc_id, {"status": new_status, "updated_at": datetime.now(timezone.utc)})
 
 
 def has_existing_job_for_post(post_id: str) -> bool:
@@ -867,29 +778,7 @@ def has_existing_job_for_post(post_id: str) -> bool:
     Returns:
         True if there's an existing pending or processing job, False otherwise
     """
-    client = get_firestore_client()
-
-    # Check for pending jobs
-    pending_query = (
-        client.collection(settings.firestore_jobs_collection)
-        .where("post_id", "==", post_id)
-        .where("status", "==", "pending")
-        .limit(1)
-    )
-    if list(pending_query.stream()):
-        return True
-
-    # Check for processing jobs
-    processing_query = (
-        client.collection(settings.firestore_jobs_collection)
-        .where("post_id", "==", post_id)
-        .where("status", "==", "processing")
-        .limit(1)
-    )
-    if list(processing_query.stream()):
-        return True
-
-    return False
+    return db.job_exists(post_id, "pending") or db.job_exists(post_id, "processing")
 
 
 def save_pending_job(
@@ -924,7 +813,6 @@ def save_pending_job(
     if not job_id or not post_doc_id or not post_id:
         raise ValueError("job_id, post_doc_id, and post_id are required")
 
-    client = get_firestore_client()
     now = datetime.now(timezone.utc)
 
     job_data = {
@@ -941,8 +829,7 @@ def save_pending_job(
         "updated_at": now,
     }
 
-    doc_ref = client.collection(settings.firestore_jobs_collection).document()
-    doc_ref.set(job_data)
+    job_doc_id = db.insert_job(job_data)
 
     # Update post status to "processing" to prevent duplicate job creation
     if post_doc_id:
@@ -952,12 +839,12 @@ def save_pending_job(
             # Log but don't fail if post update fails
             logger.warning(f"Could not update post {post_doc_id} to 'processing': {str(e)}")
 
-    return doc_ref.id
+    return job_doc_id
 
 
 def query_pending_jobs(max_jobs: int | None = None) -> list[dict[str, Any]]:
     """
-    Query Firestore for pending jobs.
+    Query Postgres for pending jobs.
     Results are ordered by created_at (oldest first).
 
     Args:
@@ -965,31 +852,14 @@ def query_pending_jobs(max_jobs: int | None = None) -> list[dict[str, Any]]:
 
     Returns:
         List of job documents with fields: job_id, post_doc_id, post_id, etc.
-        Each document also includes '_doc_id' field with the Firestore document ID.
+        Each document also includes '_doc_id' field with the document ID.
     """
-    client = get_firestore_client()
-    query = (
-        client.collection(settings.firestore_jobs_collection)
-        .where("status", "==", "pending")
-        .order_by("created_at")  # Order by created_at ascending (oldest first)
-    )
-
-    # Apply limit if specified
-    if max_jobs is not None and max_jobs > 0:
-        query = query.limit(max_jobs)
-
-    jobs = []
-    for doc in query.stream():
-        doc_data = doc.to_dict()
-        doc_data["_doc_id"] = doc.id  # Store document ID for later update
-        jobs.append(doc_data)
-
-    return jobs
+    return db.list_jobs("pending", order_by="created_at", limit=max_jobs)
 
 
 def query_done_jobs(max_jobs: int | None = None) -> list[dict[str, Any]]:
     """
-    Query Firestore for done jobs.
+    Query Postgres for done jobs.
     Results are ordered by updated_at (oldest first).
 
     Args:
@@ -997,26 +867,9 @@ def query_done_jobs(max_jobs: int | None = None) -> list[dict[str, Any]]:
 
     Returns:
         List of job documents with fields: job_id, post_doc_id, post_id, etc.
-        Each document also includes '_doc_id' field with the Firestore document ID.
+        Each document also includes '_doc_id' field with the document ID.
     """
-    client = get_firestore_client()
-    query = (
-        client.collection(settings.firestore_jobs_collection)
-        .where("status", "==", "done")
-        .order_by("updated_at")  # Order by updated_at ascending (oldest first)
-    )
-
-    # Apply limit if specified
-    if max_jobs is not None and max_jobs > 0:
-        query = query.limit(max_jobs)
-
-    jobs = []
-    for doc in query.stream():
-        doc_data = doc.to_dict()
-        doc_data["_doc_id"] = doc.id  # Store document ID for later update
-        jobs.append(doc_data)
-
-    return jobs
+    return db.list_jobs("done", order_by="updated_at", limit=max_jobs)
 
 
 def count_jobs_by_status(
@@ -1027,7 +880,7 @@ def count_jobs_by_status(
     updated_today: bool = False,
 ) -> int:
     """
-    Count jobs with a specific status in Firestore.
+    Count jobs with a specific status in Postgres.
 
     Args:
         status: Job status to count ('pending', 'empty_result', 'done', 'failed', etc.)
@@ -1039,65 +892,34 @@ def count_jobs_by_status(
     Returns:
         Total count of jobs with the specified status matching the filters
     """
-    client = get_firestore_client()
-    query = client.collection(settings.firestore_jobs_collection).where("status", "==", status)
+    if not updated_today:
+        return db.count_jobs(status, candidate_id=candidate_id, platform=platform, country=country)
 
-    # Apply optional filters
-    if candidate_id:
-        query = query.where("candidate_id", "==", candidate_id)
-    if platform:
-        query = query.where("platform", "==", platform.lower())
-    if country:
-        query = query.where("country", "==", country.lower())
-
-    # Count documents (Firestore doesn't have a direct count, so we iterate)
-    # Note: For updated_today queries, we'll filter in Python to avoid index requirements
+    # For updated_today queries, filter in Python
+    jobs = db.list_jobs(status, candidate_id=candidate_id, platform=platform, country=country)
+    now = datetime.now(timezone.utc)
+    start_of_day = datetime(now.year, now.month, now.day, 0, 0, 0, tzinfo=timezone.utc)
+    end_of_day = datetime(now.year, now.month, now.day, 23, 59, 59, 999999, tzinfo=timezone.utc)
     count = 0
-    if updated_today:
-        now = datetime.now(timezone.utc)
-        start_of_day = datetime(now.year, now.month, now.day, 0, 0, 0, tzinfo=timezone.utc)
-        end_of_day = datetime(now.year, now.month, now.day, 23, 59, 59, 999999, tzinfo=timezone.utc)
-        # Filter in Python to avoid composite index requirement
-        for doc in query.stream():
-            doc_data = doc.to_dict()
-            updated_at = doc_data.get("updated_at")
-            if updated_at:
-                if hasattr(updated_at, "timestamp"):
-                    updated_dt = updated_at
-                elif isinstance(updated_at, datetime):
-                    updated_dt = updated_at
-                else:
-                    continue
-
-                if start_of_day <= updated_dt <= end_of_day:
-                    count += 1
-    else:
-        for _ in query.stream():
+    for job in jobs:
+        updated_at = job.get("updated_at")
+        if not isinstance(updated_at, datetime):
+            continue
+        if updated_at.tzinfo is None:
+            updated_at = updated_at.replace(tzinfo=timezone.utc)
+        if start_of_day <= updated_at <= end_of_day:
             count += 1
-
     return count
 
 
-def _has_done_job_for_post(client: firestore.Client, collection: str, post_id: str) -> bool:
+def _has_done_job_for_post(post_id: str) -> bool:
     """Return True if there is at least one job with status='done' for this post_id."""
-    query = (
-        client.collection(collection)
-        .where("post_id", "==", post_id)
-        .where("status", "==", "done")
-        .limit(1)
-    )
-    return len(list(query.stream())) > 0
+    return db.job_exists(post_id, "done")
 
 
-def _has_empty_result_job_for_post(client: firestore.Client, collection: str, post_id: str) -> bool:
+def _has_empty_result_job_for_post(post_id: str) -> bool:
     """Return True if there is at least one job with status='empty_result' for this post_id."""
-    query = (
-        client.collection(collection)
-        .where("post_id", "==", post_id)
-        .where("status", "==", "empty_result")
-        .limit(1)
-    )
-    return len(list(query.stream())) > 0
+    return db.job_exists(post_id, "empty_result")
 
 
 def count_failed_jobs_without_done(
@@ -1123,44 +945,33 @@ def count_failed_jobs_without_done(
     Returns:
         Count of failed jobs whose post_id has no job in status 'done' or 'empty_result'.
     """
-    client = get_firestore_client()
-    coll = settings.firestore_jobs_collection
-    query = client.collection(coll).where("status", "==", "failed")
-    if candidate_id:
-        query = query.where("candidate_id", "==", candidate_id)
-    if platform:
-        query = query.where("platform", "==", platform.lower())
-    if country:
-        query = query.where("country", "==", country.lower())
+    failed_jobs = db.list_jobs(
+        "failed", candidate_id=candidate_id, platform=platform, country=country
+    )
 
     post_id_to_failed_count: dict[str, int] = {}
     now = datetime.now(timezone.utc)
     start_of_day = datetime(now.year, now.month, now.day, 0, 0, 0, tzinfo=timezone.utc)
     end_of_day = datetime(now.year, now.month, now.day, 23, 59, 59, 999999, tzinfo=timezone.utc)
 
-    for doc in query.stream():
-        data = doc.to_dict()
+    for data in failed_jobs:
         post_id = (data.get("post_id") or "").strip()
         if not post_id:
             continue
         if updated_today:
             updated_at = data.get("updated_at")
-            if not updated_at:
+            if not isinstance(updated_at, datetime):
                 continue
-            if hasattr(updated_at, "timestamp"):
-                updated_dt = updated_at
-            elif isinstance(updated_at, datetime):
-                updated_dt = updated_at
-            else:
-                continue
-            if not (start_of_day <= updated_dt <= end_of_day):
+            if updated_at.tzinfo is None:
+                updated_at = updated_at.replace(tzinfo=timezone.utc)
+            if not (start_of_day <= updated_at <= end_of_day):
                 continue
         post_id_to_failed_count[post_id] = post_id_to_failed_count.get(post_id, 0) + 1
 
     total = 0
     for post_id, cnt in post_id_to_failed_count.items():
-        has_done = _has_done_job_for_post(client, coll, post_id)
-        has_empty_result = _has_empty_result_job_for_post(client, coll, post_id)
+        has_done = _has_done_job_for_post(post_id)
+        has_empty_result = _has_empty_result_job_for_post(post_id)
         if not has_done and not has_empty_result:
             total += cnt
     return total
@@ -1200,7 +1011,7 @@ def count_posts_by_status(
     updated_today: bool = False,
 ) -> int:
     """
-    Count posts with a specific status in Firestore.
+    Count posts with a specific status in Postgres.
 
     Args:
         status: Post status to count ('noreplies', 'done', 'skipped')
@@ -1212,42 +1023,23 @@ def count_posts_by_status(
     Returns:
         Total count of posts with the specified status matching the filters
     """
-    client = get_firestore_client()
-    query = client.collection(settings.firestore_collection).where("status", "==", status)
+    if not updated_today:
+        return db.count_posts(status, candidate_id=candidate_id, platform=platform, country=country)
 
-    # Apply optional filters
-    if candidate_id:
-        query = query.where("candidate_id", "==", candidate_id)
-    if platform:
-        query = query.where("platform", "==", platform.lower())
-    if country:
-        query = query.where("country", "==", country.lower())
-
-    # Count documents (Firestore doesn't have a direct count, so we iterate)
-    # Note: For updated_today queries, we'll filter in Python to avoid index requirements
+    # For updated_today queries, filter in Python
+    posts = db.list_posts(status, candidate_id=candidate_id, platform=platform, country=country)
+    now = datetime.now(timezone.utc)
+    start_of_day = datetime(now.year, now.month, now.day, 0, 0, 0, tzinfo=timezone.utc)
+    end_of_day = datetime(now.year, now.month, now.day, 23, 59, 59, 999999, tzinfo=timezone.utc)
     count = 0
-    if updated_today:
-        now = datetime.now(timezone.utc)
-        start_of_day = datetime(now.year, now.month, now.day, 0, 0, 0, tzinfo=timezone.utc)
-        end_of_day = datetime(now.year, now.month, now.day, 23, 59, 59, 999999, tzinfo=timezone.utc)
-        # Filter in Python to avoid composite index requirement
-        for doc in query.stream():
-            doc_data = doc.to_dict()
-            updated_at = doc_data.get("updated_at")
-            if updated_at:
-                if hasattr(updated_at, "timestamp"):
-                    updated_dt = updated_at
-                elif isinstance(updated_at, datetime):
-                    updated_dt = updated_at
-                else:
-                    continue
-
-                if start_of_day <= updated_dt <= end_of_day:
-                    count += 1
-    else:
-        for _ in query.stream():
+    for post in posts:
+        updated_at = post.get("updated_at")
+        if not isinstance(updated_at, datetime):
+            continue
+        if updated_at.tzinfo is None:
+            updated_at = updated_at.replace(tzinfo=timezone.utc)
+        if start_of_day <= updated_at <= end_of_day:
             count += 1
-
     return count
 
 
@@ -1256,7 +1048,7 @@ def update_job_status(doc_id: str, new_status: str) -> None:
     Update the status field of a job document and set updated_at timestamp.
 
     Args:
-        doc_id: The Firestore document ID of the job to update
+        doc_id: The document ID of the job to update
         new_status: The new status value ('pending', 'processing', 'done', 'failed', 'quota_exceeded', 'empty_result', 'verified')
 
     Raises:
@@ -1265,19 +1057,7 @@ def update_job_status(doc_id: str, new_status: str) -> None:
     if not doc_id:
         raise ValueError("doc_id is required to update job status")
 
-    client = get_firestore_client()
-    doc_ref = client.collection(settings.firestore_jobs_collection).document(doc_id)
-
-    # Get current timestamp in UTC
-    now = datetime.now(timezone.utc)
-
-    # Update both status and updated_at
-    doc_ref.update(
-        {
-            "status": new_status,
-            "updated_at": now,
-        }
-    )
+    db.update_job(doc_id, {"status": new_status, "updated_at": datetime.now(timezone.utc)})
 
 
 def increment_job_retry_count(doc_id: str) -> int:
@@ -1297,13 +1077,9 @@ def increment_job_retry_count(doc_id: str) -> int:
     if not doc_id:
         raise ValueError("doc_id is required to increment retry count")
 
-    client = get_firestore_client()
-    doc_ref = client.collection(settings.firestore_jobs_collection).document(doc_id)
-
     # Get current document to check existing retry_count
-    doc = doc_ref.get()
-    if doc.exists:
-        current_data = doc.to_dict()
+    current_data = db.get_job(doc_id)
+    if current_data:
         current_retry_count = current_data.get("retry_count", 0)
         new_retry_count = current_retry_count + 1
     else:
@@ -1311,7 +1087,7 @@ def increment_job_retry_count(doc_id: str) -> int:
 
     # Update retry_count and updated_at
     now = datetime.now(timezone.utc)
-    doc_ref.update({"retry_count": new_retry_count, "updated_at": now})
+    db.update_job(doc_id, {"retry_count": new_retry_count, "updated_at": now})
 
     return new_retry_count
 
@@ -1344,9 +1120,6 @@ def update_job_with_log_files(
         return
 
     try:
-        client = get_firestore_client()
-        doc_ref = client.collection(settings.firestore_jobs_collection).document(doc_id)
-
         update_data: dict[str, str] = {}
         if execution_log_file:
             update_data["execution_log_file"] = execution_log_file
@@ -1354,7 +1127,7 @@ def update_job_with_log_files(
             update_data["error_log_file"] = error_log_file
 
         if update_data:
-            doc_ref.update(update_data)
+            db.update_job(doc_id, update_data)
     except Exception as e:
         # Silently fail to avoid breaking the main flow
         # Log warning but don't raise exception
@@ -1420,15 +1193,11 @@ def retry_job_from_empty_result(doc_id: str) -> int:
     if not doc_id:
         raise ValueError("doc_id is required to retry job from empty_result")
 
-    client = get_firestore_client()
-    doc_ref = client.collection(settings.firestore_jobs_collection).document(doc_id)
-
     # Get current document to check status and retry_count
-    doc = doc_ref.get()
-    if not doc.exists:
+    current_data = db.get_job(doc_id)
+    if current_data is None:
         raise ValueError(f"Job document {doc_id} does not exist")
 
-    current_data = doc.to_dict()
     current_status = current_data.get("status")
     post_doc_id = current_data.get("post_doc_id")
 
@@ -1445,12 +1214,13 @@ def retry_job_from_empty_result(doc_id: str) -> int:
 
     # Update status to pending, increment retry_count, and update timestamp
     now = datetime.now(timezone.utc)
-    doc_ref.update(
+    db.update_job(
+        doc_id,
         {
             "status": "pending",
             "retry_count": new_retry_count,
             "updated_at": now,
-        }
+        },
     )
 
     # Update associated post to 'noreplies' if it's in 'done' status
@@ -1458,14 +1228,12 @@ def retry_job_from_empty_result(doc_id: str) -> int:
     # (to avoid interfering with posts that might be in other states)
     if post_doc_id:
         try:
-            post_ref = client.collection(settings.firestore_collection).document(post_doc_id)
-            post_doc = post_ref.get()
-            if post_doc.exists:
-                post_data = post_doc.to_dict()
+            post_data = db.get_post(post_doc_id)
+            if post_data:
                 post_status = post_data.get("status")
                 # Only update if post is in 'done' status (was successfully processed before)
                 if post_status == "done":
-                    post_ref.update({"status": "noreplies", "updated_at": now})
+                    db.update_post(post_doc_id, {"status": "noreplies", "updated_at": now})
                     logger.info(f"Updated post {post_doc_id} from 'done' to 'noreplies' for retry")
         except Exception as e:
             # Log but don't fail if post update fails
@@ -1496,34 +1264,16 @@ def query_empty_result_jobs(
 
     Returns:
         List of job documents with fields: job_id, post_doc_id, post_id, etc.
-        Each document also includes '_doc_id' field with the Firestore document ID.
+        Each document also includes '_doc_id' field with the document ID.
     """
-    client = get_firestore_client()
-    query = (
-        client.collection(settings.firestore_jobs_collection)
-        .where("status", "==", "empty_result")
-        .order_by("updated_at")
+    return db.list_jobs(
+        "empty_result",
+        candidate_id=candidate_id,
+        platform=platform,
+        country=country,
+        order_by="updated_at",
+        limit=limit,
     )
-
-    # Apply optional filters
-    if candidate_id:
-        query = query.where("candidate_id", "==", candidate_id)
-    if platform:
-        query = query.where("platform", "==", platform.lower())
-    if country:
-        query = query.where("country", "==", country.lower())
-
-    # Apply limit if specified
-    if limit is not None and limit > 0:
-        query = query.limit(limit)
-
-    jobs = []
-    for doc in query.stream():
-        doc_data = doc.to_dict()
-        doc_data["_doc_id"] = doc.id  # Store document ID
-        jobs.append(doc_data)
-
-    return jobs
 
 
 def retry_empty_result_jobs_service(
@@ -3029,7 +2779,6 @@ def _process_json_file_for_parquet(
 
 
 def _get_parquet_max_ingestion_timestamp(
-    bucket: storage.Bucket,
     date_str: str,
     platform: str,
 ) -> datetime | None:
@@ -3048,14 +2797,13 @@ def _get_parquet_max_ingestion_timestamp(
         return None
 
     blob_path = f"marts/replies/ingestion_date={date_str}/platform={platform}/data.parquet"
-    blob = bucket.blob(blob_path)
+    parquet_data = blob.get_bytes(blob_path)
 
-    if not blob.exists():
+    if parquet_data is None:
         return None
 
     try:
-        # Download Parquet file
-        parquet_data = blob.download_as_bytes()
+        # Read Parquet file from memory
         parquet_file = io.BytesIO(parquet_data)
         table = pq.read_table(parquet_file)
 
@@ -3130,12 +2878,11 @@ def _get_parquet_max_ingestion_timestamp(
 
 
 def _read_existing_parquet_from_gcs(
-    bucket: storage.Bucket,
     date_str: str,
     platform: str,
 ) -> tuple[list[dict[str, Any]], datetime | None]:
     """
-    Read existing Parquet file from GCS if it exists.
+    Read existing Parquet file from Blob storage if it exists.
 
     Returns:
         Tuple of (records, last_modified_timestamp)
@@ -3144,21 +2891,20 @@ def _read_existing_parquet_from_gcs(
         return [], None
 
     blob_path = f"marts/replies/ingestion_date={date_str}/platform={platform}/data.parquet"
-    blob = bucket.blob(blob_path)
+    parquet_data = blob.get_bytes(blob_path)
 
-    if not blob.exists():
+    if parquet_data is None:
         return [], None
 
     try:
-        # Reload to get latest metadata
-        blob.reload()
-        last_modified = blob.updated
+        # Get uploaded timestamp as last_modified
+        last_modified = None
+        for info in blob.list_blobs(blob_path):
+            if info.pathname == blob_path:
+                last_modified = info.uploaded_at
+                break
 
-        # Download to memory
-        parquet_data = blob.download_as_bytes()
         # Read Parquet from bytes
-        import io
-
         parquet_file = io.BytesIO(parquet_data)
         table = pq.read_table(parquet_file)
         # Convert to list of dicts
@@ -3170,11 +2916,10 @@ def _read_existing_parquet_from_gcs(
 
 def _write_parquet_to_gcs(
     records: list[dict[str, Any]],
-    bucket: storage.Bucket,
     date_str: str,
     platform: str,
 ) -> str:
-    """Write records to Parquet file in GCS."""
+    """Write records to Parquet file in Blob storage."""
     if not pa or not pq:
         raise ValueError("pyarrow is not installed. Install with: poetry add pyarrow")
 
@@ -3189,18 +2934,15 @@ def _write_parquet_to_gcs(
     table = pa.Table.from_pylist(records, schema=schema)
 
     # Write to memory buffer
-    import io
-
     buffer = io.BytesIO()
     pq.write_table(table, buffer, compression="snappy")
     buffer.seek(0)
 
-    # Upload to GCS
+    # Upload to Blob storage
     blob_path = f"marts/replies/ingestion_date={date_str}/platform={platform}/data.parquet"
-    blob = bucket.blob(blob_path)
-    blob.upload_from_file(buffer, content_type="application/octet-stream")
+    blob.put(blob_path, buffer.getvalue(), content_type="application/octet-stream")
 
-    return f"gs://{settings.gcs_bucket_name}/{blob_path}"
+    return blob.uri(blob_path)
 
 
 def json_to_parquet_service(
@@ -3249,19 +2991,19 @@ def json_to_parquet_service(
             "written_files": [],
         }
 
-    if not settings.gcs_bucket_name:
-        print("[JSON-TO-PARQUET-SERVICE] ERROR: GCS_BUCKET_NAME is not configured")
-        logger.error("GCS_BUCKET_NAME is not configured")
+    if not settings.blob_read_write_token:
+        print("[JSON-TO-PARQUET-SERVICE] ERROR: BLOB_READ_WRITE_TOKEN is not configured")
+        logger.error("BLOB_READ_WRITE_TOKEN is not configured")
         return {
             "processed": 0,
             "succeeded": 0,
             "failed": 0,
-            "errors": ["GCS_BUCKET_NAME is not configured"],
+            "errors": ["BLOB_READ_WRITE_TOKEN is not configured"],
             "written_files": [],
         }
 
-    print(f"[JSON-TO-PARQUET-SERVICE] Using GCS bucket: {settings.gcs_bucket_name}")
-    logger.info(f"Using GCS bucket: {settings.gcs_bucket_name}")
+    print("[JSON-TO-PARQUET-SERVICE] Using Vercel Blob storage")
+    logger.info("Using Vercel Blob storage")
 
     results = {
         "processed": 0,
@@ -3272,9 +3014,6 @@ def json_to_parquet_service(
     }
 
     try:
-        client = get_gcs_client()
-        bucket = client.bucket(settings.gcs_bucket_name)
-
         # Build prefix for filtering
         prefix = "raw"
         if country:
@@ -3307,7 +3046,7 @@ def json_to_parquet_service(
         # This avoids reading all Parquet files upfront (expensive) but still provides accurate filtering
         parquet_prefix = "marts/replies/ingestion_date="
         print(f"[JSON-TO-PARQUET-SERVICE] Listing Parquet files with prefix: {parquet_prefix}")
-        parquet_blobs = bucket.list_blobs(prefix=parquet_prefix)
+        parquet_blobs = blob.list_blobs(parquet_prefix)
         print("[JSON-TO-PARQUET-SERVICE] Starting iteration over Parquet blobs...")
 
         # Build a set of existing partitions (for quick lookup without reading content)
@@ -3318,9 +3057,9 @@ def json_to_parquet_service(
             if blob_count % 10 == 0:
                 print(f"[JSON-TO-PARQUET-SERVICE] Processed {blob_count} Parquet blobs so far...")
 
-            if not parquet_blob.name.endswith(".parquet"):
+            if not parquet_blob.pathname.endswith(".parquet"):
                 continue
-            parts = parquet_blob.name.split("/")
+            parts = parquet_blob.pathname.split("/")
             if len(parts) >= 4:
                 date_part = parts[2].replace("ingestion_date=", "")
                 platform_part = parts[3].replace("platform=", "")
@@ -3343,11 +3082,11 @@ def json_to_parquet_service(
         json_files = []
         skipped_count = 0
         total_json_blobs = 0
-        blobs = bucket.list_blobs(prefix=prefix)
+        json_blobs = blob.list_blobs(prefix)
         print("[JSON-TO-PARQUET-SERVICE] Starting iteration over JSON blobs...")
 
         json_count = 0
-        for blob in blobs:
+        for json_blob in json_blobs:
             json_count += 1
             if json_count % 50 == 0:
                 print(
@@ -3355,11 +3094,11 @@ def json_to_parquet_service(
                     f"(json_files={total_json_blobs}, skipped={skipped_count}, queued_for_processing={len(json_files)})"
                 )
 
-            if not blob.name.lower().endswith(".json"):
+            if not json_blob.pathname.lower().endswith(".json"):
                 continue
 
             total_json_blobs += 1
-            parts = blob.name.split("/")
+            parts = json_blob.pathname.split("/")
             path_parts = parts[1:] if parts[0] == "raw" else parts
 
             # Accept both structures:
@@ -3368,7 +3107,7 @@ def json_to_parquet_service(
             # Minimum required: country, platform, post_id (len >= 3)
             if len(path_parts) < 3:
                 logger.debug(
-                    f"Skipping {blob.name}: Invalid structure (requires at least country/platform/post_id)"
+                    f"Skipping {json_blob.pathname}: Invalid structure (requires at least country/platform/post_id)"
                 )
                 continue
 
@@ -3382,13 +3121,12 @@ def json_to_parquet_service(
                         continue
 
             try:
-                # Get metadata only (blob.reload() reads headers, not content - lightweight)
+                # Use the uploaded_at metadata from the listing (no extra request needed)
                 if total_json_blobs <= 5:  # Log first few for debugging
                     print(
-                        f"[JSON-TO-PARQUET-SERVICE] Processing JSON blob {total_json_blobs}: {blob.name}"
+                        f"[JSON-TO-PARQUET-SERVICE] Processing JSON blob {total_json_blobs}: {json_blob.pathname}"
                     )
-                blob.reload()
-                ingestion_ts = blob.updated or datetime.now(timezone.utc)
+                ingestion_ts = json_blob.uploaded_at or datetime.now(timezone.utc)
                 if ingestion_ts.tzinfo is None:
                     ingestion_ts = ingestion_ts.replace(tzinfo=timezone.utc)
 
@@ -3404,9 +3142,7 @@ def json_to_parquet_service(
                 if not skip_timestamp_filter and partition_key in existing_partitions:
                     # Lazy-load max ingestion_timestamp for this partition if not already cached
                     if partition_key not in parquet_file_timestamps:
-                        max_ts = _get_parquet_max_ingestion_timestamp(
-                            bucket, date_str, platform_from_path
-                        )
+                        max_ts = _get_parquet_max_ingestion_timestamp(date_str, platform_from_path)
                         if max_ts is not None:
                             parquet_file_timestamps[partition_key] = max_ts
                             logger.info(
@@ -3437,7 +3173,7 @@ def json_to_parquet_service(
                         # because the JSON might have been updated or we might need to reprocess
                         if ingestion_ts < (parquet_max_ts - buffer):
                             logger.info(
-                                f"Skipping {blob.name}: JSON ingestion_ts {ingestion_ts} is more than 5 minutes older than "
+                                f"Skipping {json_blob.pathname}: JSON ingestion_ts {ingestion_ts} is more than 5 minutes older than "
                                 f"Parquet max ingestion_timestamp {parquet_max_ts} for partition {partition_key}"
                             )
                             skipped_count += 1
@@ -3445,26 +3181,29 @@ def json_to_parquet_service(
                         # JSON is recent enough (within 5 minutes of max or newer) → will process
                         # This includes JSONs with timestamp equal to or newer than max, and those within 5 minutes
                         logger.debug(
-                            f"Processing {blob.name}: JSON ingestion_ts {ingestion_ts} is within 5 minutes of or newer than "
+                            f"Processing {json_blob.pathname}: JSON ingestion_ts {ingestion_ts} is within 5 minutes of or newer than "
                             f"Parquet max ingestion_timestamp {parquet_max_ts} for partition {partition_key}"
                         )
                     # If parquet_file_timestamps[partition_key] is None, we couldn't read it, so process all JSONs
                 elif skip_timestamp_filter:
                     logger.debug(
-                        f"Processing {blob.name} (timestamp filter disabled) for partition {partition_key}"
+                        f"Processing {json_blob.pathname} (timestamp filter disabled) for partition {partition_key}"
                     )
 
                 # Download JSON content only if it needs processing
-                raw = blob.download_as_text(encoding="utf-8")
+                raw = blob.get_text(json_blob.pathname)
+                if raw is None:
+                    results["errors"].append(f"Blob not found: {json_blob.pathname}")
+                    continue
                 data = json.loads(raw)
-                json_files.append((blob.name, data, ingestion_ts))
+                json_files.append((json_blob.pathname, data, ingestion_ts))
             except json.JSONDecodeError as e:
-                logger.warning(f"Invalid JSON in {blob.name}: {e}")
-                results["errors"].append(f"Invalid JSON in {blob.name}: {e}")
+                logger.warning(f"Invalid JSON in {json_blob.pathname}: {e}")
+                results["errors"].append(f"Invalid JSON in {json_blob.pathname}: {e}")
                 continue
             except Exception as e:
-                logger.error(f"Error reading {blob.name}: {e}")
-                results["errors"].append(f"Error reading {blob.name}: {e}")
+                logger.error(f"Error reading {json_blob.pathname}: {e}")
+                results["errors"].append(f"Error reading {json_blob.pathname}: {e}")
                 continue
 
         print(
@@ -3526,7 +3265,7 @@ def json_to_parquet_service(
             )
             try:
                 # Read existing Parquet if it exists (returns records and timestamp)
-                existing_records, _ = _read_existing_parquet_from_gcs(bucket, date_str, platform)
+                existing_records, _ = _read_existing_parquet_from_gcs(date_str, platform)
 
                 # Merge records: combine existing and new, deduplicate by source_file + tweet_id
                 if existing_records:
@@ -3556,7 +3295,7 @@ def json_to_parquet_service(
                     )
 
                 # Write merged Parquet file
-                gcs_uri = _write_parquet_to_gcs(all_records, bucket, date_str, platform)
+                gcs_uri = _write_parquet_to_gcs(all_records, date_str, platform)
                 if gcs_uri:
                     results["written_files"].append(gcs_uri)
                     results["succeeded"] += 1

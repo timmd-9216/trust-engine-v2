@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Literal
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi import status as http_status
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
@@ -125,10 +125,39 @@ class QuotaResponse(BaseModel):
     message: str | None = None  # List of retried jobs with details
 
 
+_PUBLIC_PATHS = {"/", "/health", "/dashboard"}
+
+
+def require_api_key(request: Request, x_api_key: str | None = Header(default=None)) -> None:
+    """Require X-API-Key header when API_KEY is configured (no-op in dev without it).
+
+    Applied globally; public paths and /cron/* (which use CRON_SECRET) are exempt.
+    """
+    path = request.url.path
+    if path in _PUBLIC_PATHS or path.startswith("/cron/"):
+        return
+    if settings.api_key and x_api_key != settings.api_key:
+        raise HTTPException(
+            status_code=http_status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing API key",
+        )
+
+
+def require_cron_secret(authorization: str | None = Header(default=None)) -> None:
+    """Require 'Authorization: Bearer <CRON_SECRET>' on Vercel Cron requests."""
+    expected = f"Bearer {settings.cron_secret}"
+    if not settings.cron_secret or authorization != expected:
+        raise HTTPException(
+            status_code=http_status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing cron authorization",
+        )
+
+
 app = FastAPI(
     title="Scrapping Tools Service",
     description="Service for fetching post information from external sources",
     version=settings.version,
+    dependencies=[Depends(require_api_key)],
 )
 
 
@@ -856,6 +885,62 @@ async def json_to_parquet_endpoint(
             f"json-to-parquet completed: processed={results.get('processed', 0)}, "
             f"succeeded={results.get('succeeded', 0)}, failed={results.get('failed', 0)}"
         )
+        return JsonToParquetResponse(**results)
+    except Exception as e:
+        raise HTTPException(
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error converting JSON to Parquet: {str(e)}",
+        )
+
+
+# ---------------------------------------------------------------------------
+# Vercel Cron routes (GET, protected by CRON_SECRET via Authorization: Bearer)
+# ---------------------------------------------------------------------------
+
+
+@app.get(
+    "/cron/process-posts",
+    response_model=ProcessPostsResponse,
+    dependencies=[Depends(require_cron_secret)],
+)
+async def cron_process_posts():
+    """Vercel Cron entrypoint for POST /process-posts (GET, Bearer CRON_SECRET)."""
+    try:
+        results = process_posts_service(max_posts_to_process=settings.cron_max_posts)
+        return ProcessPostsResponse(**results)
+    except Exception as e:
+        raise HTTPException(
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing posts: {str(e)}",
+        )
+
+
+@app.get(
+    "/cron/process-jobs",
+    response_model=ProcessJobsResponse,
+    dependencies=[Depends(require_cron_secret)],
+)
+async def cron_process_jobs():
+    """Vercel Cron entrypoint for POST /process-jobs (GET, Bearer CRON_SECRET)."""
+    try:
+        results = process_pending_jobs_service(max_jobs=settings.cron_max_jobs)
+        return ProcessJobsResponse(**results)
+    except Exception as e:
+        raise HTTPException(
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing jobs: {str(e)}",
+        )
+
+
+@app.get(
+    "/cron/json-to-parquet",
+    response_model=JsonToParquetResponse,
+    dependencies=[Depends(require_cron_secret)],
+)
+async def cron_json_to_parquet():
+    """Vercel Cron entrypoint for POST /json-to-parquet (GET, Bearer CRON_SECRET)."""
+    try:
+        results = json_to_parquet_service(skip_timestamp_filter=False)
         return JsonToParquetResponse(**results)
     except Exception as e:
         raise HTTPException(

@@ -1,0 +1,35 @@
+# Secrets / local env
+.env*
+.gcloud/
+
+# Keep GCP container files out of the upload so the Python function is detected
+Dockerfile
+Dockerfile.*
+
+# Repo content not needed by the scrapping-tools function
+tests/
+docs/
+data/
+scripts/
+terraform/
+comparar/
+old/
+stanza_resources/
+htmlcov/
+.github/
+migrations/
+
+# Services that do not belong to the Vercel bundle
+src/trust_api/nlp/
+src/trust_api/vector_store/
+src/trust_api/services/
+src/trust_api/api/
+src/trust_api/core/
+src/trust_api/main.py
+src/trust_api/models.py
+src/script_processing/
+src/data_analysis/
+
+# Data files
+*.csv
+*.parquet

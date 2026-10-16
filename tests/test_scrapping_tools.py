@@ -1,6 +1,6 @@
 """Tests for scrapping_tools service."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -218,86 +218,59 @@ class TestFetchPostInformation:
 class TestQueryPostsWithoutReplies:
     """Tests for query_posts_without_replies function."""
 
-    @patch("trust_api.scrapping_tools.services.get_firestore_client")
-    def test_query_posts_orders_by_created_at(self, mock_get_client):
-        """Test that query orders by created_at."""
-        mock_client = MagicMock()
-        mock_collection = MagicMock()
-        mock_where = MagicMock()
-        mock_order_by = MagicMock()
-
-        mock_get_client.return_value = mock_client
-        mock_client.collection.return_value = mock_collection
-        mock_collection.where.return_value = mock_where
-        mock_where.order_by.return_value = mock_order_by
-        mock_order_by.stream.return_value = []
+    @patch("trust_api.scrapping_tools.services.db.list_posts_where")
+    @patch("trust_api.scrapping_tools.services.db.list_posts")
+    def test_query_posts_orders_by_created_at(self, mock_list_posts, mock_list_where):
+        """Test that posts are queried ordered by created_at (twitter first)."""
+        mock_list_posts.return_value = []
+        mock_list_where.return_value = []
 
         services.query_posts_without_replies()
 
-        # Verify order_by was called with "created_at"
-        mock_where.order_by.assert_called_once_with("created_at")
+        mock_list_posts.assert_called_once_with("noreplies", platform="twitter")
+        mock_list_where.assert_called_once_with("noreplies", not_platform="twitter", limit=None)
 
-    @patch("trust_api.scrapping_tools.services.get_firestore_client")
-    def test_query_posts_with_limit(self, mock_get_client):
-        """Test that limit is applied when max_posts is specified (applied in Python, not Firestore)."""
-        mock_client = MagicMock()
-        mock_get_client.return_value = mock_client
-
-        # Create separate mock collections for each query
-        mock_collection_twitter = MagicMock()
-        mock_collection_other = MagicMock()
-
-        # Setup Twitter query chain
-        mock_where_status_twitter = MagicMock()
-        mock_where_platform = MagicMock()
-        mock_order_by_twitter = MagicMock()
-
-        mock_collection_twitter.where.return_value = mock_where_status_twitter
-        mock_where_status_twitter.where.return_value = mock_where_platform
-        mock_where_platform.order_by.return_value = mock_order_by_twitter
-
-        # Create mock documents for Twitter posts (more than the limit)
-        mock_twitter_docs = []
-        for i in range(15):  # More than max_posts=10 to test truncation
-            mock_doc = MagicMock()
-            mock_doc.id = f"twitter_doc_{i}"
-            mock_doc.to_dict.return_value = {
+    @patch("trust_api.scrapping_tools.services.db.list_posts_where")
+    @patch("trust_api.scrapping_tools.services.db.list_posts")
+    def test_query_posts_with_limit(self, mock_list_posts, mock_list_where):
+        """Test that limit is applied (twitter posts prioritized)."""
+        mock_list_posts.return_value = [
+            {
                 "post_id": f"twitter_{i}",
                 "platform": "twitter",
                 "country": "argentina",
                 "candidate_id": "cand1",
+                "_doc_id": f"twitter_doc_{i}",
             }
-            mock_twitter_docs.append(mock_doc)
-
-        mock_order_by_twitter.stream.return_value = mock_twitter_docs
-
-        # Setup other platforms query chain
-        mock_where_other = MagicMock()
-        mock_order_by_other = MagicMock()
-        mock_collection_other.where.return_value = mock_where_other
-        mock_where_other.order_by.return_value = mock_order_by_other
-        mock_order_by_other.stream.return_value = []  # No other platform posts
-
-        # Make collection() return different mocks on each call
-        call_count = {"count": 0}
-
-        def collection_side_effect(*args, **kwargs):
-            call_count["count"] += 1
-            if call_count["count"] == 1:
-                return mock_collection_twitter
-            else:
-                return mock_collection_other
-
-        mock_client.collection.side_effect = collection_side_effect
+            for i in range(15)  # More than max_posts=10 to test truncation
+        ]
+        mock_list_where.return_value = []
 
         result = services.query_posts_without_replies(max_posts=10)
 
-        # Verify that limit is applied in Python (result should have max 10 posts)
+        # Non-twitter query gets the remaining limit (0 remaining -> not called
+        # only if twitter already filled the quota)
         assert len(result) == 10
-        # Verify all returned posts are from Twitter
         for post in result:
             assert post["platform"] == "twitter"
             assert "_doc_id" in post
+
+    @patch("trust_api.scrapping_tools.services.db.list_posts_where")
+    @patch("trust_api.scrapping_tools.services.db.list_posts")
+    def test_query_posts_twitter_first_then_others(self, mock_list_posts, mock_list_where):
+        """Test twitter posts come first, then other platforms fill the limit."""
+        mock_list_posts.return_value = [
+            {"post_id": "t1", "platform": "twitter", "_doc_id": "d1"},
+        ]
+        mock_list_where.return_value = [
+            {"post_id": "i1", "platform": "instagram", "_doc_id": "d2"},
+            {"post_id": "i2", "platform": "instagram", "_doc_id": "d3"},
+        ]
+
+        result = services.query_posts_without_replies(max_posts=3)
+
+        assert [p["post_id"] for p in result] == ["t1", "i1", "i2"]
+        mock_list_where.assert_called_once_with("noreplies", not_platform="twitter", limit=2)
 
 
 class TestProcessPostsService:
@@ -454,8 +427,8 @@ class TestSaveExecutionLogs:
 
     @patch("trust_api.scrapping_tools.services.settings")
     def test_save_logs_no_bucket(self, mock_settings):
-        """Test that None is returned when bucket is not configured."""
-        mock_settings.gcs_bucket_name = ""
+        """Test that None is returned when Blob token is not configured."""
+        mock_settings.blob_read_write_token = ""
 
         services.add_log_entry(post_id="123", url="test", success=True)
         result = services.save_execution_logs()
@@ -465,24 +438,18 @@ class TestSaveExecutionLogs:
     @patch("trust_api.scrapping_tools.services.settings")
     def test_save_logs_empty_logs(self, mock_settings):
         """Test that None is returned when there are no logs."""
-        mock_settings.gcs_bucket_name = "test-bucket"
+        mock_settings.blob_read_write_token = "test-token"
 
         result = services.save_execution_logs()
 
         assert result is None
 
     @patch("trust_api.scrapping_tools.services.settings")
-    @patch("trust_api.scrapping_tools.services.get_gcs_client")
-    def test_save_logs_includes_statistics(self, mock_get_client, mock_settings):
+    @patch("trust_api.scrapping_tools.services.blob.put")
+    def test_save_logs_includes_statistics(self, mock_blob_put, mock_settings):
         """Test that log file includes correct statistics."""
-        mock_settings.gcs_bucket_name = "test-bucket"
-
-        mock_client = MagicMock()
-        mock_bucket = MagicMock()
-        mock_blob = MagicMock()
-        mock_get_client.return_value = mock_client
-        mock_client.bucket.return_value = mock_bucket
-        mock_bucket.blob.return_value = mock_blob
+        mock_settings.blob_read_write_token = "test-token"
+        mock_blob_put.return_value = "https://store.public.blob.vercel-storage.com/logs/x.json"
 
         # Add some log entries
         services.add_log_entry(post_id="1", url="test", success=True, job_id="job1")
@@ -494,12 +461,13 @@ class TestSaveExecutionLogs:
         result = services.save_execution_logs(requested_max_posts=10, available_posts=50)
 
         assert result is not None
-        assert "gs://test-bucket/logs/" in result
+        assert result.startswith("blob://logs/")
 
-        # Verify blob.upload_from_string was called
-        mock_blob.upload_from_string.assert_called_once()
-        call_args = mock_blob.upload_from_string.call_args
-        uploaded_content = call_args[0][0]
+        # Verify blob.put was called with the log content
+        mock_blob_put.assert_called_once()
+        call_args = mock_blob_put.call_args
+        assert call_args[0][0].startswith("logs/")
+        uploaded_content = call_args[0][1]
 
         # Parse and verify content
         import json
@@ -520,20 +488,165 @@ class TestUpdatePostStatus:
         with pytest.raises(ValueError, match="doc_id is required"):
             services.update_post_status("")
 
-    @patch("trust_api.scrapping_tools.services.get_firestore_client")
-    def test_update_post_status_success(self, mock_get_client):
+    @patch("trust_api.scrapping_tools.services.db.update_post")
+    def test_update_post_status_success(self, mock_update_post):
         """Test successful status update."""
-        mock_client = MagicMock()
-        mock_collection = MagicMock()
-        mock_doc_ref = MagicMock()
-
-        mock_get_client.return_value = mock_client
-        mock_client.collection.return_value = mock_collection
-        mock_collection.document.return_value = mock_doc_ref
-
         services.update_post_status("doc123", "done")
 
-        mock_doc_ref.update.assert_called_once()
-        call_args = mock_doc_ref.update.call_args[0][0]
-        assert call_args["status"] == "done"
-        assert "updated_at" in call_args
+        mock_update_post.assert_called_once()
+        call_args = mock_update_post.call_args
+        assert call_args[0][0] == "doc123"
+        fields = call_args[0][1]
+        assert fields["status"] == "done"
+        assert "updated_at" in fields
+
+
+class TestApiKeyAuth:
+    """Tests for the require_api_key dependency (X-API-Key header)."""
+
+    def _client(self):
+        from fastapi.testclient import TestClient
+
+        from trust_api.scrapping_tools.main import app
+
+        return TestClient(app)
+
+    def test_protected_endpoint_without_api_key_configured(self):
+        """When API_KEY is empty, protected endpoints don't require a key."""
+        with patch("trust_api.scrapping_tools.main.settings") as mock_settings:
+            mock_settings.api_key = ""
+            mock_settings.version = "0.1.0"
+            with patch("trust_api.scrapping_tools.main.query_pending_jobs", return_value=[]):
+                response = self._client().get("/pending-jobs")
+        assert response.status_code == 200
+
+    def test_protected_endpoint_requires_api_key(self):
+        """When API_KEY is set, requests without header return 401."""
+        with patch("trust_api.scrapping_tools.main.settings") as mock_settings:
+            mock_settings.api_key = "secret-key"
+            mock_settings.version = "0.1.0"
+            response = self._client().get("/pending-jobs")
+        assert response.status_code == 401
+
+    def test_protected_endpoint_with_valid_api_key(self):
+        """Requests with the right X-API-Key pass."""
+        with patch("trust_api.scrapping_tools.main.settings") as mock_settings:
+            mock_settings.api_key = "secret-key"
+            mock_settings.version = "0.1.0"
+            with patch("trust_api.scrapping_tools.main.query_pending_jobs", return_value=[]):
+                response = self._client().get("/pending-jobs", headers={"X-API-Key": "secret-key"})
+        assert response.status_code == 200
+
+    def test_public_paths_dont_require_api_key(self):
+        """Public paths are exempt even when API_KEY is set."""
+        with patch("trust_api.scrapping_tools.main.settings") as mock_settings:
+            mock_settings.api_key = "secret-key"
+            mock_settings.version = "0.1.0"
+            mock_settings.service_name = "scrapping-tools"
+            mock_settings.environment = "test"
+            client = self._client()
+            assert client.get("/health").status_code == 200
+            assert client.get("/").status_code == 200
+
+
+class TestCronRoutes:
+    """Tests for /cron/* routes (Authorization: Bearer CRON_SECRET)."""
+
+    def _client(self):
+        from fastapi.testclient import TestClient
+
+        from trust_api.scrapping_tools.main import app
+
+        return TestClient(app)
+
+    def _settings_mock(self, mock_settings):
+        mock_settings.cron_secret = "cron-secret"
+        mock_settings.cron_max_posts = 10
+        mock_settings.cron_max_jobs = 20
+        mock_settings.api_key = ""
+        mock_settings.version = "0.1.0"
+
+    def test_cron_process_posts_unauthorized(self):
+        """401 without Bearer token."""
+        with patch("trust_api.scrapping_tools.main.settings") as mock_settings:
+            self._settings_mock(mock_settings)
+            response = self._client().get("/cron/process-posts")
+        assert response.status_code == 401
+
+    def test_cron_process_posts_wrong_token(self):
+        """401 with wrong Bearer token."""
+        with patch("trust_api.scrapping_tools.main.settings") as mock_settings:
+            self._settings_mock(mock_settings)
+            response = self._client().get(
+                "/cron/process-posts",
+                headers={"Authorization": "Bearer wrong"},
+            )
+        assert response.status_code == 401
+
+    def test_cron_process_posts_ok(self):
+        """200 with correct Bearer token; calls service with cron_max_posts."""
+        results = {
+            "processed": 0,
+            "succeeded": 0,
+            "failed": 0,
+            "skipped": 0,
+            "errors": [],
+            "jobs_created": [],
+        }
+        with patch("trust_api.scrapping_tools.main.settings") as mock_settings:
+            self._settings_mock(mock_settings)
+            with patch(
+                "trust_api.scrapping_tools.main.process_posts_service",
+                return_value=results,
+            ) as mock_service:
+                response = self._client().get(
+                    "/cron/process-posts",
+                    headers={"Authorization": "Bearer cron-secret"},
+                )
+        assert response.status_code == 200
+        mock_service.assert_called_once_with(max_posts_to_process=10)
+
+    def test_cron_process_jobs_ok(self):
+        results = {
+            "processed": 0,
+            "succeeded": 0,
+            "failed": 0,
+            "empty_results": 0,
+            "still_pending": 0,
+            "errors": [],
+            "empty_result_jobs": [],
+            "saved_files": [],
+        }
+        with patch("trust_api.scrapping_tools.main.settings") as mock_settings:
+            self._settings_mock(mock_settings)
+            with patch(
+                "trust_api.scrapping_tools.main.process_pending_jobs_service",
+                return_value=results,
+            ) as mock_service:
+                response = self._client().get(
+                    "/cron/process-jobs",
+                    headers={"Authorization": "Bearer cron-secret"},
+                )
+        assert response.status_code == 200
+        mock_service.assert_called_once_with(max_jobs=20)
+
+    def test_cron_json_to_parquet_ok(self):
+        results = {
+            "processed": 0,
+            "succeeded": 0,
+            "failed": 0,
+            "errors": [],
+            "written_files": [],
+        }
+        with patch("trust_api.scrapping_tools.main.settings") as mock_settings:
+            self._settings_mock(mock_settings)
+            with patch(
+                "trust_api.scrapping_tools.main.json_to_parquet_service",
+                return_value=results,
+            ) as mock_service:
+                response = self._client().get(
+                    "/cron/json-to-parquet",
+                    headers={"Authorization": "Bearer cron-secret"},
+                )
+        assert response.status_code == 200
+        mock_service.assert_called_once_with(skip_timestamp_filter=False)
